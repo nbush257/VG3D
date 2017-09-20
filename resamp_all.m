@@ -8,6 +8,8 @@ nan_gap = 20; % in frames [333 ms for 300fps, 200ms for 500 fps
 outname = [fname_in(1:end-12) '1K.mat'];
 %% DO NOT EDIT BELOW THIS LINE IF YOU CHANGE PARAMETERS
 % ===================================================
+%% Load Data
+load(fname_in,'M','F','PHIE','TH','Rcp','THcp','PHIcp','spt','sr','frame*','C','PT');
 %%
 vars.M = M;
 vars.F = F;
