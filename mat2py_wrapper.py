@@ -6,7 +6,10 @@ import neo
 import quantities as pq
 import elephant
 import sys
-from neo.io.nixio import NixIO
+from neo.io import NeoMatlabIO as NIO
+import glob
+import os
+import re
 
 
 
@@ -30,7 +33,7 @@ def convertC(C):
     return np.vstack((cstarts,cends)).T
 
 
-def createSeg(fname,blk=None):
+def createSeg(fname):
     # load the data
     dat = loadmat(fname)
 
@@ -38,15 +41,28 @@ def createSeg(fname,blk=None):
     vars = dat['vars'][0,0]
     filtvars = dat['filtvars'][0,0]
     rawvars = dat['rawvars'][0,0]
+    PT = dat['PT'][0,0]
     C = dat['C']
     cc = convertC(C)
     num_contacts = cc.shape[0]
 
     # access the neural data
     sp = dat['sp'][0]
+    spikes = dat['spikes'][0]
 
     #initialize the segment
     seg = neo.core.Segment(file_origin=fname)
+    seg.annotate(
+        ratnum=PT['ratnum'][0],
+        whisker=PT['whisker'][0],
+        trial=PT['trial'][0],
+        id=PT['id'][0],
+        frames=PT['Frames'][0],
+        TAG=PT['TAG'][0],
+        s=PT['s'][0],
+        rbase=PT['E3D_rbase'][0],
+        rtip=PT['E3D_rtip'][0]
+    )
 
     for varname in filtvars.dtype.names:
         # get the metadata for the signal
@@ -57,8 +73,11 @@ def createSeg(fname,blk=None):
         elif varname=='F':
             U = 'N'
             name='Force'
+        elif varname=='Rcp':
+            U='m'
+            name = varname
         else:
-            U = 'rad'
+            U = 'deg'
             name = varname
 
         # append the signal to the segment
@@ -68,12 +87,14 @@ def createSeg(fname,blk=None):
             )
         )
     # add the spike trains to the segment
-    for cell in sp:
-        train = SpikeTrain(cell*ms,t_stop=seg.analogsignals[0].t_stop,units=s)
-        seg.spiketrains.append(train)
+    for times,waveshapes in zip(sp,spikes):
+        waveshapes = np.expand_dims(waveshapes.T,1)
+        idx = times*ms<=seg.analogsignals[0].t_stop
+        times = times[idx]
+        waveshapes = waveshapes[idx.ravel(),:,:]
 
-    spbool = elephant.conversion.binarize(seg.spiketrains[0],sampling_rate=pq.kHz)
-    seg.analogsignals.append(neo.core.AnalogSignal(spbool,ms,t_stop=seg.analogsignals[0].t_stop,sampling_rate=pq.kHz),name='Binarized Spikes')
+        train = SpikeTrain(times*ms,t_stop=seg.analogsignals[0].t_stop,units=ms,waveforms=waveshapes*pq.mV)
+        seg.spiketrains.append(train)
 
     seg.epochs.append(
         neo.core.Epoch(
@@ -83,22 +104,42 @@ def createSeg(fname,blk=None):
             name='contacts')
     )
 
-    if blk!=None:
-        blk = neo.core.Block()
-
-    blk.segments.append(seg)
-    return blk
+    return seg
 
 
-def main():
-    blk = None
-    fname = sys.argv[1]
-    if length(sys.argv) == 3:
-        f_blk = nixio(sys.argv[2],'r')
-    blk = createSeg(fname, blk)
+def batch_convert(d_list,p):
+    d_list = list(d_list)
+    for root in d_list:
+        try:
+            root_full = os.path.join(p,root)
+            fname_NEO = root_full+'_NEO.mat'
+            fid = NIO(fname_NEO)
+            files = glob.glob(root_full+'*1K.mat')
+            blk = neo.core.Block()
+            for filename in files:
+                print(filename)
+                seg = createSeg(filename)
+                if os.path.isfile(fname_NEO):
+                    blk = fid.read_block()
+                blk.segments.append(seg)
+                fid.write_block(blk)
+        except:
+            print('problem with {}'.format(root))
 
-    blk = createSeg(fname)
+
+
+def get_list(p,fname_spec):
+    d_list = glob.glob(os.path.join(p,fname_spec))
+    d_list = [os.path.split(f)[1] for f in d_list]
+    d_list = [re.search('^rat\d{4}_\d{2}_[A-Z]{3}\d\d_VG_[A-Z]\d',f).group() for f in d_list]
+    d_list = set(d_list)
+    return(d_list)
+
+
 if __name__=='__main__':
-    main()
+    p = r'C:\Users\guru\Box Sync\__VG3D\_E3D_1K\deflection_trials'
+    fname_spec='*1K.mat'
+    d_list = get_list(p,fname_spec)
+    batch_convert(d_list,p)
 
 

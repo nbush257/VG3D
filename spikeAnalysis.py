@@ -28,28 +28,6 @@ ISI = ISI[ISI<100]
 CV = cv(ISI)
 LV = lv(ISI.squeeze())
 
-def iterate_filtvar(filtvars,cc):
-    ''' this loops through every variable in a structure (generally filtvars)
-    and returns a dict of mean and minmax for each variable in each contact'''
-    mean_filtvars = {}
-    minmax_filtvars = {}
-
-    for attr in filtvars._fieldnames:
-        mean_filtvars[attr], minmax_filtvars[attr] = get_analog_contact(getattr(filtvars,attr),cc)
-    return mean_filtvars,minmax_filtvars
-
-def get_analog_contact(var, cc):
-    ''' this gets the mean and min-max of a given analog signal in each contact interval'''
-    mean_var = np.empty([cc.shape[0], var.shape[1]])
-    minmax_var = np.empty([cc.shape[0], var.shape[1]])
-
-    for ii, contact in enumerate(cc):
-        var_slice = var[contact[0]:contact[1], :]
-        mean_var[ii, :] = np.mean(var_slice, 0)
-        minmax_idx = np.argmax(np.abs(var_slice), 0)
-        minmax_var[ii, :] = var_slice[minmax_idx, np.arange(len(minmax_idx))]
-
-    return mean_var,minmax_var
 
 def get_fr_by_contact(sp,cc,pre_onset=0,post_offset=0):
     ''' this is OK. Mean FR is trustworthy, the rest is maybe not exactly what we want to do.'''
