@@ -1,6 +1,7 @@
 from neo.io import NeoMatlabIO as NIO
 from neo.core import Block
-
+from elephant.conversion import binarize
+import quantities as pq
 def getVar(blk,varname='M',join=True,keep_neo=False):
     ''' use this utility to access an analog variable from all segments in a block easily
     If you choose to join the segments, returns a list of '''
@@ -9,7 +10,7 @@ def getVar(blk,varname='M',join=True,keep_neo=False):
     split_points = []
     var = []
     if keep_neo and join:
-        raise ValueError('Cannot join an keep neo structure')
+        raise ValueError('Cannot join and keep neo structure')
 
     for seg in blk.segments:
         if keep_neo:
@@ -22,5 +23,9 @@ def getVar(blk,varname='M',join=True,keep_neo=False):
         return (var, split_points)
     else:
         return var
+
+
+
+
 
 

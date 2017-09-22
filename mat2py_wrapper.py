@@ -1,7 +1,7 @@
 import numpy as np
-from scipy.io.matlab import loadmat,savemat
+from scipy.io.matlab import loadmat, savemat
 from neo.core import SpikeTrain
-from quantities import ms,s
+from quantities import ms, s
 import neo
 import quantities as pq
 import elephant
@@ -12,25 +12,24 @@ import os
 import re
 
 
-
 def convertC(C):
     ''' converts a boolean contact vector into an Nx2 array of contact onsets and offsets.
     '''
     C = np.squeeze(C)
-    if C.ndim>1:
+    if C.ndim > 1:
         raise ValueError('C should be a 1-D vector')
 
     C[np.isnan(C)] = 0
-    C[C<0.95]=0
+    C[C < 0.95] = 0
     C = C.astype('int32')
 
     # stack a zero on either end in case the first or last frame is contact
-    d = np.diff(np.hstack(([0],C,[0])),n=1,axis=0)
+    d = np.diff(np.hstack(([0], C, [0])), n=1, axis=0)
 
-    cstarts = np.where(d==1)[0]
-    cends = np.where(d==-1)[0]
+    cstarts = np.where(d == 1)[0]
+    cends = np.where(d == -1)[0]
     # return the Nx2 Matrix of onsets (inclusive) and offsets(exclusive)
-    return np.vstack((cstarts,cends)).T
+    return np.vstack((cstarts, cends)).T
 
 
 def createSeg(fname):
@@ -38,10 +37,10 @@ def createSeg(fname):
     dat = loadmat(fname)
 
     # access the analog data
-    vars = dat['vars'][0,0]
-    filtvars = dat['filtvars'][0,0]
-    rawvars = dat['rawvars'][0,0]
-    PT = dat['PT'][0,0]
+    vars = dat['vars'][0, 0]
+    filtvars = dat['filtvars'][0, 0]
+    rawvars = dat['rawvars'][0, 0]
+    PT = dat['PT'][0, 0]
     C = dat['C']
     cc = convertC(C)
     num_contacts = cc.shape[0]
@@ -50,8 +49,9 @@ def createSeg(fname):
     sp = dat['sp'][0]
     spikes = dat['spikes'][0]
 
-    #initialize the segment
+    # initialize the segment
     seg = neo.core.Segment(file_origin=fname)
+
     seg.annotate(
         ratnum=PT['ratnum'][0],
         whisker=PT['whisker'][0],
@@ -67,14 +67,14 @@ def createSeg(fname):
     for varname in filtvars.dtype.names:
         # get the metadata for the signal
         sig = filtvars[varname]
-        if varname=='M':
+        if varname == 'M':
             U = 'N*m'
             name = 'Moment'
-        elif varname=='F':
+        elif varname == 'F':
             U = 'N'
-            name='Force'
-        elif varname=='Rcp':
-            U='m'
+            name = 'Force'
+        elif varname == 'Rcp':
+            U = 'm'
             name = varname
         else:
             U = 'deg'
@@ -83,17 +83,20 @@ def createSeg(fname):
         # append the signal to the segment
         seg.analogsignals.append(
             neo.core.AnalogSignal(
-                sig,units=U,sampling_rate=pq.kHz,name=name
+                sig, units=U, sampling_rate=pq.kHz, name=name
             )
         )
     # add the spike trains to the segment
-    for times,waveshapes in zip(sp,spikes):
-        waveshapes = np.expand_dims(waveshapes.T,1)
-        idx = times*ms<=seg.analogsignals[0].t_stop
-        times = times[idx]
-        waveshapes = waveshapes[idx.ravel(),:,:]
 
-        train = SpikeTrain(times*ms,t_stop=seg.analogsignals[0].t_stop,units=ms,waveforms=waveshapes*pq.mV)
+
+
+    for times, waveshapes in zip(sp, spikes):
+        waveshapes = np.expand_dims(waveshapes.T, 1)
+        idx = times * ms <= seg.analogsignals[0].t_stop
+        times = times[idx]
+        waveshapes = waveshapes[idx.ravel(), :, :]
+
+        train = SpikeTrain(times * ms, t_stop=seg.analogsignals[0].t_stop, units=ms, waveforms=waveshapes * pq.mV)
         seg.spiketrains.append(train)
 
     seg.epochs.append(
@@ -107,14 +110,14 @@ def createSeg(fname):
     return seg
 
 
-def batch_convert(d_list,p):
+def batch_convert(d_list, p):
     d_list = list(d_list)
     for root in d_list:
         try:
-            root_full = os.path.join(p,root)
-            fname_NEO = root_full+'_NEO.mat'
+            root_full = os.path.join(p, root)
+            fname_NEO = root_full + '_NEO.mat'
             fid = NIO(fname_NEO)
-            files = glob.glob(root_full+'*1K.mat')
+            files = glob.glob(root_full + '*1K.mat')
             blk = neo.core.Block()
             for filename in files:
                 print(filename)
@@ -127,19 +130,16 @@ def batch_convert(d_list,p):
             print('problem with {}'.format(root))
 
 
-
-def get_list(p,fname_spec):
-    d_list = glob.glob(os.path.join(p,fname_spec))
+def get_list(p, fname_spec):
+    d_list = glob.glob(os.path.join(p, fname_spec))
     d_list = [os.path.split(f)[1] for f in d_list]
-    d_list = [re.search('^rat\d{4}_\d{2}_[A-Z]{3}\d\d_VG_[A-Z]\d',f).group() for f in d_list]
+    d_list = [re.search('^rat\d{4}_\d{2}_[A-Z]{3}\d\d_VG_[A-Z]\d', f).group() for f in d_list]
     d_list = set(d_list)
-    return(d_list)
+    return (d_list)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     p = r'C:\Users\guru\Box Sync\__VG3D\_E3D_1K\deflection_trials'
-    fname_spec='*1K.mat'
-    d_list = get_list(p,fname_spec)
-    batch_convert(d_list,p)
-
-
+    fname_spec = '*1K.mat'
+    d_list = get_list(p, fname_spec)
+    batch_convert(d_list, p)
