@@ -138,21 +138,6 @@ def get_list(p, fname_spec):
     return (d_list)
 
 
-def create_chan(blk):
-
-    chx = neo.core.ChannelIndex(0)
-    num_units = []
-    for seg in blk.segments:
-        num_units.append(len(seg.spiketrains))
-    num_units = max(num_units)
-    for ii in xrange(num_units):
-        unit = neo.core.Unit(name='cell_{}'.format(ii))
-        chx.units.append(unit)
-    for seg in blk.segments:
-        for ii,train in enumerate(seg.spiketrains):
-            chx.units[ii].spiketrains.append(train)
-    return chx
-
 
 if __name__ == '__main__':
     p = r'C:\Users\nbush257\Box Sync\__VG3D\_E3D_1K\deflection_trials'

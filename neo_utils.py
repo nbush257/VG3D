@@ -35,4 +35,35 @@ def replaceNaNs(var,mode='zero'):
         raise ValueError('Wrong mode indicated. May want to impute NaNs in some instances')
 
 
+def create_chan(blk):
+    chx = neo.core.ChannelIndex(0)
+    num_units = []
+    for seg in blk.segments:
+        num_units.append(len(seg.spiketrains))
+    num_units = max(num_units)
+    for ii in xrange(num_units):
+        unit = neo.core.Unit(name='cell_{}'.format(ii))
+        chx.units.append(unit)
+    for seg in blk.segments:
+        for ii,train in enumerate(seg.spiketrains):
+            chx.units[ii].spiketrains.append(train)
+    return chx
+
+
+# This code below might be useful for contact psths
+chx = create_chan(blk)
+f = plt.figure()
+for ii,unit in enumerate(chx.units):
+    f.add_subplot(len(chx.units),1,ii+1)
+    PSTH =[]
+    for train,seg in zip(unit.spiketrains,blk.segments):
+        epoch = seg.epochs[0]
+        for start,dur in zip(epoch.times,epoch.durations):
+            try:
+                train_slice = train.time_slice(start, start + dur)
+                # b = binarize(train_slice, sampling_rate=pq.kHz)
+                # plt.plot(b,'k',alpha=0.01)
+            except:
+                pass
+            PSTH.append(train_slice)
 
