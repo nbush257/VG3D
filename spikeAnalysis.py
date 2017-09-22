@@ -61,15 +61,7 @@ def get_PSTH(sp,cc,pre_onset=10):
 def get_autocorr(sp_neo):
     return(cross_correlation_histogram(BinnedSpikeTrain(sp_neo, binsize=ms), BinnedSpikeTrain(sp_neo, binsize=ms)))
 
-def replaceNaNs(var,mode='zero'):
-    if mode=='zero':
-        var[np.isnan(var)]=0
-    elif mode=='median':
-        m = np.nanmedian(var,0)
-        idx = np.any(np.isnan(var))
-        var[np.any(np.isnan(var),1),:] = m
-    else:
-        raise ValueError('Wrong mode indicated. May want to impute NaNs in some instances')
+
 
 def correlate_to_stim(sp_neo,var,kernel_sigmas,mode='g'):
     corr_ = np.empty(kernel_sigmas.shape[0])

@@ -24,7 +24,15 @@ def getVar(blk,varname='M',join=True,keep_neo=False):
     else:
         return var
 
-
+def replaceNaNs(var,mode='zero'):
+    if mode=='zero':
+        var[np.isnan(var)]=0
+    elif mode=='median':
+        m = np.nanmedian(var,0)
+        idx = np.any(np.isnan(var))
+        var[np.any(np.isnan(var),1),:] = m
+    else:
+        raise ValueError('Wrong mode indicated. May want to impute NaNs in some instances')
 
 
 
