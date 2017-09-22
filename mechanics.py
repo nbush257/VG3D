@@ -27,7 +27,7 @@ def get_analog_contact(var, cc):
 
 
 def iterate_filtvar(filtvars,cc):
-    ''' this loops through every variable in a structure (generally filtvars)
+    ''' this loops through every variable in a matlab structure (generally filtvars)
     and returns a dict of mean and minmax for each variable in each contact'''
     mean_filtvars = {}
     minmax_filtvars = {}
@@ -66,6 +66,8 @@ def get_derivs():
     D = np.sqrt(TH ** 2 + PHIE ** 2 + Rcp ** 2)
 
 def epoch_to_cc(epoch):
+    ''' take a NEO epoch represneting contacts and turn it into an Nx2 matrix which
+    has contact onset in the first column and contact offset in the second.'''
     cc = np.empty([len(epoch),2])
     cc[:,0] = np.array(epoch.times).T
     cc[:,1] = cc[:,0]+np.array(epoch.durations).T

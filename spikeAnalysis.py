@@ -23,11 +23,6 @@ C = dat['C']
 cc = convertC(C)
 sp = dat['sp'][0,0]
 
-ISI = isi(sp,0)
-ISI = ISI[ISI<100]
-CV = cv(ISI)
-LV = lv(ISI.squeeze())
-
 
 def get_fr_by_contact(sp,cc,pre_onset=0,post_offset=0):
     ''' this is OK. Mean FR is trustworthy, the rest is maybe not exactly what we want to do.'''
