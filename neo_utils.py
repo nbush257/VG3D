@@ -25,6 +25,7 @@ def get_var(blk,varname='M',join=True,keep_neo=False):
         return var
 
 def concatenate_sp(blk):
+    ''' takes a block and concatenates the spiketrains for each unit across segments'''
     sp = {}
     for unit in blk.channel_indexes[-1].units:
         sp[unit.name] = np.array([])*pq.ms
@@ -33,6 +34,8 @@ def concatenate_sp(blk):
             new_train = np.array(train)*pq.ms+t_start
             sp[unit.name] = np.append(sp[unit.name],new_train) *pq.ms
             t_start +=train.t_stop
+
+        sp[unit.name] = SpikeTrain(sp[unit.name], t_stop = t_start)
     return sp
 
 def replace_NaNs(var,mode='zero'):
