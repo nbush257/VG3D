@@ -24,17 +24,23 @@ cc = convertC(C)
 sp = dat['sp'][0,0]
 
 
-def get_fr_by_contact(sp,cc,pre_onset=0,post_offset=0):
-    ''' this is OK. Mean FR is trustworthy, the rest is maybe not exactly what we want to do.'''
-    mean_fr = np.empty(cc.shape[0])
-    locked_st=[]
-    for ii, contact in enumerate(cc):
-        idx = np.logical_and(sp>=(contact[0]-pre_onset),sp<(contact[1]+post_offset))
-        sp_contact = sp[idx]-contact[0]
-        mean_fr[ii] = mean_firing_rate(sp_contact*ms)
-        locked_st.append(sp_contact)
+def get_fr_by_contact(blk):
+    ''' calculates the mean firing rate
+    of each contact interval
+    for each cell
+    across all segments in a block'''
+    FR = {}
+    for unit in blk.channel_indexes[-1].units:
+        FR[unit.name]=np.array([]).reshape(0,0)*1/s
+        for seg,train in zip(blk.segments,unit.spiketrains):
+            seg_fr = np.zeros([len(seg.epochs[0]),1],dtype='f8')*1/s
+            for ii,(start, dur) in enumerate(zip(seg.epochs[0],seg.epochs[0].durations)):
+                sp = train.time_slice(start,start+dur)
+                seg_fr[ii] = mean_firing_rate(sp)
+            FR[unit.name] = np.append(FR[unit.name],seg_fr)
+    print('Calculated per contact firing rate for {}'.format(FR.keys()))
+    return FR
 
-    return mean_fr,locked_st
 
 def join_locked_st(locked_st):
     ''' useful for creating a PSTH'''
