@@ -69,24 +69,4 @@ def add_channel_indexes(blk):
 
 
 # # This code below might be useful for contact psths
-# chx = create_chan(blk)
-# f = plt.figure()
-# cell_ISI = []
-# for ii,unit in enumerate(chx.units):
-#     f.add_subplot(len(chx.units),1,ii+1)
-#     PSTH =[]
-#     intervals = []
-#     for train,seg in zip(unit.spiketrains,blk.segments):
-#         epoch = seg.epochs[0]
-#         for start,dur in zip(epoch.times,epoch.durations):
-#
-#             train_slice = train.time_slice(start, start + dur)
-#             if len(train_slice)>2:
-#                 ISI = isi(np.array(train_slice))
-#                 intervals.append(ISI)
-#                 # b = binarize(train_slice, sampling_rate=pq.kHz)
-#                 # plt.plot(b,'k',alpha=0.01)
-#
-#                 PSTH.append(train_slice)
-#     cell_ISI.append(np.concatenate(intervals))
 

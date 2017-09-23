@@ -42,26 +42,8 @@ def get_fr_by_contact(blk):
     return FR
 
 
-def join_locked_st(locked_st):
-    ''' useful for creating a PSTH'''
-    all_spikes = np.array([])
-    for contact in locked_st:
-        all_spikes = np.concatenate((all_spikes,contact))
-    all_spikes.sort()
-    return np.array(all_spikes)
-
-def get_PSTH(sp,cc,pre_onset=10):
-    ''' I dont think the PSTH is good because the number of 
-    contacts occuring dimnishes as time goes on, 
-    so a reduction in spike rate could be due to that. 
-    Maybe need to normalize time?'''
-
-    locked_st = get_fr_by_contact(sp,cc,pre_onset=pre_onset,post_offset=0)[1]
-    all_spikes = join_locked_st(locked_st)
-
 def get_autocorr(sp_neo):
     return(cross_correlation_histogram(BinnedSpikeTrain(sp_neo, binsize=ms), BinnedSpikeTrain(sp_neo, binsize=ms)))
-
 
 
 def correlate_to_stim(sp_neo,var,kernel_sigmas,mode='g'):
@@ -76,4 +58,24 @@ def correlate_to_stim(sp_neo,var,kernel_sigmas,mode='g'):
     plt.plot(kernel_sigmas,corr_)
     return(corr_,kernel_sigmas)
 
+
+def get_contact_sliced_trains(blk):
+    '''returns spiketrains for each contact interval for each cell'''
+    cell_ISI = []
+    PSTH = {}
+    for ii,unit in enumerate(blk.channel_indexes[-1].units):
+        tempPSTH =[]
+        intervals = []
+        for train,seg in zip(unit.spiketrains,blk.segments):
+            epoch = seg.epochs[0]
+            for start,dur in zip(epoch.times,epoch.durations):
+                train_slice = train.time_slice(start, start + dur)
+                if len(train_slice)>2:
+                    ISI = isi(np.array(train_slice))
+                else:
+                    ISI = np.array([])
+                intervals.append(ISI)
+                    # b = binarize(train_slice, sampling_rate=pq.kHz)
+                tempPSTH.append(train_slice)
+        PSTH[unit.name]=tempPSTH
 
