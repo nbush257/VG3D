@@ -24,22 +24,6 @@ cc = convertC(C)
 sp = dat['sp'][0,0]
 
 
-def get_fr_by_contact(blk):
-    ''' calculates the mean firing rate
-    of each contact interval
-    for each cell
-    across all segments in a block'''
-    FR = {}
-    for unit in blk.channel_indexes[-1].units:
-        FR[unit.name]=np.array([]).reshape(0,0)*1/s
-        for seg,train in zip(blk.segments,unit.spiketrains):
-            seg_fr = np.zeros([len(seg.epochs[0]),1],dtype='f8')*1/s
-            for ii,(start, dur) in enumerate(zip(seg.epochs[0],seg.epochs[0].durations)):
-                sp = train.time_slice(start,start+dur)
-                seg_fr[ii] = mean_firing_rate(sp)
-            FR[unit.name] = np.append(FR[unit.name],seg_fr)
-    print('Calculated per contact firing rate for {}'.format(FR.keys()))
-    return FR
 
 
 def get_autocorr(sp_neo):
@@ -60,22 +44,70 @@ def correlate_to_stim(sp_neo,var,kernel_sigmas,mode='g'):
 
 
 def get_contact_sliced_trains(blk):
-    '''returns spiketrains for each contact interval for each cell'''
-    cell_ISI = []
-    PSTH = {}
-    for ii,unit in enumerate(blk.channel_indexes[-1].units):
+    '''returns mean_fr,ISIs,spiketrains for each contact interval for each cell'''
+    ISI = {}
+    ISI_units = pq.ms
+    contact_trains = {}
+    FR = {}
+    FR_units = 1/pq.s
+    for unit in blk.channel_indexes[-1].units:
+        FR[unit.name] = np.array([]).reshape(0, 0)*1/pq.s
         tempPSTH =[]
-        intervals = []
+        tempISI = []
         for train,seg in zip(unit.spiketrains,blk.segments):
             epoch = seg.epochs[0]
-            for start,dur in zip(epoch.times,epoch.durations):
+            seg_fr = np.zeros([len(epoch), 1], dtype='f8')*FR_units
+            for ii,(start,dur) in enumerate(zip(epoch.times,epoch.durations)):
                 train_slice = train.time_slice(start, start + dur)
+                seg_fr[ii] = mean_firing_rate(train_slice)
                 if len(train_slice)>2:
-                    ISI = isi(np.array(train_slice))
+                    intervals = isi(np.array(train_slice)*ISI_units)
                 else:
-                    ISI = np.array([])
-                intervals.append(ISI)
+                    intervals = [np.nan]*ISI_units
                     # b = binarize(train_slice, sampling_rate=pq.kHz)
                 tempPSTH.append(train_slice)
-        PSTH[unit.name]=tempPSTH
+                tempISI.append(intervals)
+            FR[unit.name] = np.append(FR[unit.name], seg_fr) * FR_units
+        contact_trains[unit.name] = tempPSTH
+        ISI[unit.name] = tempISI
+    return FR,ISI,contact_trains
 
+def get_binary_trains(trains,norm_length=True):
+    '''takes a list of spike trains and computes binary spike trains for all
+    can return a matrix with the number of columns equal to the longest train.
+
+    Might be useful to normalize based on the number of observations of each time point'''
+
+
+    b = []
+    if norm_length:
+        durations = np.zeros(len(trains),dtype='int64')
+        for ii,train in enumerate(trains):
+            duration = train.t_stop - train.t_start
+            duration.units = pq.ms
+            durations[ii] = int(duration)
+        max_duration = np.max(durations)+1
+        b = np.zeros([len(trains),max_duration],dtype='bool')
+
+
+    for ii,train in enumerate(trains):
+        if len(train) == 0:
+            duration = train.t_stop-train.t_start
+            duration.units=pq.ms
+            duration = int(duration)
+            if norm_length:
+                b[ii,:duration] = np.zeros(duration,dtype='bool')
+            else:
+                b.append(np.zeros(duration,dtype='bool'))
+
+        else:
+            if norm_length:
+                b_temp = binarize(train, sampling_rate=pq.kHz)
+                b[ii,:len(b_temp)]=b_temp
+            else:
+                b.append(binarize(train,sampling_rate=pq.kHz))
+    if norm_length:
+        # return the durations if the length is kept consistent across all
+        return b,durations
+    else:
+        return b
