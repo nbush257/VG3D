@@ -14,18 +14,6 @@ import quantities as pq
 from mpl_toolkits.mplot3d import Axes3D
 
 
-dat = loadmat(fname,struct_as_record=False)
-# access the analog data
-vars = dat['vars'][0,0]
-filtvars = dat['filtvars'][0,0]
-rawvars = dat['rawvars'][0,0]
-C = dat['C']
-cc = convertC(C)
-sp = dat['sp'][0,0]
-
-
-
-
 def get_autocorr(sp_neo):
     return(cross_correlation_histogram(BinnedSpikeTrain(sp_neo, binsize=ms), BinnedSpikeTrain(sp_neo, binsize=ms)))
 
@@ -59,7 +47,8 @@ def get_contact_sliced_trains(blk):
             seg_fr = np.zeros([len(epoch), 1], dtype='f8')*FR_units
             for ii,(start,dur) in enumerate(zip(epoch.times,epoch.durations)):
                 train_slice = train.time_slice(start, start + dur)
-                seg_fr[ii] = mean_firing_rate(train_slice)
+                if len(train_slice)>0:
+                    seg_fr[ii] = mean_firing_rate(train_slice)
                 if len(train_slice)>2:
                     intervals = isi(np.array(train_slice)*ISI_units)
                 else:
