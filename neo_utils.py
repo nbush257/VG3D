@@ -1,7 +1,9 @@
 from neo.io import NeoMatlabIO as NIO
-from neo.core import Block,ChannelIndex,Unit
+from neo.core import Block,ChannelIndex,Unit,SpikeTrain
 from elephant.conversion import binarize
 import quantities as pq
+import numpy as np
+
 def get_var(blk,varname='M',join=True,keep_neo=False):
     ''' use this utility to access an analog variable from all segments in a block easily
     If you choose to join the segments, returns a list of '''

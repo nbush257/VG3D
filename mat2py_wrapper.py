@@ -15,6 +15,8 @@ import re
 def convertC(C):
     ''' converts a boolean contact vector into an Nx2 array of contact onsets and offsets.
     '''
+    if type(C) == neo.core.epoch.Epoch:
+        C_out = np.array(len)
     C = np.squeeze(C)
     if C.ndim > 1:
         raise ValueError('C should be a 1-D vector')

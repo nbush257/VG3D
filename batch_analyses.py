@@ -60,17 +60,48 @@ for file in file_list:
         cname = re.search('^rat\d{4}_\d{2}_[A-Z]{3}\d{2}_VG_[A-Z]\d', cname).group() + '_'+ name
         all_FR[cname] = cell
 
-save_dict = {'all_FR':all_FR,
-             'all_ISI':all_ISI,
-             'all_CV':all_CV,
-             'all_LV':all_LV,
-             'all_latencies':all_latencies,
-             'all_trains':all_trains}
+# save_dict = {'all_FR':all_FR,
+#              'all_ISI':all_ISI,
+#              'all_CV':all_CV,
+#              'all_LV':all_LV,
+#              'all_latencies':all_latencies,
+#              'all_trains':all_trains}
 
-savemat(os.path.join(p,'all_ISIs.mat'),save_dict)
+np.savez(os.path.join(p,'all_ISIs.npz'),
+         all_FR=all_FR,
+         all_ISI=all_ISI,
+         all_CV=all_CV,
+         all_LV=all_LV,
+         all_latencies=all_latencies,
+         all_trains=all_trains
+         )
+
 
 # ================== END SPIKE STATS =================== #
 #
 #
 #
-#
+## load and unpack
+
+
+dat = r'C:\Users\guru\Box Sync\__VG3D\_E3D_1K\deflection_trials\all_ISIs.npz'
+dat = np.load(dat)
+all_trains = dat['all_trains'][()]
+all_ISI = dat['all_ISI'][()]
+all_CV = dat['all_CV'][()]
+all_LV = dat['all_LV'][()]
+all_latencies = dat['all_latencies'][()]
+all_FR = dat['all_FR'][()]
+
+
+CV = []
+LV = []
+latencies = []
+for name in all_CV.keys():
+    CV.append(all_CV[name])
+    LV.append(all_LV[name])
+    latencies.append(all_latencies[name][0])
+
+CV = np.array(CV)
+LV = np.array(LV)
+latencies = np.array(latencies)
