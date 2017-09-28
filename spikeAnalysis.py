@@ -11,7 +11,6 @@ from elephant import kernels
 from elephant.spike_train_correlation import cross_correlation_histogram,corrcoef
 from elephant.conversion import *
 import quantities as pq
-from mpl_toolkits.mplot3d import Axes3D
 
 
 def get_autocorr(sp_neo):
@@ -61,6 +60,7 @@ def get_contact_sliced_trains(blk):
         ISI[unit.name] = tempISI
     return FR,ISI,contact_trains
 
+
 def get_binary_trains(trains,norm_length=True):
     '''takes a list of spike trains and computes binary spike trains for all
     can return a matrix with the number of columns equal to the longest train.
@@ -100,3 +100,4 @@ def get_binary_trains(trains,norm_length=True):
         return b,durations
     else:
         return b
+

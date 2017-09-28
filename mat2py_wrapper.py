@@ -6,7 +6,9 @@ import neo
 import quantities as pq
 import elephant
 import sys
-from neo.io import NeoMatlabIO as NIO
+from neo.io import NeoMatlabIO as MIO
+from neo.io import PickleIO as PIO
+from neo_utils import add_channel_indexes
 import glob
 import os
 import re
@@ -52,7 +54,7 @@ def createSeg(fname):
     spikes = dat['spikes'][0]
 
     # initialize the segment
-    seg = neo.core.Segment(file_origin=fname)
+    seg = neo.core.Segment('name',file_origin=fname)
 
     seg.annotate(
         ratnum=PT['ratnum'][0],
@@ -63,7 +65,8 @@ def createSeg(fname):
         TAG=PT['TAG'][0],
         s=PT['s'][0],
         rbase=PT['E3D_rbase'][0],
-        rtip=PT['E3D_rtip'][0]
+        rtip=PT['E3D_rtip'][0],
+        trial_type='deflection'
     )
 
     for varname in filtvars.dtype.names:
@@ -117,17 +120,33 @@ def batch_convert(d_list, p):
     for root in d_list:
         try:
             root_full = os.path.join(p, root)
-            fname_NEO = root_full + '_NEO.mat'
-            fid = NIO(fname_NEO)
+            fname_M = root_full + '_NEO.mat'
+            fname_P = root_full + '_NEO.pkl'
+
+            fid_M = MIO(fname_M)
+            fid_P = PIO(fname_P)
             files = glob.glob(root_full + '*1K.mat')
             blk = neo.core.Block()
             for filename in files:
                 print(filename)
                 seg = createSeg(filename)
-                if os.path.isfile(fname_NEO):
-                    blk = fid.read_block()
+                if os.path.isfile(fname_P):
+                    blk = fid_P.read_block()
+                blk.annotate(
+                    ratnum=seg.annotations['ratnum'],
+                    whisker=seg.annotations['whisker'],
+                    trial=seg.annotations['trial'],
+                    id=seg.annotations['id'],
+                    s=seg.annotations['s'],
+                    rbase=seg.annotations['rbase'],
+                    rtip=seg.annotations['rtip'],
+                    trial_type=seg.annotations['trial_type']
+                )
                 blk.segments.append(seg)
-                fid.write_block(blk)
+                add_channel_indexes(blk)
+
+                fid_P.write_block(blk)
+                fid_M.write_block(blk)
         except:
             print('problem with {}'.format(root))
 
@@ -142,8 +161,8 @@ def get_list(p, fname_spec):
 
 
 if __name__ == '__main__':
-    p = r'C:\Users\nbush257\Box Sync\__VG3D\_E3D_1K\deflection_trials'
-    fname_spec = '*NEO.mat'
+    p = r'K:\VG3D\_E3D_PROC\_deflection_trials'
+    fname_spec = '*1k.mat'
     d_list = get_list(p, fname_spec)
     batch_convert(d_list, p)
 

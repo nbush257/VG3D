@@ -9,15 +9,17 @@ outname = [fname_in(1:end-12) '1K.mat'];
 %% DO NOT EDIT BELOW THIS LINE IF YOU CHANGE PARAMETERS
 % ===================================================
 %% Load Data
-load(fname_in,'M','F','PHIE','TH','Rcp','THcp','PHIcp','spt','sr','frame*','C','PT');
+load(fname_in,'M','F','PHIE','TH','Rcp','THcp','PHIcp','ZETA','Zcp','spt','sr','frame*','C','PT','spikes');
 %%
 vars.M = M;
 vars.F = F;
-vars.PHIE = PHIE;
 vars.TH = TH;
+vars.PHIE = PHIE;
+vars.ZETA = ZETA;
 vars.Rcp = Rcp;
 vars.THcp = THcp;
 vars.PHIcp = PHIcp;
+vars.Zcp = Zcp;
 varnames = fieldnames(vars);
 
 %% get filt vars
@@ -48,7 +50,7 @@ C_raw=C;
 C = resamp(C,spt{1},sr,frametimes,new_sr);
 %% save the output
 sp = spt_upsamp;
-save(outname,'vars','rawvars','filtvars','sp','sr','C','C_raw','PT');
+save(outname,'vars','rawvars','filtvars','sp','sr','C','C_raw','PT','spikes');
 
 
     
