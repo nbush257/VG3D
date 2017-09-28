@@ -119,6 +119,7 @@ def get_ISI_and_CV(blk,unit):
     LV = np.mean(LV_array)
     return all_isi,CV_array
 
+
 def get_PSTH(blk,unit):
     FR, ISI, contact_trains = get_contact_sliced_trains(blk)
     b, durations = get_binary_trains(contact_trains[unit.name])
@@ -131,6 +132,8 @@ def get_PSTH(blk,unit):
             alpha=0.8
             )
     return ax
+
+
 def get_raster(unit,blk):
     count = 0
     pad = 0.3
