@@ -101,3 +101,46 @@ def get_binary_trains(trains,norm_length=True):
     else:
         return b
 
+
+def get_ISI_and_CV(blk,unit):
+    FR, ISI, contact_trains = get_contact_sliced_trains(blk)
+    all_isi = np.array([])
+    CV_array = np.array([])
+    LV_array = np.array([])
+    for interval in ISI[unit.name]:
+        all_isi = np.concatenate([all_isi, interval])
+        if np.all(np.isfinite(interval)):
+            CV_array = np.concatenate([CV_array, [cv(interval)]])
+            LV_array = np.concatenate([LV_array, [lv(interval)]])
+
+    all_isi = all_isi * interval.units
+    CV_array = CV_array
+    CV = np.mean(CV_array)
+    LV = np.mean(LV_array)
+    return all_isi,CV_array
+
+def get_PSTH(blk,unit):
+    FR, ISI, contact_trains = get_contact_sliced_trains(blk)
+    b, durations = get_binary_trains(contact_trains[unit.name])
+    b_times = np.where(b)[1] * pq.ms  # interval.units
+    PSTH, t_edges = np.histogram(b_times, bins=np.arange(0, np.max(durations), float(binsize)))
+    ax = plt.bar(t_edges[:-1],
+            PSTH.astype('f8') / len(durations) / binsize * 1000,
+            width=float(binsize),
+            align='edge',
+            alpha=0.8
+            )
+    return ax
+def get_raster(unit,blk):
+    count = 0
+    pad = 0.3
+    f=plt.figure()
+    ax = plt.gca()
+    for train,seg in zip(unit.spiketrains,blk.segments):
+        epoch = seg.epochs[0]
+        for start,duration in zip(epoch,epoch.durations):
+            stop = start+duration
+            t_sub = train.time_slice(start,stop).as_quantity()-start
+            ax.vlines(t_sub,count-pad,count+pad)
+            count+=1
+    ax.set_ylim(0,count)
