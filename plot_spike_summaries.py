@@ -6,6 +6,7 @@ from elephant.statistics import cv,lv
 import os
 import matplotlib.pyplot as plt
 import seaborn as sns
+import quantities as pq
 sns.set()
 
 
