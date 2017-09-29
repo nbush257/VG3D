@@ -57,16 +57,16 @@ def createSeg(fname):
     seg = neo.core.Segment('name',file_origin=fname)
 
     seg.annotate(
-        ratnum=PT['ratnum'][0],
-        whisker=PT['whisker'][0],
-        trial=PT['trial'][0],
-        id=PT['id'][0],
-        frames=PT['Frames'][0],
-        TAG=PT['TAG'][0],
-        s=PT['s'][0],
-        rbase=PT['E3D_rbase'][0],
-        rtip=PT['E3D_rtip'][0],
-        trial_type='deflection'
+        ratnum      =   PT['ratnum'][0],
+        whisker     =   PT['whisker'][0],
+        trial       =   PT['trial'][0],
+        id          =   PT['id'][0],
+        frames      =   PT['Frames'][0],
+        TAG         =   PT['TAG'][0],
+        s           =   PT['s'][0],
+        rbase       =   PT['E3D_rbase'][0],
+        rtip        =   PT['E3D_rtip'][0],
+        trial_type  =   'deflection'
     )
 
     for varname in filtvars.dtype.names:

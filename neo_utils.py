@@ -81,7 +81,18 @@ def add_channel_indexes(blk):
     create_analog_chan(blk)
     create_unit_chan(blk)
 
+def get_Cbool(blk):
+    Cbool = np.array([],dtype='bool')
 
+    for seg in blk.segments:
+        seg_bool = np.zeros(len(seg.analogsignals[0]),dtype='bool')
+        epochs = seg.epochs[0]
+        for start,dur in zip(epochs,epochs.durations):
+            start = int(start)
+            dur = int(dur)
+            seg_bool[start:start+dur]=1
+        Cbool = np.concatenate([Cbool,seg_bool])
+    return Cbool
 
 # # This code below might be useful for contact psths
 
