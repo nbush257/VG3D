@@ -4,6 +4,7 @@ from pygam.utils import generate_X_grid
 import statsmodels.api as sm
 import elephant
 from scipy import corrcoef
+import quantities as pq
 def make_tensor(timeseries, window_size=16):
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size,timeseries.shape[0]-window_size):
@@ -48,7 +49,7 @@ def run_GLM(X,y,Cbool):
     return yhat,glm_result
 
 
-def run_GAM(X,y,Cbool,n_splines=15):
+def run_GAM(X,y,Cbool,n_splines=5):
     if y.ndim==1:
         y = y[:,np.newaxis]
 
