@@ -12,7 +12,9 @@ import statsmodels.api as sm
 import elephant
 import pygam
 import glob
+from sklearn.preprocessing import RobustScaler
 window_size=5
+scale_tgl = True
 p=r'/media/nbush257/5446399F46398332/Users/nbush257/Box Sync/__VG3D/deflection_trials/data/NEO'
 p_save=r'/media/nbush257/5446399F46398332/Users/nbush257/Box Sync/__VG3D/deflection_trials/figs'
 sigma_vals = np.arange(2,100,2)
@@ -35,11 +37,18 @@ for file in glob.glob(os.path.join(p,'*.pkl')):
     F = get_var(blk,'F')[0]
     Cbool = get_Cbool(blk)
     X = np.concatenate([M,F],axis=1)
-    zeropad = np.zeros([1,6])
+    zeropad = np.zeros([1,X.shape[1]])
     Xdot = np.concatenate([zeropad,np.diff(X,axis=0)],axis=0)
     X_window = make_tensor(X,window_size)
     X_window = reshape_tensor(X_window)
 
+
+    if scal_tgl:
+        scaler = RobustScaler()
+        idx = np.all(np.isfinite(X),axis=1)
+        Xs = X[idx,:]
+        Xs =scaler.fit_transform(Xs)
+        X[idx,:]=Xs[:,:]
 
     for unit in blk.channel_indexes[-1].units:
         try:

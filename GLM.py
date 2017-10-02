@@ -5,6 +5,10 @@ import statsmodels.api as sm
 import elephant
 from scipy import corrcoef
 import quantities as pq
+from keras.models import Sequential
+from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation
+from keras.regularizers import l2,l1
+
 def make_tensor(timeseries, window_size=16):
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size,timeseries.shape[0]-window_size):
@@ -72,8 +76,40 @@ def evaluate_correlation(yhat,sp,Cbool,sigma_vals=np.arange(2, 100, 2)):
 
     rr = []
     for sigma in sigma_vals:
-        kernel = elephant.kernels.GaussianKernel(sigma=sigma * pq.ms)
+        kernel = elephant.kernels.RectangularKernel(sigma=sigma * pq.ms)
         r = elephant.statistics.instantaneous_rate(sp, sampling_period=pq.ms, kernel=kernel)
         r_ = r.as_array().astype('f8')/1000
         rr.append(corrcoef(r_[idx].ravel(), yhat[idx])[1, 0])
     return rr
+
+
+def split_pos_neg(var):
+    var_out = np.zeros([var.shape[0],(var.shape[1])*2])
+    for ii in range(var.shape[1]):
+        idx_pos = var[: ,ii] > 0.
+        idx_neg = var[:, ii] < 0.
+        var_out[idx_pos, ii] = var[idx_pos,ii]
+        var_out[idx_neg, (ii+var.shape[1])] = var[idx_neg, ii]
+    return var_out
+
+def conv_model(X,y,cbool):
+    # set y
+    if y.ndim==1:
+        y = y[:,np.newaxis]
+
+    yhat = np.empty_like(y).ravel()
+    yhat[:]=np.nan
+
+    # set non contact to zero
+    X[np.invert(Cbool),:,:]=0
+    idx = np.all(np.isfinite(X), axis=1)
+
+
+    input_shape = X.shape[1:3]
+
+    model = Sequential()
+    model.add(Convolution1D(1, 20, input_shape=input_shape))
+    model.add(Dense(1))
+    model.add(Activation('sigmoid'))
+    model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+    model.fit(X[idx,:], y[idx], epochs=5, batch_size=32, validation_split=0.33)

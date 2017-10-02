@@ -26,12 +26,24 @@ p.addOptional('hampel_sigma', 3); % threshold of the hampel filter
 p.addOptional('sgolay_span', 11); % number of beighbors on either side of the sgolay filter
 p.addOptional('sgolay_degree', 2); % Default is 2-- Nick has not understood how this affects the data. Suggested not to change
 p.addOptional('nan_gap', 15); % in samples
+p.addOptional('mad_outlier_detection_tgl',true);
+p.addOptional('mad_thresh',10); % numper to multiply times the IQR
 
 
 parse(p,var,varargin{:});
 vv = p.Results;
 %%
 filtvar = var;
+%%
+if vv.mad_outlier_detection_tgl %http://www.sciencedirect.com/science/article/pii/S0022103113000668
+    med = nanmedian(filtvar);
+    dev = (filtvar-med)./mad(filtvar);
+    idx = any(abs(dev)>vv.mad_thresh,2);
+    filtvar(idx,:)=nan;
+    
+end
+    
+        
 if vv.interp_nan_tgl
     for jj =1:size(filtvar,2)
         filtvar(:,jj) = InterpolateOverNans(filtvar(:,jj),vv.nan_gap);

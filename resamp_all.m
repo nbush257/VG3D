@@ -1,10 +1,11 @@
 function resamp_all(fname_in)
 % This function saves the important data for E3D and neural, and samples
 % everything at the desired rate (suggested 1K, but flexible if needed:
-sgolay_span = 11;
-hampel_k = 3;
+sgolay_span = 7;
+hampel_k = 5;
 new_sr = 1000; %in Hz
 nan_gap = 20; % in frames [333 ms for 300fps, 200ms for 500 fps
+mad_thresh = 10;
 outname = [fname_in(1:end-12) '1K.mat'];
 %% DO NOT EDIT BELOW THIS LINE IF YOU CHANGE PARAMETERS
 % ===================================================
@@ -25,12 +26,12 @@ varnames = fieldnames(vars);
 %% get filt vars
 filtvars = vars;
 
-
 for ii = 1:length(varnames)
     filtvars.(varnames{ii}) = filtervars(vars.(varnames{ii}),...
         'nan_gap',nan_gap,...
         'sgolay_span',sgolay_span,...
-        'hampel_k',hampel_k...
+        'hampel_k',hampel_k,...
+        'mad_thresh',mad_thresh...
     );
 end
 
