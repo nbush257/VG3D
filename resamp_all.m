@@ -37,6 +37,7 @@ end
 
 %% resample vars
 rawvars = vars;
+rawfiltvars = filtvars;
 for ii = 1:length(varnames)
     vars.(varnames{ii}) = resamp(vars.(varnames{ii}),spt{1},sr,frametimes,new_sr);
     filtvars.(varnames{ii}) = resamp(filtvars.(varnames{ii}),spt{1},sr,frametimes,new_sr);
@@ -51,7 +52,7 @@ C_raw=C;
 C = resamp(C,spt{1},sr,frametimes,new_sr);
 %% save the output
 sp = spt_upsamp;
-save(outname,'vars','rawvars','filtvars','sp','sr','C','C_raw','PT','spikes');
+save(outname,'vars','rawvars','filtvars','rawfiltvars','sp','sr','C','C_raw','PT','spikes');
 
 
     

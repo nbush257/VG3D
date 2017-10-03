@@ -135,7 +135,6 @@ def batch_convert(d_list, p):
                 blk.annotate(
                     ratnum=seg.annotations['ratnum'],
                     whisker=seg.annotations['whisker'],
-                    trial=seg.annotations['trial'],
                     id=seg.annotations['id'],
                     s=seg.annotations['s'],
                     rbase=seg.annotations['rbase'],
@@ -161,7 +160,7 @@ def get_list(p, fname_spec):
 
 
 if __name__ == '__main__':
-    p = r'K:\VG3D\_E3D_PROC\_deflection_trials'
+    p = r'K:\VG3D\_E3D_PROC\_vibration_trials'
     fname_spec = '*1k.mat'
     d_list = get_list(p, fname_spec)
     batch_convert(d_list, p)

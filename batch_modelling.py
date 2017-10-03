@@ -62,7 +62,6 @@ for file in glob.glob(os.path.join(p,'*.pkl')):
             yhat_glm_window,glm_window = run_GLM(X_window,y,Cbool)
             yhat_gam,gam = run_GAM(X,y,Cbool)
 
-
             corrs_glm = evaluate_correlation(yhat_glm,sp,Cbool,sigma_vals)
             corrs_glm_deriv = evaluate_correlation(yhat_glm_deriv,sp,Cbool,sigma_vals)
             corrs_glm_window = evaluate_correlation(yhat_glm_window,sp,Cbool,sigma_vals)
