@@ -19,18 +19,18 @@ RATNUM = '2017_08'
 WHISKER_ID = 'D1'
 TRIAL = 't01'
 CELL_NUM = 0
-START_FRAME = 10000
-STOP_FRAME = 10010
+START_FRAME = 10100
+STOP_FRAME = 20000
 FRAME_STEP = 1
 HISTORY = 10
 
-p_vid_save = r'C:\Users\guru\Desktop'
+p_vid_save = r'C:\Users\guru\Desktop\test'
 p_vid_load = r'D:\VG3D\COMPRESSED'
 p_2D_data = r'K:\VG3D\tracked_2D\toMerge'
 p_3D_data = r'K:\VG3D\_E3D_PROC\_deflection_trials'
 
 
-f_vid_save = 'test_vid.mp4'
+f_vid_save = '{}{}{}c{}_example'.format(RATNUM,WHISKER_ID,TRIAL,CELL_NUM)
 #
 
 def get_whisker_2d_pts(h5_file,frame_no):
@@ -100,6 +100,7 @@ def get_spbool(dat_1K,cell_num=0):
     l = dat_1K['filtvars'][0]['M'][0].shape[0]
     spbool = np.zeros([l,1],dtype='int')
     spbool[sp_1k]=1
+    return spbool
 # ================================================================ #
 
 f_vid_front_load = glob.glob(os.path.join(p_vid_load,'rat{}*VG_{}_{}_Front.mkv'.format(RATNUM,WHISKER_ID,TRIAL)))[0]
@@ -116,116 +117,156 @@ elif not os.path.isfile(f_2D_data):
     raise ValueError('2D Whisker Data is not a valid file')
 elif not os.path.isfile(f_3D_data):
     raise ValueError('3D Whisker Data is not a valid file')
+elif not os.path.isfile(f_1K_data):
+    raise ValueError('1K Mechanics data is not a valid file')
 
 frames = np.arange(START_FRAME,STOP_FRAME,FRAME_STEP)
 
-# ===
+# === LOAD IN DATA FILES === #
 v_front = pims.open(f_vid_front_load)
 v_top = pims.open(f_vid_top_load)
-# dat2D = h5py.File(f_2D_data,'r')
-dat3D = loadmat(f_3D_data)
+# dat2D = h5py.File(f_2D_data,'r') # NOT IMPLEMENTING 2D TRACKING. Could possibly dp back projections?
+dat_3D = loadmat(f_3D_data)
 dat_1K = loadmat(f_1K_data)
+
+# === CALCULATE REQUIRED VARIABLES === #
+ # get spikes
+sp_1k = dat_1K['sp'][0][CELL_NUM]
+spbool = get_spbool(dat_1K,cell_num=CELL_NUM)
+
+# get moment and its bounds
 M = dat_1K['filtvars'][0]['M'][0]
 maxM = np.nanmax(np.nanmax(M[frames,:],axis=0))
 minM = np.nanmin(np.nanmin(M[frames,:],axis=0))
-sp_1k = dat_1K['sp'][0][CELL_NUM]
 
+# get a contact boolean
 Cbool = dat_1K['C'].ravel()
 Cbool[np.isnan(Cbool)]=0
 Cbool = Cbool.astype('bool')
+
+# set noncontact moment to zero
 M[np.invert(Cbool),:]=0
+
+# init spike frames for spike induced 3DCP plot
 spike_frames=[]
 
-Xcp = dat3D['CPm'][:,0]
-Ycp = dat3D['CPm'][:,1]
-Zcp = dat3D['CPm'][:,2]
+# get 3D contact point
+Xcp = dat_3D['CPm'][:, 0]
+Ycp = dat_3D['CPm'][:, 1]
+Zcp = dat_3D['CPm'][:, 2]
 
-spbool = get_spbool(dat_1K,cell_num=CELL_NUM)
-bds = get_bounds(dat3D,frames)
-# catch too many frames
+# get axis bounds on the 3D whisker
+bds = get_bounds(dat_3D, frames)
+
+# make sure we dont try to grab frames past the length of the video
 if (frames[-1]>=len(v_front)) or (frames[-1]>=len(v_top)):
     raise ValueError('Desired frame range exceeds size of videos')
 
-
-FFMpegWriter = manimation.writers['ffmpeg']
-metadata = dict(title='Movie Test', artist='Matplotlib',
-                comment='Movie support!')
-writer = FFMpegWriter(fps=30, metadata=metadata)
-
+# === SET UP PLOTTING === #
+# Initialize subplot axes and positioning
 fig = plt.figure()
 axVid = plt.subplot2grid((2,2),(0,0),colspan=2)
 ax3 = plt.subplot2grid((2, 2), (1, 0), projection='3d')
 axMech = plt.subplot2grid((2, 2), (1, 1))
 plt.tight_layout()
 
+# Set count for iteration of frame numbers
+count=0
 
-with writer.saving(fig, os.path.join(p_vid_save,f_vid_save), len(frames)):
+# === Loop over the frames to plot === #
+for frame in frames:
+    print('Frame {} of {}'.format(frame,frames[-1]))
 
-    for frame in frames:
-        print('Frame {} of {}'.format(frame,frames[-1]))
+    # append the current contact point if a spike happened since the last frame
+    if spikes_in_frame(dat_3D, frame)>0:
+        spike_frames.append(frame)
 
-        if spikes_in_frame(dat3D,frame)>0:
-            spike_frames.append(frame)
+    # ============ 2D video ============== #
+    # get image
+    If = v_front.get_frame(frame)[:,:,0]
+    It = v_top.get_frame(frame)[:,:,0]
+    I = np.concatenate([If,It],axis=1)
 
-        If = v_front.get_frame(frame)[:,:,0]
-        It = v_top.get_frame(frame)[:,:,0]
-        I = np.concatenate([If,It],axis=1)
-        axVid.cla()
-        axVid.imshow(I,cmap='gray')
-        axVid.set_xticklabels([])
-        axVid.set_yticklabels([])
-        axVid.grid('off')
-        axVid.set_title('2D video in Front and Top')
+    # plot and format axes of 2D vid
+    axVid.cla()
+    axVid.imshow(I,cmap='gray')
+    axVid.set_xticklabels([])
+    axVid.set_yticklabels([])
+    axVid.grid('off')
+    axVid.set_title('2D video in Front and Top')
 
-        # plot 3D whisker and contact point
-        xx,yy,zz = get_whisker_3D_pts(dat3D,frame)
-        xcp = Xcp[frame-HISTORY:frame]
-        ycp = Ycp[frame-HISTORY:frame]
-        zcp = Zcp[frame-HISTORY:frame]
+    # ============= plot 3D whisker and contact point ========================
 
-        ax3.cla()
-        ax3.plot((xx-xx[0])*1000,(yy-yy[0])*1000,(zz-zz[0])*1000,'k')
-        ax3.scatter(0, 0,0, 'o', c='r')
-        ax3.scatter((xcp-xx[0])*1000,(ycp-yy[0])*1000,(zcp-zz[0])*1000,'ko',c=np.linspace(0,0.3,HISTORY))
-        ax3.plot((Xcp[spike_frames]-xx[0])*1000,(Ycp[spike_frames]-yy[0])*1000,(Zcp[spike_frames]-zz[0])*1000,c='c',marker='o',alpha=0.25)
-        ax3.patch.set_facecolor('w')
-        ax3.view_init(15, 200)
-        ax3.w_xaxis.set_pane_color((0., 0., 0., 0.4))
-        ax3.w_yaxis.set_pane_color((0., 0., 0., 0.4))
-        ax3.w_zaxis.set_pane_color((0., 0., 0., 0.4))
+    # grab 3D points for whisker and contact point history
+    xx,yy,zz = get_whisker_3D_pts(dat_3D, frame)
+    xcp = Xcp[frame-HISTORY:frame]
+    ycp = Ycp[frame-HISTORY:frame]
+    zcp = Zcp[frame-HISTORY:frame]
 
-        ax3.set_title('3D whisker shape')
-        ax3.set_xlabel('X(mm)',labelpad=10)
-        ax3.set_ylabel('Y(mm)',labelpad=10)
-        ax3.set_zlabel('Z(mm)',labelpad=10)
+    # plot and format 3D whisker shape plotting.
+    #       Multiplying by 1000 to convert meters to mm
+    ax3.cla()
+    # 3D whisker
+    ax3.plot((xx-xx[0])*1000,(yy-yy[0])*1000,(zz-zz[0])*1000,'k')
+    # Basepoint
+    ax3.scatter(0, 0,0, 'o', c='r')
+    # Contact point history
+    ax3.scatter((xcp-xx[0])*1000,(ycp-yy[0])*1000,(zcp-zz[0])*1000,'ko',c=np.linspace(0,0.3,HISTORY))
+    # Contact point when a spike occured
+    ax3.plot((Xcp[spike_frames]-xx[0])*1000,(Ycp[spike_frames]-yy[0])*1000,(Zcp[spike_frames]-zz[0])*1000,c='r',marker='o',alpha=0.05)
+    ax3.patch.set_facecolor('w')
+    ax3.view_init(15, 200) # Rotate plot for better view
 
-        ax3.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        ax3.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        ax3.zaxis.set_major_formatter(FormatStrFormatter('%.0f'))
-        ax3.set_xlim([bds['minx']*1000,bds['maxx']*1000])
-        ax3.set_ylim([bds['miny']*1000, bds['maxy']*1000])
-        ax3.set_zlim([bds['minz']*1000, bds['maxz']*1000])
+    # set background color
+    ax3.w_xaxis.set_pane_color((0., 0., 0., 0.4))
+    ax3.w_yaxis.set_pane_color((0., 0., 0., 0.4))
+    ax3.w_zaxis.set_pane_color((0., 0., 0., 0.4))
 
-        plt.axis('equal')
-        # =========
-        # NEED TO GET MINMAX BOUNDARIES
-        ms_idx = get_ms_idx(dat3D,frame,t_range=250)
-        axMech.cla()
+    # labeling
+    ax3.set_title('3D whisker shape')
+    ax3.set_xlabel('X(mm)',labelpad=10)
+    ax3.set_ylabel('Y(mm)',labelpad=10)
+    ax3.set_zlabel('Z(mm)',labelpad=10)
 
-        axMech.set_xlim([ms_idx[0],ms_idx[1]])
-        axMech.set_ylim([minM,maxM])
-        plt.axis('normal')
-        axMech.plot(np.arange(ms_idx[0],ms_idx[1]),M[ms_idx[0]:ms_idx[1],:])
+    # format numbers of labels
+    ax3.xaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    ax3.yaxis.set_major_formatter(FormatStrFormatter('%.0f'))
+    ax3.zaxis.set_major_formatter(FormatStrFormatter('%.0f'))
 
-        sp_idx = np.logical_and(sp_1k>ms_idx[0],sp_1k<ms_idx[1])
-        axMech.vlines(sp_1k[sp_idx],axMech.get_ylim()[0],axMech.get_ylim()[1]/2,alpha=0.5)
-        axMech.vlines(dat3D['frametimes'][frame][0]*1000,axMech.get_ylim()[0],axMech.get_ylim()[1],colors='r',linestyles='dashed')
-        axMech.legend(['M$_x$','M$_y$','M$_z$','spikes'])
+    # set axes limits based on min-max extent of the whisker
+    ax3.set_xlim([bds['minx']*1000,bds['maxx']*1000])
+    ax3.set_ylim([bds['miny']*1000, bds['maxy']*1000])
+    ax3.set_zlim([bds['minz']*1000, bds['maxz']*1000])
 
-        axMech.set_title('Moment over time')
-        axMech.set_xlabel('Time (ms)')
-        axMech.set_ylabel('Moment (N-m)')
-        # plt.draw()
-        # plt.pause(0.001)
+    ax3.axis('equal')
+    # ========= Mechanics and spike =================== #
+    # get the indices in ms for the desired frame range.
+    # Since the frame data is sampled at 300/500 fps and the filtered mechanics are at 1000fps, need to use the
+    # time of the frames to index to the closest ms. This is approximate, and could be off by ~1ms in either direction.
+    ms_idx = get_ms_idx(dat_3D, frame, t_range=250)
 
-        writer.grab_frame()
+    # set up axes
+    axMech.cla()
+    axMech.axis('normal') # need to do this because of the previous call to equal axes?
+    axMech.set_xlim([ms_idx[0],ms_idx[1]])
+    axMech.set_ylim([minM,maxM])
+
+    # plot mechanics for the given time.
+    axMech.plot(np.arange(ms_idx[0],ms_idx[1]),M[ms_idx[0]:ms_idx[1],:])
+
+    # plot spikes for the given time
+    sp_idx = np.logical_and(sp_1k>ms_idx[0],sp_1k<ms_idx[1])
+    axMech.vlines(sp_1k[sp_idx],axMech.get_ylim()[0],axMech.get_ylim()[1]/2,alpha=0.5)
+
+    # plot a vertical line to indicate the current frame
+    axMech.vlines(dat_3D['frametimes'][frame][0] * 1000, axMech.get_ylim()[0], axMech.get_ylim()[1], colors='r', linestyles='dashed')
+
+    # labelling
+    axMech.legend(['M$_x$','M$_y$','M$_z$','spikes'])
+    axMech.set_title('Moment over time')
+    axMech.set_xlabel('Time (ms)')
+    axMech.set_ylabel('Moment (N-m)')
+
+    # save the image and iterate image number
+    plt.savefig(os.path.join(p_vid_save,f_vid_save+'{:05d}.png'.format(count)),dpi=300)
+    count+=1

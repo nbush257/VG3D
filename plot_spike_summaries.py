@@ -95,7 +95,7 @@ def main(p,file,save_path):
         plt.close('all')
 
 if __name__=='__main__':
-    p = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\data\NEO'
+    p = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\data'
     save_path = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\figs'
     files = glob.glob(os.path.join(p, '*.pkl'))
     for file in files:
