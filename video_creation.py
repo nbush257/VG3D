@@ -1,5 +1,10 @@
 import pims
+import math
+import pyaudio
 from scipy.io.matlab import loadmat
+from scipy.io import wavfile
+import scipy
+import subprocess
 from neo.io import PickleIO as PIO
 import numpy as np
 import matplotlib
@@ -13,16 +18,18 @@ import h5py
 from mpl_toolkits.mplot3d import Axes3D
 import seaborn as sns
 from matplotlib.ticker import FormatStrFormatter
+import pywt
 sns.set()
 
 RATNUM = '2017_08'
 WHISKER_ID = 'D1'
 TRIAL = 't01'
 CELL_NUM = 0
-START_FRAME = 10100
-STOP_FRAME = 20000
+START_FRAME = 10500
+STOP_FRAME = 15500
 FRAME_STEP = 1
 HISTORY = 10
+FPS = 50
 
 p_vid_save = r'C:\Users\guru\Desktop\test'
 p_vid_load = r'D:\VG3D\COMPRESSED'
@@ -31,6 +38,7 @@ p_3D_data = r'K:\VG3D\_E3D_PROC\_deflection_trials'
 
 
 f_vid_save = '{}{}{}c{}_example'.format(RATNUM,WHISKER_ID,TRIAL,CELL_NUM)
+
 #
 
 def get_whisker_2d_pts(h5_file,frame_no):
@@ -101,7 +109,27 @@ def get_spbool(dat_1K,cell_num=0):
     spbool = np.zeros([l,1],dtype='int')
     spbool[sp_1k]=1
     return spbool
-# ================================================================ #
+
+def gen_spike_track(dat_3D,frames,fps=50):
+    # fps is the desired framerate of the output video
+    output = np.array([],dtype = 'float32')
+    w_length=100
+    bitrate = 44100
+    length = 1./fps# length of a frame in seconds
+    num_samps_per_frame = int(bitrate*length)
+    spikeshape = pywt.ContinuousWavelet('mexh').wavefun(length=w_length)[0]
+    for ii,frame in enumerate(frames):
+        frame_sound = np.zeros(num_samps_per_frame,dtype='float32')
+        if spikes_in_frame(dat_3D, frame) > 0:
+            frame_sound[:w_length]=spikeshape
+        output = np.concatenate([output,frame_sound])
+    return output
+
+
+
+
+
+    # ================================================================ #
 
 f_vid_front_load = glob.glob(os.path.join(p_vid_load,'rat{}*VG_{}_{}_Front.mkv'.format(RATNUM,WHISKER_ID,TRIAL)))[0]
 f_vid_top_load = glob.glob(os.path.join(p_vid_load,'rat{}*VG_{}_{}_Top.mkv'.format(RATNUM,WHISKER_ID,TRIAL)))[0]
@@ -136,8 +164,10 @@ spbool = get_spbool(dat_1K,cell_num=CELL_NUM)
 
 # get moment and its bounds
 M = dat_1K['filtvars'][0]['M'][0]
-maxM = np.nanmax(np.nanmax(M[frames,:],axis=0))
-minM = np.nanmin(np.nanmin(M[frames,:],axis=0))
+temp1 = get_ms_idx(dat_3D,frames[0])[0]
+temp2 = get_ms_idx(dat_3D,frames[-1])[0]
+maxM = np.nanmax(np.nanmax(M[temp1:temp2,:],axis=0))
+minM = np.nanmin(np.nanmin(M[temp1:temp2,:],axis=0))
 
 # get a contact boolean
 Cbool = dat_1K['C'].ravel()
@@ -206,6 +236,7 @@ for frame in frames:
     # plot and format 3D whisker shape plotting.
     #       Multiplying by 1000 to convert meters to mm
     ax3.cla()
+    ax3.axis('equal')
     # 3D whisker
     ax3.plot((xx-xx[0])*1000,(yy-yy[0])*1000,(zz-zz[0])*1000,'k')
     # Basepoint
@@ -238,7 +269,7 @@ for frame in frames:
     ax3.set_ylim([bds['miny']*1000, bds['maxy']*1000])
     ax3.set_zlim([bds['minz']*1000, bds['maxz']*1000])
 
-    ax3.axis('equal')
+
     # ========= Mechanics and spike =================== #
     # get the indices in ms for the desired frame range.
     # Since the frame data is sampled at 300/500 fps and the filtered mechanics are at 1000fps, need to use the
@@ -262,7 +293,7 @@ for frame in frames:
     axMech.vlines(dat_3D['frametimes'][frame][0] * 1000, axMech.get_ylim()[0], axMech.get_ylim()[1], colors='r', linestyles='dashed')
 
     # labelling
-    axMech.legend(['M$_x$','M$_y$','M$_z$','spikes'])
+    axMech.legend(['M$_x$','M$_y$','M$_z$','spikes'],loc=1,labelspacing=0)
     axMech.set_title('Moment over time')
     axMech.set_xlabel('Time (ms)')
     axMech.set_ylabel('Moment (N-m)')
@@ -270,3 +301,21 @@ for frame in frames:
     # save the image and iterate image number
     plt.savefig(os.path.join(p_vid_save,f_vid_save+'{:05d}.png'.format(count)),dpi=300)
     count+=1
+
+audio = gen_spike_track(dat_3D,frames,fps=FPS)
+wavfile.write(os.path.join(p_vid_save,f_vid_save+'.wav'),44100,audio)
+subprocess.call(['ffmpeg',
+                 '-f','image2',
+                 '-r',str(FPS),
+                 '-i',os.path.join(p_vid_save,f_vid_save+'%05d.png'),
+                 '-i',os.path.join(p_vid_save,f_vid_save+'.wav'),
+                 '-c:v','libx264',
+                 '-c:a','libvo_aacenc',
+                 '-y',
+                 os.path.join(p_vid_save,f_vid_save+'.mp4')
+                 ]
+                )
+# remove all pngs
+for item in os.listdir(p_vid_save):
+    if item.endswith('.png') or item.endswith('.wav'):
+        os.remove(os.path.join(p_vid_save,item))
