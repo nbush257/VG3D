@@ -120,8 +120,9 @@ def gen_spike_track(dat_3D,frames,fps=50):
     spikeshape = pywt.ContinuousWavelet('mexh').wavefun(length=w_length)[0]
     for ii,frame in enumerate(frames):
         frame_sound = np.zeros(num_samps_per_frame,dtype='float32')
-        if spikes_in_frame(dat_3D, frame) > 0:
-            frame_sound[:w_length]=spikeshape
+        num_spikes = spikes_in_frame(dat_3D, frame)
+        if  num_spikes> 0:
+            frame_sound[:w_length*num_spikes]=np.tile(spikeshape,num_spikes).ravel()
         output = np.concatenate([output,frame_sound])
     return output
 
