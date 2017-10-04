@@ -1,5 +1,6 @@
 from neo_utils import *
 from spikeAnalysis import *
+from mechanics import *
 import numpy as np
 from scipy.io.matlab import loadmat, savemat
 from neo.core import SpikeTrain
@@ -106,25 +107,23 @@ def bayes_plots(var1,var2,b,bins=None):
     fig.colorbar(cf)
     ax.set_aspect('equal')
 
+
 def plot_summary(blk,cell_no,p_save):
     plotMD=True
     plotMB=True
     plotbayes=True
-    root = blk.annotations['ratnum']+blk.annotations['whisker']+'c{:01d}'.format(cell_no)
+    root = get_root(blk,cell_no)
     cell_str = 'cell_{}'.format(cell_no)
-    M = get_var(blk,'M')[0]
-    MD = np.arctan2(M[:,2],M[:,1])
-    MB = np.sqrt(M[:,1]**2+M[:,2]**2)
 
+    M = get_var(blk,'M')[0]
+    MB,MD = get_MB_MD(M)
     sp = concatenate_sp(blk)
     st = sp[cell_str]
     kernel = elephant.kernels.GaussianKernel(5*pq.ms)
     b = binarize(st,sampling_rate=pq.kHz)
     r = np.array(instantaneous_rate(st,sampling_period=pq.ms,kernel =kernel)).ravel()
     trains = get_contact_sliced_trains(blk)
-    trains = trains[2][cell_str]
 
-    b = b.astype('float')[:-1]
 
     if plotMD:
         get_MD_tuning_curve(MD,r,nbins=100)

@@ -7,6 +7,7 @@ import matplotlib.ticker as ticker
 from sklearn.preprocessing import scale
 from neo_utils import *
 
+''' this module needs cleanup'''
 def get_analog_contact(var, cc):
     ''' this gets the mean and min-max of a given analog signal in each contact interval'''
     print('Minmax only works for zero-centered data')
@@ -62,8 +63,17 @@ def create_heatmap(var1,var2,bins,C,r):
 
     plt.colorbar()
 
-def get_derivs():
-    D = np.sqrt(TH ** 2 + PHIE ** 2 + Rcp ** 2)
+def get_deriv(var):
+    ''' returns the temporal derivative of a numpy array with time along the 0th axis'''
+    if var.ndim==1:
+        var = var[:,np.newaxis]
+    if var.shape[1]>var.shape[0]:
+        raise Warning('Matrix was wider than it is tall, are variables in the columns?')
+    # assumes a matrix or vector where the columns are variables
+    var_dot = np.diff(var,axis=0)
+    zero_pad = np.zeros([1,var.shape[1]],dtype='f8')
+    return(np.concatenate([zero_pad,var_dot],axis=0))
+
 
 def epoch_to_cc(epoch):
     ''' take a NEO epoch represneting contacts and turn it into an Nx2 matrix which
@@ -74,6 +84,7 @@ def epoch_to_cc(epoch):
 
     print('cc is in {}'.format(epoch.units))
     return cc.astype('int64')
+
 
 def categorize_deflections(blk):
     plot_tgl=1
@@ -100,3 +111,9 @@ def categorize_deflections(blk):
         ax.scatter(X[:,4], X[:,2], X[:,3],c = labels,cmap='hsv')
 
 
+def get_MB_MD(M):
+    ''' eventually deve'op this to take neo signals'''
+    MD = np.arctan2(M[:, 2], M[:, 1])
+    MB = np.sqrt(M[:, 1] ** 2 + M[:, 2] ** 2)
+
+    return (MB, MD)

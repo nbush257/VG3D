@@ -15,6 +15,7 @@ def make_tensor(timeseries, window_size=16):
         X[ii,:,:] = timeseries[ii-window_size:ii,:]
     return X
 
+
 def reshape_tensor(X):
     if X.ndim!=3:
         raise ValueError('Input tensor needs to have three dimensions')
@@ -24,6 +25,7 @@ def reshape_tensor(X):
     X2 = X.reshape([-1, new_ndims])
     X2 = X2[:,np.argsort(pos)]
     return X2
+
 
 def get_design_matrix(X,y,Cbool):
     if y.ndim==1:

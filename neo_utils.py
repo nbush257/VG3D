@@ -26,6 +26,7 @@ def get_var(blk,varname='M',join=True,keep_neo=False):
     else:
         return var
 
+
 def concatenate_sp(blk):
     ''' takes a block and concatenates the spiketrains for each unit across segments'''
     sp = {}
@@ -40,6 +41,7 @@ def concatenate_sp(blk):
         sp[unit.name] = SpikeTrain(sp[unit.name], t_stop = t_start)
     return sp
 
+
 def replace_NaNs(var,mode='zero'):
     if mode=='zero':
         var[np.isnan(var)]=0
@@ -52,6 +54,7 @@ def replace_NaNs(var,mode='zero'):
         var=np.delete(var,np.where(idx)[0],axis=0)
     else:
         raise ValueError('Wrong mode indicated. May want to impute NaNs in some instances')
+
 
 def create_unit_chan(blk):
     chx = ChannelIndex(0,name='Units')
@@ -67,6 +70,7 @@ def create_unit_chan(blk):
             chx.units[ii].spiketrains.append(train)
     blk.channel_indexes.append(chx)
 
+
 def create_analog_chan(blk):
     '''maps the mechanical and kinematic signals to a channel index.'''
     varnames = ['M','F','PHIE','TH','Rcp','THcp','PHIcp']
@@ -77,9 +81,11 @@ def create_analog_chan(blk):
         for chx,sig in zip(blk.channel_indexes,seg.analogsignals):
             chx.analogsignals.append(sig)
 
+
 def add_channel_indexes(blk):
     create_analog_chan(blk)
     create_unit_chan(blk)
+
 
 def get_Cbool(blk):
     Cbool = np.array([],dtype='bool')
@@ -94,5 +100,10 @@ def get_Cbool(blk):
         Cbool = np.concatenate([Cbool,seg_bool])
     return Cbool
 
-# # This code below might be useful for contact psths
 
+def get_root(blk,cell_no):
+    return blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no)
+
+
+
+def
