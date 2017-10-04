@@ -8,7 +8,7 @@ import neo
 import quantities as pq
 import elephant
 import sys
-from neo.io import PickleIO as NIO
+from neo.io import PickleIO as PIO
 import math
 import glob
 import os
@@ -106,11 +106,10 @@ def bayes_plots(var1,var2,b,bins=None):
     fig.colorbar(cf)
     ax.set_aspect('equal')
 
-def plot_summary(blk,cell_no):
+def plot_summary(blk,cell_no,p_save):
     plotMD=True
     plotMB=True
     plotbayes=True
-    p_save = r'C:\Users\guru\Desktop\test'
     root = blk.annotations['ratnum']+blk.annotations['whisker']+'c{:01d}'.format(cell_no)
     cell_str = 'cell_{}'.format(cell_no)
     M = get_var(blk,'M')[0]
@@ -152,12 +151,13 @@ def plot_summary(blk,cell_no):
 
 
 if __name__=='__main__':
-    p = r'C:\Users\guru\Box Sync\__VG3D\_E3D_1K\deflection_trials'
+    p = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\data'
+    p_save = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\figs'
     for file in glob.glob(p+'\*.pkl'):
         print(file)
-        fid = NIO(os.path.join(p, file))
+        fid = PIO(os.path.join(p, file))
         blk = fid.read_block()
         for cell_no,cell in enumerate(blk.channel_indexes[-1].units):
-            plot_summary(blk,cell_no)
+            plot_summary(blk,cell_no,p_save)
 
 

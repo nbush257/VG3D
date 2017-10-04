@@ -11,10 +11,11 @@ sns.set()
 
 
 def main(p,file,save_path):
-
+    pre = 10*pq.ms
+    post = 10*pq.ms
     fid = PIO(file)
     blk = fid.read_block()
-    FR,ISI,contact_trains = get_contact_sliced_trains(blk)
+    FR,ISI,contact_trains = get_contact_sliced_trains(blk,pre=pre,post=post)
     binsize = 2*pq.ms
     for unit in blk.channel_indexes[-1].units:
         root = blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{}'.format(unit.name[-1])
@@ -36,7 +37,8 @@ def main(p,file,save_path):
         ## calculate data for PSTH
         b,durations = get_binary_trains(contact_trains[unit.name])
         b_times = np.where(b)[1] * pq.ms#interval.units
-        PSTH,t_edges = np.histogram(b_times,bins=np.arange(0,np.max(durations),float(binsize)))
+        b_times-=pre
+        PSTH,t_edges = np.histogram(b_times,bins=np.arange(-np.array(pre),np.max(durations)+np.array(post),float(binsize)))
         plt.bar(t_edges[:-1],
                 PSTH.astype('f8')/len(durations)/binsize*1000,
                 width=float(binsize),

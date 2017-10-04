@@ -113,3 +113,30 @@ def conv_model(X,y,cbool):
     model.add(Activation('sigmoid'))
     model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
     model.fit(X[idx,:], y[idx], epochs=5, batch_size=32, validation_split=0.33)
+
+def make_bases(num_bases,t1=0,length =10,a=1,b=1):
+    def f_t(phi, l=10, a=1, b=1):
+        # implementation of raised cosine basis
+        t = np.arange(l)
+        f = 0.5 * (
+            1 + np.cos(
+                a * np.log(t + b) - phi
+            )
+        )
+        idx = np.logical_and((np.log(t+b)<=((np.pi+phi)/a)), (np.log(t+b)>=((-np.pi+phi)/a)))
+        f[np.invert(idx)]=0
+        return f
+
+    #init bases matrix
+    bases = np.zeros([length, num_bases])
+
+    #init phi
+    phi_l=np.zeros(num_bases)
+    phi_l[0]=a*np.log(t1+b)
+
+    for ii in xrange(1,num_bases):
+        phi_l[ii] = phi_l[ii-1]+np.pi/2
+
+    for ii in xrange(num_bases):
+        bases[:,ii]=f_t(phi_l[ii],length,a=a,b=b)
+    return bases

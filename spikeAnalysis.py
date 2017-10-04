@@ -30,8 +30,15 @@ def correlate_to_stim(sp_neo,var,kernel_sigmas,mode='g'):
     return(corr_,kernel_sigmas)
 
 
-def get_contact_sliced_trains(blk):
-    '''returns mean_fr,ISIs,spiketrains for each contact interval for each cell'''
+def get_contact_sliced_trains(blk,pre=0.,post=0.):
+    '''returns mean_fr,ISIs,spiketrains for each contact interval for each cell
+    pre is the number of milliseconds prior to contact onset to grab: particularly useful for PSTH
+    post is the number of milliseconds after contact to grab'''
+    if type(pre)!=pq.quantity.Quantity:
+        pre*=pq.ms
+    if type(post) != pq.quantity.Quantity:
+        post *= pq.ms
+
     ISI = {}
     ISI_units = pq.ms
     contact_trains = {}
@@ -45,7 +52,7 @@ def get_contact_sliced_trains(blk):
             epoch = seg.epochs[0]
             seg_fr = np.zeros([len(epoch), 1], dtype='f8')*FR_units
             for ii,(start,dur) in enumerate(zip(epoch.times,epoch.durations)):
-                train_slice = train.time_slice(start, start + dur)
+                train_slice = train.time_slice(start-pre, start + dur+post)
                 if len(train_slice)>0:
                     seg_fr[ii] = mean_firing_rate(train_slice)
                 if len(train_slice)>2:

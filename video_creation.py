@@ -21,12 +21,12 @@ from matplotlib.ticker import FormatStrFormatter
 import pywt
 sns.set()
 
-RATNUM = '2017_08'
-WHISKER_ID = 'D1'
+RATNUM = '2017_03'
+WHISKER_ID = 'B1'
 TRIAL = 't01'
 CELL_NUM = 0
-START_FRAME = 10500
-STOP_FRAME = 15500
+START_FRAME = 189700
+STOP_FRAME = START_FRAME+1000
 FRAME_STEP = 1
 HISTORY = 10
 FPS = 50
