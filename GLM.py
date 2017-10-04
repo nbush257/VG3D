@@ -92,6 +92,7 @@ def split_pos_neg(var):
         var_out[idx_neg, (ii+var.shape[1])] = var[idx_neg, ii]
     return var_out
 
+
 def conv_model(X,y,cbool):
     # set y
     if y.ndim==1:
@@ -114,29 +115,45 @@ def conv_model(X,y,cbool):
     model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
     model.fit(X[idx,:], y[idx], epochs=5, batch_size=32, validation_split=0.33)
 
-def make_bases(num_bases,t1=0,length =10,a=1,b=1):
-    def f_t(phi, l=10, a=1, b=1):
-        # implementation of raised cosine basis
-        t = np.arange(l)
-        f = 0.5 * (
-            1 + np.cos(
-                a * np.log(t + b) - phi
-            )
-        )
-        idx = np.logical_and((np.log(t+b)<=((np.pi+phi)/a)), (np.log(t+b)>=((-np.pi+phi)/a)))
-        f[np.invert(idx)]=0
-        return f
 
-    #init bases matrix
-    bases = np.zeros([length, num_bases])
+def make_bases(num_bases,endpoints,b=1):
+    ''' ported from the neuroGLM toolbox. 
+    returns:
+        Bases,centers,and time vector    
+    '''
+    binsize=1
+    endpoints = np.asarray(endpoints)
+    nlin = lambda x: np.log(x+1e-20)
+    invnl = lambda x: np.exp(x)-1e-20
 
-    #init phi
-    phi_l=np.zeros(num_bases)
-    phi_l[0]=a*np.log(t1+b)
+    yrange = nlin(endpoints+b)
+    db = np.diff(yrange)/(num_bases-1)
+    ctrs = np.arange(yrange[0],yrange[1]+.1,db)
+    mxt = invnl(yrange[-1]+2*db)-b
+    iht = np.arange(0,mxt,binsize)
+    bases = []
 
-    for ii in xrange(1,num_bases):
-        phi_l[ii] = phi_l[ii-1]+np.pi/2
+    def f_t(x,c,dc):
+        a1 = (x-c)*np.pi/dc/2
+        a1[a1>np.pi]=np.pi
+        a1[a1<-np.pi]=-np.pi
+        return (np.cos(a1)+1)/2
 
-    for ii in xrange(num_bases):
-        bases[:,ii]=f_t(phi_l[ii],length,a=a,b=b)
-    return bases
+    xx = np.matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
+    cc = np.matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
+
+    return(f_t(xx,cc,db),ctrs,iht)
+
+
+def apply_bases(X,bases):
+    np.flipud(bases)
+    if np.any(np.isnan(X)):
+        raise Warning('input contains NaNs. some timepoints will lose data')
+
+    X_out = np.zeros([X.shape[0],X.shape[1]*bases.shape[1]])
+
+    for ii in xrange(X.shape[1]):
+        for jj in xrange(bases.shape[1]):
+            temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
+            X_out[:,ii*X.shape[1]+jj] = temp[:X.shape[0]]
+    return(X_out)
