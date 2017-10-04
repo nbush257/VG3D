@@ -21,6 +21,7 @@ import elephant
 from matplotlib.ticker import MaxNLocator
 from sklearn.neighbors import KernelDensity as KD
 from statsmodels.nonparametric.smoothers_lowess import lowess
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 sns.set()
 
 
@@ -67,7 +68,7 @@ def get_MB_tuning_curve(MB,b,nbins=100):
     ax.set_title('Probability of a spike given Bending Moment')
     return ax
 
-def bayes_plots(var1,var2,b,bins=None):
+def bayes_plots(var1,var2,b,bins=None,ax=None):
     # bin_size = 5e-9
     if type(bins)==int:
         nbins = bins
@@ -99,13 +100,17 @@ def bayes_plots(var1,var2,b,bins=None):
     idx_mask = np.logical_or(np.isnan(H_bayes),H_prior.T<1)
     H_bayesm = np.ma.masked_where(idx_mask,H_bayes)
     X,Y = np.meshgrid(x_edges,y_edges)
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    if ax==None:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
     levels = MaxNLocator(nbins=30).tick_values(H_bayesm.min(), H_bayesm.max())
     cf = ax.contourf(x_edges[:-1], y_edges[:-1], H_bayesm, levels=levels, cmap='OrRd')
     # pmesh = ax.pcolormesh(x_edges,y_edges,H_bayesm,cmap='OrRd')
-    fig.colorbar(cf)
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+    plt.colorbar(cf,cax=cax)
     ax.set_aspect('equal')
+    return ax
 
 
 def plot_summary(blk,cell_no,p_save):

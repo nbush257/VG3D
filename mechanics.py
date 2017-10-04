@@ -5,6 +5,7 @@ import seaborn as sns
 import sklearn
 import matplotlib.ticker as ticker
 from sklearn.preprocessing import scale
+from scipy.signal import savgol_filter
 from neo_utils import *
 
 ''' this module needs cleanup'''
@@ -63,16 +64,20 @@ def create_heatmap(var1,var2,bins,C,r):
 
     plt.colorbar()
 
-def get_deriv(var):
+def get_deriv(var,smooth=False):
     ''' returns the temporal derivative of a numpy array with time along the 0th axis'''
     if var.ndim==1:
         var = var[:,np.newaxis]
     if var.shape[1]>var.shape[0]:
         raise Warning('Matrix was wider than it is tall, are variables in the columns?')
     # assumes a matrix or vector where the columns are variables
-    var_dot = np.diff(var,axis=0)
-    zero_pad = np.zeros([1,var.shape[1]],dtype='f8')
-    return(np.concatenate([zero_pad,var_dot],axis=0))
+    if smooth:
+        var = savgol_filter(var,window_length=21)
+
+    zero_pad = np.zeros([1, var.shape[1]], dtype='f8')
+    var = np.concatenate([zero_pad, var], axis=0)
+
+    return np.diff(var,axis=0)
 
 
 def epoch_to_cc(epoch):
