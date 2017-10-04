@@ -105,5 +105,3 @@ def get_root(blk,cell_no):
     return blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no)
 
 
-
-def
