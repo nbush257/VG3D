@@ -73,8 +73,11 @@ def bayes_plots(var1,var2,b,bins=None,ax=None):
     if type(bins)==int:
         nbins = bins
         bins=None
+    elif type(bins)==list:
+        pass
     else:
         nbins = 50
+
 
     idx = np.isfinite(var1) & np.isfinite(var2)
     if bins == None:
@@ -104,11 +107,11 @@ def bayes_plots(var1,var2,b,bins=None,ax=None):
         fig = plt.figure()
         ax = fig.add_subplot(111)
     levels = MaxNLocator(nbins=30).tick_values(H_bayesm.min(), H_bayesm.max())
-    cf = ax.contourf(x_edges[:-1], y_edges[:-1], H_bayesm, levels=levels, cmap='OrRd')
-    # pmesh = ax.pcolormesh(x_edges,y_edges,H_bayesm,cmap='OrRd')
+    # cf = ax.contourf(x_edges[:-1], y_edges[:-1], H_bayesm, levels=levels, cmap='OrRd')
+    pmesh = ax.pcolormesh(x_edges,y_edges,H_bayesm,cmap='OrRd')
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(cf,cax=cax)
+    plt.colorbar(pmesh,cax=cax)
     ax.set_aspect('equal')
     return ax
 

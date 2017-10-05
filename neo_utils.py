@@ -3,6 +3,7 @@ from neo.core import Block,ChannelIndex,Unit,SpikeTrain
 from elephant.conversion import binarize
 import quantities as pq
 import numpy as np
+import scipy
 
 def get_var(blk,varname='M',join=True,keep_neo=False):
     ''' use this utility to access an analog variable from all segments in a block easily
@@ -41,6 +42,28 @@ def concatenate_sp(blk):
         sp[unit.name] = SpikeTrain(sp[unit.name], t_stop = t_start)
     return sp
 
+def nan_helper(y):
+    """Helper to handle indices and logical indices of NaNs.
+
+    Input:
+        - y, 1d numpy array with possible NaNs
+    Output:
+        - nans, logical indices of NaNs
+        - index, a function, with signature indices= index(logical_indices),
+          to convert logical indices of NaNs to 'equivalent' indices
+    Example:
+       # linear interpolation of NaNs
+        nans, x= nan_helper(y)
+        y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+    """
+
+    return np.isnan(y), lambda z: z.nonzero()[0]
+def nan_bounds(var):
+    if var.ndim>1:
+        raise ValueError('input needs to be 1D')
+    nans = nan_helper(var)[0].astype('int')
+    d = np.diff(np.concatenate([[0],nans]))
+    return np.where(d==1)[0],np.where(d==-1)[0]
 
 def replace_NaNs(var,mode='zero'):
     if mode=='zero':
@@ -52,6 +75,23 @@ def replace_NaNs(var,mode='zero'):
     elif mode=='rm':
         idx = np.any(np.isnan(var),1)
         var=np.delete(var,np.where(idx)[0],axis=0)
+    elif mode=='interp':
+        for ii in xrange(var.shape[1]):
+            nans, x = nan_helper(var[:,ii])
+            var[nans,ii] = np.interp(x(nans), x(~nans), var[~nans,ii])
+    elif mode=='pchip':
+        pad=20
+        for ii in xrange(var.shape[1]):
+            starts,stops = nan_bounds(var[:,ii])
+            for start,stop in zip(starts,stops):
+                xi = np.concatenate([np.arange(start-pad,start),np.arange(stop,stop+pad)])
+                yi = var[xi,ii]
+
+                x = np.arange(start,stop)
+                y = scipy.interpolate.pchip_interpolate(xi,yi,x)
+
+
+
     else:
         raise ValueError('Wrong mode indicated. May want to impute NaNs in some instances')
 

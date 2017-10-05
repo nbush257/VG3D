@@ -5,9 +5,9 @@ import statsmodels.api as sm
 import elephant
 from scipy import corrcoef
 import quantities as pq
-from keras.models import Sequential
-from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation
-from keras.regularizers import l2,l1
+# from keras.models import Sequential
+# from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation
+# from keras.regularizers import l2,l1
 
 def make_tensor(timeseries, window_size=16):
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
@@ -95,27 +95,27 @@ def split_pos_neg(var):
     return var_out
 
 
-def conv_model(X,y,cbool):
-    # set y
-    if y.ndim==1:
-        y = y[:,np.newaxis]
-
-    yhat = np.empty_like(y).ravel()
-    yhat[:]=np.nan
-
-    # set non contact to zero
-    X[np.invert(Cbool),:,:]=0
-    idx = np.all(np.isfinite(X), axis=1)
-
-
-    input_shape = X.shape[1:3]
-
-    model = Sequential()
-    model.add(Convolution1D(1, 20, input_shape=input_shape))
-    model.add(Dense(1))
-    model.add(Activation('sigmoid'))
-    model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-    model.fit(X[idx,:], y[idx], epochs=5, batch_size=32, validation_split=0.33)
+# def conv_model(X,y,cbool):
+#     # set y
+#     if y.ndim==1:
+#         y = y[:,np.newaxis]
+#
+#     yhat = np.empty_like(y).ravel()
+#     yhat[:]=np.nan
+#
+#     # set non contact to zero
+#     X[np.invert(Cbool),:,:]=0
+#     idx = np.all(np.isfinite(X), axis=1)
+#
+#
+#     input_shape = X.shape[1:3]
+#
+#     model = Sequential()
+#     model.add(Convolution1D(1, 20, input_shape=input_shape))
+#     model.add(Dense(1))
+#     model.add(Activation('sigmoid'))
+#     model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+#     model.fit(X[idx,:], y[idx], epochs=5, batch_size=32, validation_split=0.33)
 
 
 def make_bases(num_bases,endpoints,b=1):
@@ -148,7 +148,6 @@ def make_bases(num_bases,endpoints,b=1):
 
 
 def apply_bases(X,bases):
-    np.flipud(bases)
     if np.any(np.isnan(X)):
         raise Warning('input contains NaNs. some timepoints will lose data')
 
@@ -157,5 +156,5 @@ def apply_bases(X,bases):
     for ii in xrange(X.shape[1]):
         for jj in xrange(bases.shape[1]):
             temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
-            X_out[:,ii*X.shape[1]+jj] = temp[:X.shape[0]]
+            X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
     return(X_out)
