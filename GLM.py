@@ -44,7 +44,7 @@ def run_GLM(X,y,Cbool):
     yhat[:] = np.nan
 
     # set non contact to zero
-    X[np.invert(Cbool),:]=0
+    # X[np.invert(Cbool),:]=0
     idx = np.all(np.isfinite(X), axis=1)
 
     link = sm.genmod.families.links.logit
@@ -78,7 +78,7 @@ def evaluate_correlation(yhat,sp,Cbool,sigma_vals=np.arange(2, 100, 2)):
 
     rr = []
     for sigma in sigma_vals:
-        kernel = elephant.kernels.RectangularKernel(sigma=sigma * pq.ms)
+        kernel = elephant.kernels.GaussianKernel(sigma=sigma * pq.ms)
         r = elephant.statistics.instantaneous_rate(sp, sampling_period=pq.ms, kernel=kernel)
         r_ = r.as_array().astype('f8')/1000
         rr.append(corrcoef(r_[idx].ravel(), yhat[idx])[1, 0])

@@ -11,7 +11,8 @@ import statsmodels.api as sm
 import elephant
 import pygam
 import glob
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import RobustScaler,StandardScaler
+
 sns.set()
 
 window_size=5
