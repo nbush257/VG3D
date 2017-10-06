@@ -16,11 +16,11 @@ from sklearn.preprocessing import RobustScaler,StandardScaler
 sns.set()
 
 window_size=5
-scale_tgl = True
-p=r''
-p_save=r''
+scale_tgl = False
+p=r'C:\Users\nbush257\Box Sync\__VG3D\deflection_trials\data'
+p_save=r'C:\Users\nbush257\Box Sync\__VG3D\deflection_trials\figs'
 sigma_vals = np.arange(2,100,2)
-B = make_bases(3,[0,5],b=2)
+B = make_bases(5,[0,15],b=2)
 all_corrs = {}
 all_corrs['GAM'] = []
 all_corrs['GLM'] = []

@@ -34,6 +34,7 @@ def get_design_matrix(X,y,Cbool):
 
 
 def run_GLM(X,y,Cbool):
+    nl = lambda z: 1/(1+np.exp(-z))
     if y.ndim==1:
         y = y[:,np.newaxis]
 
@@ -47,10 +48,10 @@ def run_GLM(X,y,Cbool):
     # X[np.invert(Cbool),:]=0
     idx = np.all(np.isfinite(X), axis=1)
 
-    link = sm.genmod.families.links.logit
-    glm_binom = sm.GLM(y,X,family=sm.families.Binomial(link=link),missing='drop')
+    link = sm.genmod.families.links.probit
+    glm_binom = sm.GLM(y,X,family=sm.families.Binomial(link),missing='drop')
     glm_result = glm_binom.fit()
-    yhat[idx] = -np.log(glm_result.predict(X[idx,:]))
+    yhat[idx] = nl(glm_result.predict(X[idx,:]))
 
     return yhat,glm_result
 
