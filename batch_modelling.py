@@ -64,52 +64,52 @@ for file in glob.glob(os.path.join(p,'*.pkl')):
         X[idx,:]=Xs[:,:]
 
     for unit in blk.channel_indexes[-1].units:
-        # try:
-        id = blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{}'.format(unit.name[-1])
-        sp = concatenate_sp(blk)[unit.name]
-        b = binarize(sp,sampling_rate=pq.kHz)[:-1]
-        y = b[:,np.newaxis].astype('f8')
+        try:
+            id = blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{}'.format(unit.name[-1])
+            sp = concatenate_sp(blk)[unit.name]
+            b = binarize(sp,sampling_rate=pq.kHz)[:-1]
+            y = b[:,np.newaxis].astype('f8')
 
-        # yhat_glm,glm = run_GLM(X_pillow,y,Cbool)
-        yhat_gam,gam = run_GAM(X,y,Cbool)
-        yhat_gam_deriv,gam_deriv = run_GAM(np.concatenate([X,Xdot],axis=1),y,Cbool)
+            yhat_glm,glm = run_GLM(X_pillow,y,Cbool)
+            yhat_gam,gam = run_GAM(X,y,Cbool)
+            yhat_gam_deriv,gam_deriv = run_GAM(np.concatenate([X,Xdot],axis=1),y,Cbool)
 
-        # corrs_glm = evaluate_correlation(yhat_glm,sp,Cbool,sigma_vals)
-        corrs_gam = evaluate_correlation(yhat_gam,sp,Cbool,sigma_vals)
-        corrs_gam_deriv = evaluate_correlation(yhat_gam_deriv,sp,Cbool,sigma_vals)
+            corrs_glm = evaluate_correlation(yhat_glm,sp,Cbool,sigma_vals)
+            corrs_gam = evaluate_correlation(yhat_gam,sp,Cbool,sigma_vals)
+            corrs_gam_deriv = evaluate_correlation(yhat_gam_deriv,sp,Cbool,sigma_vals)
 
-        # plt.plot(sigma_vals,corrs_glm)
-        plt.plot(sigma_vals,corrs_gam,'--')
-        plt.plot(sigma_vals,corrs_gam_deriv,'--')
+            plt.plot(sigma_vals,corrs_glm)
+            plt.plot(sigma_vals,corrs_gam,'--')
+            plt.plot(sigma_vals,corrs_gam_deriv,'--')
 
-        ax = plt.gca()
-        ax.set_ylim(-0.1,1)
-        ax.legend(['GAM','GAM w deriv'])
-        ax.set_xlabel('Gaussian Rate Kernel Sigma')
-        ax.set_ylabel('Pearson Correlation')
-        ax.set_title(id)
-        plt.savefig(os.path.join(p_save,'model_performance_{}.png'.format(id)), dpi=300)
-        plt.close('all')
+            ax = plt.gca()
+            ax.set_ylim(-0.1,1)
+            ax.legend(['GLM_pillow','GAM','GAM w deriv'])
+            ax.set_xlabel('Gaussian Rate Kernel Sigma')
+            ax.set_ylabel('Pearson Correlation')
+            ax.set_title(id)
+            plt.savefig(os.path.join(p_save,'model_performance_{}.png'.format(id)), dpi=300)
+            plt.close('all')
 
-        all_corrs['GAM'].append(corrs_gam)
-        # all_corrs['GLM'].append(corrs_glm)
-        all_corrs['GAM_deriv'].append(corrs_gam_deriv)
+            all_corrs['GAM'].append(corrs_gam)
+            all_corrs['GLM'].append(corrs_glm)
+            all_corrs['GAM_deriv'].append(corrs_gam_deriv)
 
-        # all_models['GLM'].append(glm)
-        all_models['GAM'].append(gam)
-        all_models['GAM_deriv'].append(gam_deriv)
+            all_models['GLM'].append(glm)
+            all_models['GAM'].append(gam)
+            all_models['GAM_deriv'].append(gam_deriv)
 
 
-        all_corrs['id'].append(id)
-        # except:
-        #     plt.close('all')
-        #     all_corrs['GAM'].append([])
-        #     all_corrs['GLM'].append([])
-        #     all_corrs['GAM_deriv'].append([])
-        #     all_models['GLM'].append([])
-        #     all_models['GAM'].append([])
-        #     all_models['GAM_deriv'].append([])
-        #     all_corrs['id'].append(id)
+            all_corrs['id'].append(id)
+        except:
+            plt.close('all')
+            all_corrs['GAM'].append([])
+            all_corrs['GLM'].append([])
+            all_corrs['GAM_deriv'].append([])
+            all_models['GLM'].append([])
+            all_models['GAM'].append([])
+            all_models['GAM_deriv'].append([])
+            all_corrs['id'].append(id)
 
 corr_save_name =os.path.join(p,'model_performance.pkl')
 with open(corr_save_name,'w') as data_fid:
