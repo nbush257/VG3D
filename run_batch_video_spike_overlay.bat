@@ -1,7 +1,6 @@
-cd /D L:\Users\guru\Documents\hartmann_lab\proc\VG3D
-SET MAT_PATH=C:\Users\guru\Desktop\test\neural\*.mat
-SET VID_PATH=C:\Users\guru\Desktop\test\video
-SET SAVE_PATH=C:\Users\guru\Desktop\test\save
+SET MAT_PATH=K:\VG3D\_E3D_PROC\_deflection_trials\*sorted.mat
+SET VID_PATH=D:\VG3D\COMPRESSED
+SET SAVE_PATH=K:\VG3D\neural_overlay_vids
 echo %MAT_PATH%
 
 for %%i in (%MAT_PATH%) do (
@@ -9,6 +8,6 @@ for %%i in (%MAT_PATH%) do (
 	
 	ipython overlay_spike_audio_video.py %%i %VID_PATH% %SAVE_PATH%
 	)
-cd /D C:\Users\guru\Desktop
+
 
 
