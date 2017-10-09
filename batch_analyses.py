@@ -82,7 +82,7 @@ def calculate_spike_stats(p,pre=10*pq.ms,post=10*pq.ms):
              )
 
 def main(argv=None):
-    if argv=None:
+    if argv==None:
         argv=sys.argv
     pickle_path = argv[1]
     calculate_spike_stats(pickle_path)

@@ -7,6 +7,7 @@ import os
 import sys
 import subprocess
 import shutil
+import glob
 
 
 
@@ -58,8 +59,8 @@ def create_file_info_dict(matfile,p_vid_load,p_vid_save=None,audiofile_path=None
 
 
 
-    out['tv_name'] = root + '_Top.mkv'
-    out['fv_name'] = root + '_Front.mkv'
+    out['tv_name'] = root + '_Top'
+    out['fv_name'] = root + '_Front'
     out['p_vid_save'] = p_vid_save
     out['p_vid_load'] = p_vid_load
     out['quality'] = str(quality)
@@ -85,10 +86,21 @@ def FFMPEG_calls(file_info_dict):
     acodec = file_info_dict['acodec']
     f_vid_save = file_info_dict['f_vid_save']
 
+    fv_name = glob.glob(os.path.join(p_vid_load, fv_name+'*'))
+    tv_name = glob.glob(os.path.join(p_vid_load, tv_name+'*'))
+
+    if len(fv_name)==0 or len(tv_name)==0:
+        print('Requested videos were not found')
+        return -1
+    else:
+        fv_name = fv_name[0]
+        tv_name = tv_name[0]
+
+
     subprocess.call(['ffmpeg',
                      '-r',str(FPS),
-                     '-i',os.path.join(p_vid_load,tv_name),
-                     '-i',os.path.join(p_vid_load,fv_name),
+                     '-i',tv_name,
+                     '-i',fv_name,
                      '-c:v','libx265',
                      '-filter_complex', '[0:v]pad=iw*2:ih[int];[int][1:v]overlay=W/2:0[vid]',
                      '-map', '[vid]',
@@ -108,6 +120,7 @@ def FFMPEG_calls(file_info_dict):
                      os.path.join(p_vid_save,'temp'+f_vid_save)
                      ]
                     )
+    return 0
 def main(argv=None):
     if argv is None:
         argv = sys.argv
@@ -119,19 +132,18 @@ def main(argv=None):
         p_vid_save = argv[3]
 
 
-    file_info_dict = create_file_info_dict(matfile, p_vid_load, p_vid_save=p_vid_save, audiofile_path=p_vid_save,
-                                           quality=8)
+    file_info_dict = create_file_info_dict(matfile, p_vid_load, p_vid_save=p_vid_save, audiofile_path=p_vid_save)
     f_vid_save = file_info_dict['f_vid_save']
     if os.path.isfile(os.path.join(p_vid_save,f_vid_save)):
         print('Target File Found, skipping...')
         return 0
-    if not os.path.isfile(os.path.join(p_vid_load,file_info_dict['fv_name'])) or not os.path.isfile(os.path.join(p_vid_load, file_info_dict['tv_name'])):
-        print('Requested videos were not found')
-        return 0
+
 
     create_audiofile(matfile,audiofile_path=p_vid_save)
 
-    FFMPEG_calls(file_info_dict)
+    ffmpeg_flag = FFMPEG_calls(file_info_dict)
+    if ffmpeg_flag!=0:
+        return 0
     os.remove(os.path.join(p_vid_save, f_vid_save))
     os.remove(os.path.join(file_info_dict['audiofile_path'], file_info_dict['audiofile_name']))
     shutil.move(os.path.join(p_vid_save,'temp'+f_vid_save),os.path.join(p_vid_save,f_vid_save))
