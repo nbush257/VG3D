@@ -56,24 +56,7 @@ def main(p,file,save_path):
         plt.savefig(os.path.join(save_path,root+'_PSTH.png'),dpi=300)
         plt.close('all')
         # ============================================
-        # PLOT PSTH ############ THIS SECTION FOR POSSIBLE NORMAILIZTION OF PSTH
-        #     weight_vec = np.array([])
-        # for ii, c in enumerate(durations):
-        #     weight_vec = np.concatenate([weight_vec, np.arange(0, c)]) * pq.ms
 
-            # bins = np.arange(0*pq.ms,np.max(durations)*pq.ms,binsize)
-        # PSTH,t_edges =np.histogram(b_times,bins=bins)
-        # bin_counts = np.histogram(weight_vec,bins=bins)[0]
-        #
-        # plt.bar(t_edges[:-1], PSTH,
-        #     width=binsize,
-        #     align='edge',
-        #     alpha=0.5)
-        # ax = plt.gca()
-        # ax.set_xlim(-15,thresh.__int__())
-        # ax.set_xlabel('Time (ms)')
-        # ax.set_ylabel('Spikes per bin')
-         # ========================================================================
         # PLOT ISIs
         plt.figure()
         thresh = 100 * pq.ms

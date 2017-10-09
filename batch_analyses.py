@@ -1,6 +1,6 @@
 import os
 import neo
-from neo.io import NeoMatlabIO as NIO
+from neo.io import PickleIO as PIO
 from elephant.statistics import isi,cv,lv
 import glob
 from neo_utils import *
@@ -9,99 +9,84 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import re
 
-# ================== BEGIN SPIKE STATS ================================#
-# This  section gets all the spike stats and puts them in one file
-p = r'C:\Users\guru\Box Sync\__VG3D\_E3D_1K\deflection_trials'
-file_list = glob.glob(os.path.join(p,'*NEO.mat'))
-all_ISI = {}
-all_CV = {}
-all_LV = {}
-all_latencies = {}
-all_trains = {}
-all_FR = {}
 
-for file in file_list:
-    print os.path.basename(file)
-    fid = NIO(os.path.join(p,file))
-    blk = fid.read_block()
-    add_channel_indexes(blk)
+def calculate_spike_stats(p,pre=10*pq.ms,post=10*pq.ms):
+    ''' takes all the pickle NEO files in a directory and computes:
+    ISI,CV,LV,latency,spikes trains,firing rate
+    for all the cells during individaul contact times.
+    '''
+    file_list = glob.glob(os.path.join(p,'*NEO.pkl'))
+    all_ISI = []
+    all_CV = []
+    all_LV = []
+    all_latencies = []
+    all_trains = []
+    all_FR = []
+    mean_CVs = []
+    mean_LVs= []
+    all_id = {}
+    count=0
+    # Loop over files and load
+    for file in file_list:
+        print os.path.basename(file)
+        fid = PIO(os.path.join(p,file))
+        blk = fid.read_block()
 
-    FRs, ISIs, trains = get_contact_sliced_trains(blk)
+        # loop over the units in a trail
+        for unit in blk.channel_indexes[-1].units:
 
-    for name,cell in ISIs.iteritems():
-        cname = os.path.splitext(os.path.basename(file))[0]
-        cname = re.search('^rat\d{4}_\d{2}_[A-Z]{3}\d{2}_VG_[A-Z]\d',cname).group()+'_'+name
+            # get the ID of the cell
+            root = get_root(blk,int(unit.name[-1]))
+            # get the spike trains, ISIs, and FRs from each contact interval
+            FR, ISI, trains = get_contact_sliced_trains(blk, unit, pre=pre, post=post)
+            # get the variation stats on each contact interval
+            CV_array,LV_array = get_CV_LV(ISI)
 
-        ISI = np.concatenate(cell) * cell[0].units
+            # get the latency to first spike of the contact.
+            # This will contain negative numbers because because
+            # we are considering spikes that occur in some pad before the "contact" as determined by NN
+            latency = np.empty(len(trains))
+            latency[:] = np.nan
+            for ii,train in enumerate(trains):
+                if len(train)>0:
+                    latency[ii] = train[0]-train.t_start-pre
+            latency = latency * train.units
 
-        CV = cv(ISI[np.isfinite(ISI)])
-        if len(ISI[np.isfinite(ISI)])==0:
-            LV = np.nan
-        else:
-            LV = lv(ISI[np.isfinite(ISI)].squeeze())
-        # output
-        all_ISI[cname] = ISI
-        all_CV[cname] = CV
-        all_LV[cname] = LV
-
-    for name, cell in trains.iteritems():
-        cname = os.path.splitext(os.path.basename(file))[0]
-        cname = re.search('^rat\d{4}_\d{2}_[A-Z]{3}\d{2}_VG_[A-Z]\d', cname).group() + '_' + name
-
-        latency = np.empty(len(cell))*pq.ms;latency[:]=np.NaN
-        all_trains[cname]=[]
-        for ii,contact in enumerate(cell):
-            if len(contact)>0:
-                latency[ii] = contact[0]-contact.t_start
-            all_trains[cname].append(contact)
-        all_latencies[cname] = latency
-    for name,cell in FRs.iteritems():
-        cname = os.path.splitext(os.path.basename(file))[0]
-        cname = re.search('^rat\d{4}_\d{2}_[A-Z]{3}\d{2}_VG_[A-Z]\d', cname).group() + '_'+ name
-        all_FR[cname] = cell
-
-# save_dict = {'all_FR':all_FR,
-#              'all_ISI':all_ISI,
-#              'all_CV':all_CV,
-#              'all_LV':all_LV,
-#              'all_latencies':all_latencies,
-#              'all_trains':all_trains}
-
-np.savez(os.path.join(p,'all_ISIs.npz'),
-         all_FR=all_FR,
-         all_ISI=all_ISI,
-         all_CV=all_CV,
-         all_LV=all_LV,
-         all_latencies=all_latencies,
-         all_trains=all_trains
-         )
+            # output to lists
+            all_ISI.append(ISI)
+            all_CV.append(CV_array)
+            all_LV.append(LV_array)
+            all_latencies.append(latency)
+            all_trains.append(trains)
+            all_FR.append(FR)
+            mean_CVs.append(np.nanmean(CV_array))
+            mean_LVs.append(np.nanmean(LV_array))
+            all_id[root]=count
+            count+=1
 
 
-# ================== END SPIKE STATS =================== #
-#
-#
-#
-## load and unpack
+
+    # save to npz
+    np.savez(os.path.join(p,'population_spike_stats.npz'),
+             all_FR=all_FR,
+             all_ISI=all_ISI,
+             all_CV=all_CV,
+             all_LV=all_LV,
+             all_latencies=all_latencies,
+             all_trains=all_trains,
+             all_id=all_id,
+             mean_CVs=mean_CVs,
+             mean_LVs=mean_LVs,
+             pre=pre,
+             post=post,
+             )
+
+def main(argv=None):
+    if argv=None:
+        argv=sys.argv
+    pickle_path = argv[1]
+    calculate_spike_stats(pickle_path)
 
 
-dat = r'C:\Users\guru\Box Sync\__VG3D\_E3D_1K\deflection_trials\all_ISIs.npz'
-dat = np.load(dat)
-all_trains = dat['all_trains'][()]
-all_ISI = dat['all_ISI'][()]
-all_CV = dat['all_CV'][()]
-all_LV = dat['all_LV'][()]
-all_latencies = dat['all_latencies'][()]
-all_FR = dat['all_FR'][()]
-
-
-CV = []
-LV = []
-latencies = []
-for name in all_CV.keys():
-    CV.append(all_CV[name])
-    LV.append(all_LV[name])
-    latencies.append(all_latencies[name][0])
-
-CV = np.array(CV)
-LV = np.array(LV)
-latencies = np.array(latencies)
+if __name__=='__main__':
+    sys.exit(main())

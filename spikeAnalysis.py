@@ -30,41 +30,51 @@ def correlate_to_stim(sp_neo,var,kernel_sigmas,mode='g'):
     return(corr_,kernel_sigmas)
 
 
-def get_contact_sliced_trains(blk,pre=0.,post=0.):
-    '''returns mean_fr,ISIs,spiketrains for each contact interval for each cell
+def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
+    '''returns mean_fr,ISIs,spiketrains for each contact interval for a given unit
+    May want to refactor to take a unit name rather than index? N
+    Need a block input to get the contact epochs
     pre is the number of milliseconds prior to contact onset to grab: particularly useful for PSTH
     post is the number of milliseconds after contact to grab'''
     if type(pre)!=pq.quantity.Quantity:
-        pre*=pq.ms
+        pre *= pq.ms
     if type(post) != pq.quantity.Quantity:
         post *= pq.ms
 
-    ISI = {}
+    # init units
     ISI_units = pq.ms
-    contact_trains = {}
-    FR = {}
     FR_units = 1/pq.s
-    for unit in blk.channel_indexes[-1].units:
-        FR[unit.name] = np.array([]).reshape(0, 0)*1/pq.s
-        tempPSTH =[]
-        tempISI = []
-        for train,seg in zip(unit.spiketrains,blk.segments):
-            epoch = seg.epochs[0]
-            seg_fr = np.zeros([len(epoch), 1], dtype='f8')*FR_units
-            for ii,(start,dur) in enumerate(zip(epoch.times,epoch.durations)):
-                train_slice = train.time_slice(start-pre, start + dur+post)
-                if len(train_slice)>0:
-                    seg_fr[ii] = mean_firing_rate(train_slice)
-                if len(train_slice)>2:
-                    intervals = isi(np.array(train_slice)*ISI_units)
-                else:
-                    intervals = [np.nan]*ISI_units
-                    # b = binarize(train_slice, sampling_rate=pq.kHz)
-                tempPSTH.append(train_slice)
-                tempISI.append(intervals)
-            FR[unit.name] = np.append(FR[unit.name], seg_fr) * FR_units
-        contact_trains[unit.name] = tempPSTH
-        ISI[unit.name] = tempISI
+
+    # init outputs
+    ISI = []
+    contact_trains = []
+    FR = np.array([]).reshape(0, 0)*1/pq.s
+
+    # loop over each segment
+    for train,seg in zip(unit.spiketrains,blk.segments):
+        epoch = seg.epochs[0]
+        # initialize the mean firing rates to zero
+        seg_fr = np.zeros([len(epoch), 1], dtype='f8')*FR_units
+        # loop over each contact epoch
+        for ii,(start,dur) in enumerate(zip(epoch.times,epoch.durations)):
+            # grab the spiketrain from contact onset to offset, with a pad
+            train_slice = train.time_slice(start-pre, start + dur+post)
+
+            # need one spike to calculate FR
+            if len(train_slice)>0:
+                seg_fr[ii] = mean_firing_rate(train_slice)
+
+            # need 3 spikes to get isi's
+            if len(train_slice)>2:
+                intervals = isi(np.array(train_slice)*ISI_units)
+            else:
+                intervals = [np.nan]*ISI_units
+            # add to lists
+            contact_trains.append(train_slice)
+            ISI.append(intervals)
+
+        FR = np.append(FR, seg_fr) * FR_units
+
     return FR,ISI,contact_trains
 
 
@@ -109,22 +119,17 @@ def get_binary_trains(trains,norm_length=True):
         return b
 
 
-def get_ISI_and_CV(blk,unit):
-    FR, ISI, contact_trains = get_contact_sliced_trains(blk)
-    all_isi = np.array([])
+def get_CV_LV(ISI):
+    ''' Given a list of ISIs, get the Coefficient of variation
+    and the local variation of each spike train. Generally a list of ISIs during contact epochs'''
     CV_array = np.array([])
     LV_array = np.array([])
-    for interval in ISI[unit.name]:
-        all_isi = np.concatenate([all_isi, interval])
+    for interval in ISI:
         if np.all(np.isfinite(interval)):
             CV_array = np.concatenate([CV_array, [cv(interval)]])
             LV_array = np.concatenate([LV_array, [lv(interval)]])
 
-    all_isi = all_isi * interval.units
-    CV_array = CV_array
-    CV = np.mean(CV_array)
-    LV = np.mean(LV_array)
-    return all_isi,CV_array
+    return CV_array,LV_array
 
 
 def get_PSTH(blk,unit):
