@@ -65,9 +65,9 @@ def main(argv=None):
         yhat['gam'],mdl['gam'] = run_GAM(X,y)
         yhat['gam_deriv'],mdl['gam_deriv'] = run_GAM(np.concatenate([X,Xdot],axis=1),y)
 
-        corrs['glm'] = evaluate_correlation(yhat_glm,sp,Cbool,sigma_vals)
-        corrs['gam'] = evaluate_correlation(yhat_gam,sp,Cbool,sigma_vals)
-        corrs['gam_deriv'] = evaluate_correlation(yhat_gam_deriv,sp,Cbool,sigma_vals)
+        corrs['glm'] = evaluate_correlation(yhat['glm'],sp,Cbool,sigma_vals)
+        corrs['gam'] = evaluate_correlation(yhat['gam'],sp,Cbool,sigma_vals)
+        corrs['gam_deriv'] = evaluate_correlation(yhat['gam_deriv'],sp,Cbool,sigma_vals)
 
         plt.plot(sigma_vals,corrs['glm'])
         plt.plot(sigma_vals,corrs['gam'],'--')
