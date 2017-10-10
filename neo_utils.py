@@ -4,6 +4,10 @@ from elephant.conversion import binarize
 import quantities as pq
 import numpy as np
 import scipy
+import elephant
+from neo.io import PickleIO as PIO
+from sklearn.preprocessing import StandardScaler
+
 
 def get_var(blk,varname='M',join=True,keep_neo=False):
     ''' use this utility to access an analog variable from all segments in a block easily
@@ -143,5 +147,28 @@ def get_Cbool(blk):
 
 def get_root(blk,cell_no):
     return(blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no))
+
+def import_data_to_model(file,vars=['M','F'],unit_idx=0):
+    ''' this is a utility to do all the common preprocessing steps I do for the modelling'''
+    fid = PIO(file)
+    blk = fid.read_block()
+    X = np.array([])
+    for var in vars:
+        if len(X)==0:
+            X = get_var(blk,var)[0]
+        else:
+            X = np.append(X,get_var(blk,var)[0],axis=1)
+    unit = blk.channel_indexes[-1].units[unit_idx]
+    sp = concatenate_sp(blk)[unit.name]
+    b = elephant.conversion.binarize(sp, sampling_rate=pq.kHz)[:-1]
+    y = b[:, np.newaxis].astype('f8')
+    Cbool = get_Cbool(blk)
+    X[np.invert(Cbool), :] = 0
+    replace_NaNs(X, 'pchip')
+    replace_NaNs(X, 'interp')
+    scaler = StandardScaler(with_mean=False)
+    X = scaler.fit_transform(X)
+
+    return X,y,b,sp,blk,Cbool
 
 

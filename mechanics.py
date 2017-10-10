@@ -81,7 +81,7 @@ def get_deriv(var,smooth=False):
 
 
 def epoch_to_cc(epoch):
-    ''' take a NEO epoch represneting contacts and turn it into an Nx2 matrix which
+    ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
     has contact onset in the first column and contact offset in the second.'''
     cc = np.empty([len(epoch),2])
     cc[:,0] = np.array(epoch.times).T
@@ -117,8 +117,10 @@ def categorize_deflections(blk):
 
 
 def get_MB_MD(M):
-    ''' eventually deve'op this to take neo signals'''
+    ''' eventually develop this to take neo signals'''
     MD = np.arctan2(M[:, 2], M[:, 1])
     MB = np.sqrt(M[:, 1] ** 2 + M[:, 2] ** 2)
 
     return (MB, MD)
+
+

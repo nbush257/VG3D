@@ -5,9 +5,21 @@ import statsmodels.api as sm
 import elephant
 from scipy import corrcoef
 import quantities as pq
-# from keras.models import Sequential
-# from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation
-# from keras.regularizers import l2,l1
+from neo.io import PickleIO as PIO
+import sys
+from numpy.random import binomial
+try:
+    from keras.models import Sequential
+    from keras.constraints import max_norm
+    from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation
+    from keras.regularizers import l2,l1
+    from keras.constraints import Constraint
+    import keras.backend as K
+    keras_tgl=True
+except ImportError:
+    keras_tgl=False
+
+
 
 def make_tensor(timeseries, window_size=16):
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
@@ -27,64 +39,109 @@ def reshape_tensor(X):
     return X2
 
 
-def get_design_matrix(X,y,Cbool):
+
+def run_GLM(X,y,family=None,link=None):
+    ''' Runs a Generalized linear model on the design matrix X given the target y.
+    This function adds its own constant term to the design matrix'''
+
+    # assumes Binomial distribution
+    if link==None:
+        link = sm.genmod.families.links.logit
+    if family==None:
+        family=sm.families.Binomial(link=link)
+
+    # make y a column vector
     if y.ndim==1:
         y = y[:,np.newaxis]
-    return X,y
 
-
-def run_GLM(X,y,Cbool):
-
-    if y.ndim==1:
-        y = y[:,np.newaxis]
-
+    # make y a float
     if y.dtype=='bool':
         y = y.astype('f8')
 
+    # init yhat
     yhat = np.empty_like(y).ravel()
     yhat[:] = np.nan
 
-    # set non contact to zero
-
+    # get nans so we dont predict on nans
     idx = np.all(np.isfinite(X), axis=1)
 
+    # add a constant term to the design matrix
     constant = np.ones([X.shape[0],1])
-    link = sm.genmod.families.links.logit
     X = np.concatenate([constant, X], axis=1)
-    glm_binom = sm.GLM(y,X,family=sm.families.Binomial(),missing='drop')
+
+    # fit and predict
+    glm_binom = sm.GLM(y,X,family=family,missing='drop')
     glm_result = glm_binom.fit()
     yhat[idx] = glm_result.predict(X[idx,:])
 
     return yhat,glm_result
 
 
-def run_GAM(X,y,Cbool,n_splines=15):
+def run_GAM(X,y,n_splines=15,distr='binomial',link='logit'):
+    ''' Run a Generalized additive model on the inputs.
+    This function does NOT add a constant, as I think pygam takes care of that.'''
+
+    # make y a column vector
     if y.ndim==1:
         y = y[:,np.newaxis]
 
+    # init yhat
     yhat = np.empty_like(y).ravel()
     yhat[:]=np.nan
 
-    X[np.invert(Cbool), :] = 0
+    # get idx of nans so we dont try to predict those
     idx = np.all(np.isfinite(X), axis=1)
 
-    gam = GAM(distribution='binomial', link='logit', n_splines=n_splines)
+    # init, fit, and predict othe GAM
+    gam = GAM(distribution=distr, link=link, n_splines=n_splines)
     gam.gridsearch(X[idx, :], y[idx])
     yhat[idx] = gam.predict(X[idx,:])
+
     return yhat,gam
 
 
-def evaluate_correlation(yhat,sp,Cbool,sigma_vals=np.arange(2, 100, 2)):
+def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
+    '''
+    Takes a predict spike rate and smooths the
+    observed spike rate at different values to find the optimal smoothing.
+
+    -- if a Cbool is passed, the calculation of the correlation only occurs during contact
+    -- kernel input is a string ('box','gaussian','exp','alpha','epan')
+
+    '''
+    def get_kernel(mode='box',sigma=5.):
+        ''' Get the kernel for a given mode and sigma'''
+        if mode=='box':
+            kernel = elephant.kernels.RectangularKernel(sigma=sigma * pq.ms)
+        elif mode=='gaussian':
+            kernel = elephant.kernels.GaussianKernel(sigma=sigma * pq.ms)
+        elif mode=='exp':
+            kernel = elephant.kernels.ExponentialKernel(sigma=sigma * pq.ms)
+        elif mode=='alpha':
+            kernel = elephant.kernels.AlphaKernel(sigma=sigma * pq.ms)
+        elif mode=='epan':
+            kernel = elephant.kernels.EpanechnikovLikeKernel(sigma=sigma * pq.ms)
+        else:
+            raise ValueError('Kernel mode is not a valid kernel')
+        return kernel
+
+    if Cbool==None:
+        Cbool=np.ones_like(yhat)
+
+
+    # only calculate correlation on non nans and contact(if desired)
     idx = np.logical_and(np.isfinite(yhat),Cbool)
     if type(sp)==dict:
         raise ValueError('Need to choose a cell from the spiketrain dict')
 
+    # calculate Pearson correlation for all smoothings
     rr = []
     for sigma in sigma_vals:
-        kernel = elephant.kernels.RectangularKernel(sigma=sigma * pq.ms)
-        r = elephant.statistics.instantaneous_rate(sp, sampling_period=pq.ms, kernel=kernel)
-        r_ = r.as_array().astype('f8')/1000
-        rr.append(corrcoef(r_[idx].ravel(), yhat[idx])[1, 0])
+        kernel =get_kernel(mode=kernel_mode,sigma=sigma)
+        # get rate, need to convert from a neo analog signal to a numpy float,
+        r = elephant.statistics.instantaneous_rate(sp, sampling_period=pq.ms, kernel=kernel).as_array().astype('f8')/1000
+
+        rr.append(corrcoef(r[idx].ravel(), yhat[idx])[1, 0])
     return rr
 
 
@@ -97,29 +154,63 @@ def split_pos_neg(var):
         var_out[idx_neg, (ii+var.shape[1])] = var[idx_neg, ii]
     return var_out
 
+if keras_tgl:
 
-# def conv_model(X,y,cbool):
-#     # set y
-#     if y.ndim==1:
-#         y = y[:,np.newaxis]
-#
-#     yhat = np.empty_like(y).ravel()
-#     yhat[:]=np.nan
-#
-#     # set non contact to zero
-#     X[np.invert(Cbool),:,:]=0
-#     idx = np.all(np.isfinite(X), axis=1)
-#
-#
-#     input_shape = X.shape[1:3]
-#
-#     model = Sequential()
-#     model.add(Convolution1D(1, 20, input_shape=input_shape))
-#     model.add(Dense(1))
-#     model.add(Activation('sigmoid'))
-#     model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-#     model.fit(X[idx,:], y[idx], epochs=5, batch_size=32, validation_split=0.33)
+    class NonPosLast(Constraint):
 
+        def __call__(self, w):
+            last_row = w[:,-1, :] * K.cast(K.less_equal(w[:,-1, :], 0.), K.floatx())
+            last_row = K.expand_dims(last_row, axis=1)
+            full_w = K.concatenate([w[:,:-1, :], last_row], axis=1)
+            return full_w
+
+    def conv_model(X,y,winsize):
+        # set y
+        if y.ndim==1:
+            y = y[:,np.newaxis]
+
+        yhat = np.empty_like(y).ravel()
+        yhat[:]=np.nan
+
+        idx = np.all(np.all(np.isfinite(X), axis=1), axis=1)
+
+        input_shape = X.shape[1:3]
+
+        model = Sequential()
+        model.add(Convolution1D(2,
+                                winsize,
+                                input_shape=input_shape,
+                                kernel_constraint=NonPosLast()
+                                )
+                  )
+        model.add(Activation('relu'))
+        model.add(Dropout(0.2))
+        model.add(Dense(1))
+        model.add(Activation('sigmoid'))
+        model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+        model.fit(X[idx,:,:], y[idx,:,:], epochs=2, batch_size=32, validation_split=0.33)
+        yhat[idx] = model.predict(X[idx,:,:])
+        return model,yhat
+
+    def sim_conv(model,X,num_sims = 5):
+        X[:,:,-1] = 0
+
+        hist = np.zeros([X.shape[1],num_sims])
+        yhat = np.empty([X.shape[0],num_sims])
+        yhat[:]=np.nan
+        is_spike = np.zeros(num_sims)
+        for timestep in xrange(X.shape[1],X.shape[0]):
+            if timestep%1000==0:
+                print 'Timestep = {}'.format(timestep)
+            tempX = X[timestep,:,:]
+            tempX = np.tile(tempX,[num_sims,1,1])
+            tempX[:,:,-1] = hist.T
+            activation = model.predict(tempX).squeeze()
+            for sim in xrange(num_sims):
+                is_spike[sim] = binomial(1,activation[sim],1)
+            hist=np.append(is_spike[np.newaxis,:],hist[:-1,:],axis=0)
+            yhat[timestep,:]=is_spike
+        return yhat
 
 def make_bases(num_bases,endpoints,b=1):
     ''' ported from the neuroGLM toolbox. 
@@ -161,3 +252,4 @@ def apply_bases(X,bases):
             temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
             X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
     return(X_out)
+
