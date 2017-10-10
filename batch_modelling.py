@@ -20,7 +20,8 @@ def main(argv=None):
     if argv==None:
         argv=sys.argv
     fname = argv[1]
-    p_save = argv[2]
+    p_save = os.path.split(fname)[0]
+
 
     sigma_vals = np.arange(2, 100, 2)
     B = make_bases(5, [0, 15], b=2)
@@ -52,6 +53,10 @@ def main(argv=None):
         corrs={}
 
         id =get_root(blk,int(unit.name[-1]))
+        f_save = os.path.join(p_save, 'model_results_{}.npz'.format(id))
+        if os.path.isfile(f_save):
+            continue
+
         sp = concatenate_sp(blk)[unit.name]
         b = binarize(sp,sampling_rate=pq.kHz)[:-1]
         y = b[:,np.newaxis].astype('f8')
@@ -76,7 +81,7 @@ def main(argv=None):
         ax.set_title(id)
         plt.savefig(os.path.join(p_save,'model_performance_{}.png'.format(id)), dpi=300)
         plt.close('all')
-        np.savez(os.path.join(p_save,'model_results_{}.npz'.format(id)),
+        np.savez(f_save,
                  corrs=corrs,
                  yhat=yhat,
                  sigma_vals=sigma_vals,
