@@ -11,31 +11,22 @@ import statsmodels.api as sm
 import elephant
 import pygam
 import glob
+import sys
 from sklearn.preprocessing import RobustScaler,StandardScaler
-
 sns.set()
 
-window_size=5
-scale_tgl = False
-p=r'D:\Users\NBUSH\Box Sync\__VG3D\deflection_trials\data'
-p_save=r'D:\Users\NBUSH\Box Sync\__VG3D\deflection_trials\figs'
-sigma_vals = np.arange(2,100,2)
-B = make_bases(5,[0,15],b=2)
-all_corrs = {}
-all_corrs['GAM'] = []
-all_corrs['GLM'] = []
-all_corrs['GAM_deriv'] = []
-all_corrs['id'] = []
-all_corrs['sigmas']=sigma_vals
-all_corrs['B'] = B
 
-all_models = {}
-all_models['GLM']=[]
-all_models['GAM']=[]
-all_models['GAM_deriv']=[]
-for file in glob.glob(os.path.join(p,'rat*.pkl')):
-    print(os.path.basename(file))
-    fid = PIO(file)
+def main(argv=None):
+    if argv==None:
+        argv=sys.argv
+    fname = argv[1]
+    p_save = argv[2]
+
+    sigma_vals = np.arange(2, 100, 2)
+    B = make_bases(5, [0, 15], b=2)
+
+    print(os.path.basename(fname))
+    fid = PIO(fname)
     blk = fid.read_block()
 
     M = get_var(blk,'M')[0]
@@ -50,68 +41,50 @@ for file in glob.glob(os.path.join(p,'rat*.pkl')):
 
     Xdot = get_deriv(X)
 
-
     X_pillow = apply_bases(X,B[0])
 
     scaler = StandardScaler(with_mean=False)
     X_pillow = scaler.fit_transform(X_pillow)
-    if scale_tgl:
-        scaler = RobustScaler()
-        idx = np.all(np.isfinite(X),axis=1)
-        Xs = X[idx,:]
-        Xs =scaler.fit_transform(Xs)
-        X[idx,:]=Xs[:,:]
 
     for unit in blk.channel_indexes[-1].units:
-        id = blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{}'.format(unit.name[-1])
+        yhat={}
+        mdl={}
+        corrs={}
+
+        id =get_root(blk,int(unit.name[-1]))
         sp = concatenate_sp(blk)[unit.name]
         b = binarize(sp,sampling_rate=pq.kHz)[:-1]
         y = b[:,np.newaxis].astype('f8')
 
-        yhat_glm,glm = run_GLM(X_pillow,y)
-        yhat_gam,gam = run_GAM(X,y)
-        yhat_gam_deriv,gam_deriv = run_GAM(np.concatenate([X,Xdot],axis=1),y,Cbool)
+        yhat['glm'],mdl['glm'] = run_GLM(X_pillow,y)
+        yhat['gam'],mdl['gam'] = run_GAM(X,y)
+        yhat['gam_deriv'],mdl['gam_deriv'] = run_GAM(np.concatenate([X,Xdot],axis=1),y)
 
-        corrs_glm = evaluate_correlation(yhat_glm,sp,Cbool,sigma_vals)
-        corrs_gam = evaluate_correlation(yhat_gam,sp,Cbool,sigma_vals)
-        corrs_gam_deriv = evaluate_correlation(yhat_gam_deriv,sp,Cbool,sigma_vals)
+        corrs['glm'] = evaluate_correlation(yhat_glm,sp,Cbool,sigma_vals)
+        corrs['gam'] = evaluate_correlation(yhat_gam,sp,Cbool,sigma_vals)
+        corrs['gam_deriv'] = evaluate_correlation(yhat_gam_deriv,sp,Cbool,sigma_vals)
 
-        plt.plot(sigma_vals,corrs_glm)
-        plt.plot(sigma_vals,corrs_gam,'--')
-        plt.plot(sigma_vals,corrs_gam_deriv,'--')
+        plt.plot(sigma_vals,corrs['glm'])
+        plt.plot(sigma_vals,corrs['gam'],'--')
+        plt.plot(sigma_vals,corrs['gam_deriv'],'--')
 
         ax = plt.gca()
         ax.set_ylim(-0.1,1)
-        ax.legend(['GLM_pillow','GAM','GAM w deriv'])
+        ax.legend(corrs.get_keys())
         ax.set_xlabel('Gaussian Rate Kernel Sigma')
         ax.set_ylabel('Pearson Correlation')
         ax.set_title(id)
         plt.savefig(os.path.join(p_save,'model_performance_{}.png'.format(id)), dpi=300)
         plt.close('all')
+        np.savez(os.path.join(p_save,'model_results_{}.npz'.format(id)),
+                 corrs=corrs,
+                 yhat=yhat,
+                 sigma_vals=sigma_vals,
+                 mdl=mdl,
+                 y=y,
+                 X=X,
+                 X_pillow=X_pillow,
+                 B=B)
 
-        all_corrs['GAM'].append(corrs_gam)
-        all_corrs['GLM'].append(corrs_glm)
-        all_corrs['GAM_deriv'].append(corrs_gam_deriv)
-
-        all_models['GLM'].append(glm)
-        all_models['GAM'].append(gam)
-        all_models['GAM_deriv'].append(gam_deriv)
-
-
-        all_corrs['id'].append(id)
-
-            # plt.close('all')
-            # all_corrs['GAM'].append([])
-            # all_corrs['GLM'].append([])
-            # all_corrs['GAM_deriv'].append([])
-            # all_models['GLM'].append([])
-            # all_models['GAM'].append([])
-            # all_models['GAM_deriv'].append([])
-            # all_corrs['id'].append(id)
-
-corr_save_name =os.path.join(p,'model_performance.pkl')
-data_fid = open(corr_save_name,'w')
-
-pickle.dump(all_corrs,data_fid)
-pickle.dump(all_models,data_fid)
-data_fid.close()
+if __name__=='__main__':
+    sys.exit(main())
