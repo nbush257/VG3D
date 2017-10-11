@@ -164,33 +164,37 @@ if keras_tgl:
             full_w = K.concatenate([w[:,:-1, :], last_row], axis=1)
             return full_w
 
-    def conv_model(X,y,winsize):
+    def conv_model(X,y,num_filters,winsize):
         # set y
         if y.ndim==1:
-            y = y[:,np.newaxis]
+            y = y[:, np.newaxis, np.newaxis]
+        elif y.ndim==2:
+            y = y[:, np.newaxis]
 
         yhat = np.empty_like(y).ravel()
         yhat[:]=np.nan
+        if X.ndim!=3:
+            X = make_tensor(X,winsize)
 
         idx = np.all(np.all(np.isfinite(X), axis=1), axis=1)
 
         input_shape = X.shape[1:3]
 
         model = Sequential()
-        model.add(Convolution1D(2,
+        model.add(Convolution1D(num_filters,
                                 winsize,
                                 input_shape=input_shape,
-                                kernel_constraint=NonPosLast()
+                                kernel_regularizer=l2(1e-6)
                                 )
                   )
         model.add(Activation('relu'))
-        model.add(Dropout(0.2))
+
         model.add(Dense(1))
         model.add(Activation('sigmoid'))
         model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-        model.fit(X[idx,:,:], y[idx,:,:], epochs=2, batch_size=32, validation_split=0.33)
+        model.fit(X[idx,:,:], y[idx,:,:], epochs=5, batch_size=32, validation_split=0.20)
         yhat[idx] = model.predict(X[idx,:,:])
-        return model,yhat
+        return yhat,model
 
     def sim_conv(model,X,num_sims = 5):
         X[:,:,-1] = 0
@@ -201,7 +205,7 @@ if keras_tgl:
         is_spike = np.zeros(num_sims)
         for timestep in xrange(X.shape[1],X.shape[0]):
             if timestep%1000==0:
-                print 'Timestep = {}'.format(timestep)
+                print('Timestep = {}'.format(timestep))
             tempX = X[timestep,:,:]
             tempX = np.tile(tempX,[num_sims,1,1])
             tempX[:,:,-1] = hist.T

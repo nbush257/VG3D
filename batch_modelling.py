@@ -6,12 +6,16 @@ from GLM import *
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import cPickle as pickle
+import sys
+if sys.version_info.major==3:
+    import pickle
+else:
+    import cPickle as pickle
 import statsmodels.api as sm
 import elephant
 import pygam
 import glob
-import sys
+
 from sklearn.preprocessing import RobustScaler,StandardScaler
 sns.set()
 
@@ -23,8 +27,9 @@ def main(argv=None):
     p_save = os.path.split(fname)[0]
 
 
-    sigma_vals = np.arange(2, 100, 2)
+    sigma_vals = np.arange(2, 200, 4)
     B = make_bases(5, [0, 15], b=2)
+    winsize=int(B[0].shape[0])
 
     print(os.path.basename(fname))
     fid = PIO(fname)
@@ -40,7 +45,7 @@ def main(argv=None):
     replace_NaNs(X, 'pchip')
     replace_NaNs(X, 'interp')
 
-    Xdot = get_deriv(X)
+    # Xdot = get_deriv(X)
 
     X_pillow = apply_bases(X,B[0])
 
@@ -63,15 +68,15 @@ def main(argv=None):
 
         yhat['glm'],mdl['glm'] = run_GLM(X_pillow,y)
         yhat['gam'],mdl['gam'] = run_GAM(X,y)
-        yhat['gam_deriv'],mdl['gam_deriv'] = run_GAM(np.concatenate([X,Xdot],axis=1),y)
+        for num_filters in xrange(1,5):
+            yhat['conv_{}_node'.format(num_filters)],mdl['conv_{}_node'.format(num_filters)]=conv_model(X,y,num_filters=num_filters,winsize=winsize)
 
-        corrs['glm'] = evaluate_correlation(yhat['glm'],sp,Cbool,sigma_vals)
-        corrs['gam'] = evaluate_correlation(yhat['gam'],sp,Cbool,sigma_vals)
-        corrs['gam_deriv'] = evaluate_correlation(yhat['gam_deriv'],sp,Cbool,sigma_vals)
 
-        plt.plot(sigma_vals,corrs['glm'])
-        plt.plot(sigma_vals,corrs['gam'],'--')
-        plt.plot(sigma_vals,corrs['gam_deriv'],'--')
+        for model in yhat.iterkeys():
+            corrs[model] = evaluate_correlation(yhat[model],sp,Cbool=Cbool,sigma_vals=sigma_vals)
+
+        for model in yhat.iterkeys():
+            plt.plot(sigma_vals,corrs[model])
 
         ax = plt.gca()
         ax.set_ylim(-0.1,1)
