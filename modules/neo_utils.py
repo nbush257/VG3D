@@ -46,6 +46,9 @@ def concatenate_sp(blk):
         sp[unit.name] = SpikeTrain(sp[unit.name], t_stop = t_start)
     return sp
 
+def concatenate_analog(blk):
+    for sig in blk.channel_indexes
+
 def nan_helper(y):
     """Helper to handle indices and logical indices of NaNs.
 

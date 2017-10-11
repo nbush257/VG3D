@@ -146,7 +146,7 @@ def get_PSTH(blk,unit):
     return ax
 
 
-def get_raster(unit,blk):
+def get_raster(blk,unit):
     count = 0
     pad = 0.3
     f=plt.figure()
@@ -159,3 +159,9 @@ def get_raster(unit,blk):
             ax.vlines(t_sub,count-pad,count+pad)
             count+=1
     ax.set_ylim(0,count)
+
+def get_STC(signal,train,window):
+    X = np.empty([len(train),window*2])
+
+
+
