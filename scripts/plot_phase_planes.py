@@ -17,7 +17,7 @@ for f in files:
         cell_num = int(unit.name[-1])
         root = get_root(blk,cell_num)
         M = get_var(blk)[0]
-        replace_NaNs(M)
+        M = replace_NaNs(M)
         sp = concatenate_sp(blk)
         st = sp[unit.name]
         kernel = elephant.kernels.GaussianKernel(5 * pq.ms)

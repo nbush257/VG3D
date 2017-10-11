@@ -46,8 +46,8 @@ def main(argv=None):
 
     X = np.concatenate([M,F],axis=1)
     X[np.invert(Cbool),:]=0
-    replace_NaNs(X, 'pchip')
-    replace_NaNs(X, 'interp')
+    X = replace_NaNs(X, 'pchip')
+    X = replace_NaNs(X, 'interp')
 
     # Xdot = get_deriv(X)
 

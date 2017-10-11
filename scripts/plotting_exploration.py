@@ -27,11 +27,11 @@ Cbool = get_Cbool(blk)
 M[np.invert(Cbool),:]=0
 F[np.invert(Cbool),:]=0
 
-replace_NaNs(M,mode='pchip')
-replace_NaNs(M,mode='interp')
+M = replace_NaNs(M,mode='pchip')
+M = replace_NaNs(M,mode='interp')
 
-replace_NaNs(F,mode='pchip')
-replace_NaNs(F,mode='interp')
+F = replace_NaNs(F,mode='pchip')
+F = replace_NaNs(F,mode='interp')
 
 b = binarize(sp['cell_{}'.format(cell_num)],sampling_rate=pq.kHz)[:-1]
 st = np.array(sp['cell_{}'.format(cell_num)]).astype('f8')

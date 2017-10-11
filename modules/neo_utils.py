@@ -35,7 +35,6 @@ def get_var(blk,varname='M',join=True,keep_neo=True):
 
             sig = neo.core.AnalogSignal(data*var[0].units,
                                         t_start=t_start,
-                                        t_stop=t_stop,
                                         sampling_rate=var[0].sampling_rate,
                                         name=var[0].name)
             return sig
@@ -83,35 +82,46 @@ def nan_bounds(var):
     d = np.diff(np.concatenate([[0],nans]))
     return np.where(d==1)[0],np.where(d==-1)[0]
 
-def replace_NaNs(var,mode='zero'):
+def replace_NaNs(var, mode='zero'):
+    if type(var)==neo.core.analogsignal.AnalogSignal:
+        data = var.as_array().copy()
+    else:
+        data = var.copy()
+
     if mode=='zero':
-        var[np.isnan(var)]=0
+        data[np.isnan(data)]=0
     elif mode=='median':
-        m = np.nanmedian(var,0)
-        idx = np.any(np.isnan(var))
-        var[np.any(np.isnan(var),1),:] = m
+        m = np.nanmedian(data, 0)
+        idx = np.any(np.isnan(data))
+        data[np.any(np.isnan(data), 1), :] = m
     elif mode=='rm':
-        idx = np.any(np.isnan(var),1)
-        var=np.delete(var,np.where(idx)[0],axis=0)
+        idx = np.any(np.isnan(data), 1)
+        data=np.delete(data, np.where(idx)[0], axis=0)
     elif mode=='interp':
-        for ii in xrange(var.shape[1]):
-            nans, x = nan_helper(var[:,ii])
-            var[nans,ii] = np.interp(x(nans), x(~nans), var[~nans,ii])
+        for ii in xrange(data.shape[1]):
+            nans, x = nan_helper(data[:, ii])
+            data[nans, ii] = np.interp(x(nans), x(~nans), data[~nans, ii])
     elif mode=='pchip':
         pad=20
-        for ii in xrange(var.shape[1]):
-            starts,stops = nan_bounds(var[:,ii])
+        for ii in xrange(data.shape[1]):
+            starts,stops = nan_bounds(data[:, ii])
             for start,stop in zip(starts,stops):
                 xi = np.concatenate([np.arange(start-pad,start),np.arange(stop,stop+pad)])
-                yi = var[xi,ii]
+                yi = data[xi, ii]
 
                 x = np.arange(start,stop)
                 y = scipy.interpolate.pchip_interpolate(xi,yi,x)
-
-
-
     else:
         raise ValueError('Wrong mode indicated. May want to impute NaNs in some instances')
+
+    if type(var)==neo.core.analogsignal.AnalogSignal:
+        var_out = neo.core.AnalogSignal(data*var.units,
+                                        t_start=0.*pq.ms,
+                                        sampling_rate=var.sampling_rate,
+                                        name=var.name)
+        return(var_out)
+    else:
+        return(data)
 
 
 def create_unit_chan(blk):
@@ -178,8 +188,8 @@ def import_data_to_model(file,vars=['M','F'],unit_idx=0):
     y = b[:, np.newaxis].astype('f8')
     Cbool = get_Cbool(blk)
     X[np.invert(Cbool), :] = 0
-    replace_NaNs(X, 'pchip')
-    replace_NaNs(X, 'interp')
+    X = replace_NaNs(X, 'pchip')
+    X = replace_NaNs(X, 'interp')
     scaler = StandardScaler(with_mean=False)
     X = scaler.fit_transform(X)
 
