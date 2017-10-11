@@ -59,6 +59,19 @@ def concatenate_sp(blk):
         sp[unit.name] = SpikeTrain(sp[unit.name], t_stop = t_start)
     return sp
 
+def concatenate_epochs(blk):
+    starts = np.empty([0])
+    durations = np.empty([0])
+    t_start = 0*pq.ms
+    for seg in blk.segments:
+        epoch = seg.epochs[0]
+        starts = np.append(starts,epoch.times+t_start,axis=0)
+        durations = np.append(durations,epoch.durations.ravel())
+        t_start+=seg.t_stop
+    contact = neo.core.Epoch(times=starts*pq.ms,durations=durations*pq.ms,units=pq.ms)
+    return contact
+
+
 def nan_helper(y):
     """Helper to handle indices and logical indices of NaNs.
 

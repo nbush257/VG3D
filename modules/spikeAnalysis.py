@@ -161,7 +161,7 @@ def get_raster(blk,unit):
     ax.set_ylim(0,count)
 
 def get_STC(signal,train,window):
-    X = np.empty([len(train),window*2])
+
 
 
 
