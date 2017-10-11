@@ -162,6 +162,25 @@ def get_raster(blk,unit):
 
 def get_STC(signal,train,window):
 
+    X = np.empty([len(train),int(window.magnitude)*2,signal.shape[-1]])
+    for ii,spike in enumerate(train):
+        X[ii,:,:]=(signal.time_slice(spike-window,spike+window))
+
+    STA = np.nanmean(X, axis=0)
+    X_centered = X-STA
+    STC = np.empty([X.shape[1],X.shape[2]])
+    STC[:] = np.nan
+    for ii in xrange(signal.shape[-1]):
+        var_X = X_centered[:,:,ii]
+        STC[:,ii] = np.nanmean(np.dot(var_X.T,var_X),axis=0)
+
+    C = (float(1)/(X.shape[-1]-1))*np.dot(signal.as_array().T,signal.as_array())
+
+    return STA
+
+
+
+
 
 
 
