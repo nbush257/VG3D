@@ -92,15 +92,15 @@ def main(argv=None):
             plt.savefig(os.path.join(p_save,'model_performance_{}.png'.format(id)), dpi=300)
             plt.close('all')
 
-    np.savez(f_save,
-             corrs=corrs,
-             yhat=yhat,
-             sigma_vals=sigma_vals,
-             mdl=mdl,
-             y=y,
-             X=X,
-             X_pillow=X_pillow,
-             B=B)
+        np.savez(f_save,
+                 corrs=corrs,
+                 yhat=yhat,
+                 sigma_vals=sigma_vals,
+                 mdl=mdl,
+                 y=y,
+                 X=X,
+                 X_pillow=X_pillow,
+                 B=B)
 
 if __name__=='__main__':
     sys.exit(main())
