@@ -125,7 +125,7 @@ def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.aran
             raise ValueError('Kernel mode is not a valid kernel')
         return kernel
 
-    if Cbool==None:
+    if Cbool is None:
         Cbool=np.ones_like(yhat)
 
 
@@ -164,7 +164,7 @@ if keras_tgl:
             full_w = K.concatenate([w[:,:-1, :], last_row], axis=1)
             return full_w
 
-    def conv_model(X,y,num_filters,winsize):
+    def conv_model(X,y,num_filters,winsize,l2_penalty=1e-9):
         # set y
         if y.ndim==1:
             y = y[:, np.newaxis, np.newaxis]
@@ -177,6 +177,7 @@ if keras_tgl:
             X = make_tensor(X,winsize)
 
         idx = np.all(np.all(np.isfinite(X), axis=1), axis=1)
+	print('Shape of idx is:{}'.format(idx.shape))
 
         input_shape = X.shape[1:3]
 
@@ -184,7 +185,7 @@ if keras_tgl:
         model.add(Convolution1D(num_filters,
                                 winsize,
                                 input_shape=input_shape,
-                                kernel_regularizer=l2(1e-6)
+                                kernel_regularizer=l2(l2_penalty)
                                 )
                   )
         model.add(Activation('relu'))
@@ -192,8 +193,10 @@ if keras_tgl:
         model.add(Dense(1))
         model.add(Activation('sigmoid'))
         model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-        model.fit(X[idx,:,:], y[idx,:,:], epochs=5, batch_size=32, validation_split=0.20)
-        yhat[idx] = model.predict(X[idx,:,:])
+        model.fit(X[idx,:,:], y[idx,:,:], epochs=5, batch_size=32, validation_split=0.20)	
+
+	yhat[idx] = model.predict(X[idx,:,:]).squeeze()
+
         return yhat,model
 
     def sim_conv(model,X,num_sims = 5):
