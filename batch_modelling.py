@@ -72,35 +72,35 @@ def main(argv=None):
         y = b[:,np.newaxis].astype('f8')
 
         yhat['glm'],mdl['glm'] = run_GLM(X_pillow,y)
-	yhat['gam'],mdl['gam'] = run_GAM(X,y)
+        yhat['gam'],mdl['gam'] = run_GAM(X,y)
         for num_filters in xrange(1,5):
             yhat['conv_{}_node'.format(num_filters)],mdl['conv_{}_node'.format(num_filters)]=conv_model(X,y,num_filters=num_filters,winsize=winsize)
 
 
         for model in yhat.iterkeys():
             corrs[model] = evaluate_correlation(yhat[model],sp,Cbool=Cbool,sigma_vals=sigma_vals)
-	if plot_tgl:
-		for model in yhat.iterkeys():
-		    plt.plot(sigma_vals,corrs[model])
+        if plot_tgl:
+            for model in yhat.iterkeys():
+                plt.plot(sigma_vals,corrs[model])
 
-		ax = plt.gca()
-		ax.set_ylim(-0.1,1)
-		ax.legend(corrs.get_keys())
-		ax.set_xlabel('Gaussian Rate Kernel Sigma')
-		ax.set_ylabel('Pearson Correlation')
-		ax.set_title(id)
-		plt.savefig(os.path.join(p_save,'model_performance_{}.png'.format(id)), dpi=300)
-		plt.close('all')
+            ax = plt.gca()
+            ax.set_ylim(-0.1,1)
+            ax.legend(corrs.get_keys())
+            ax.set_xlabel('Gaussian Rate Kernel Sigma')
+            ax.set_ylabel('Pearson Correlation')
+            ax.set_title(id)
+            plt.savefig(os.path.join(p_save,'model_performance_{}.png'.format(id)), dpi=300)
+            plt.close('all')
 
-        np.savez(f_save,
-                 corrs=corrs,
-                 yhat=yhat,
-                 sigma_vals=sigma_vals,
-                 mdl=mdl,
-                 y=y,
-                 X=X,
-                 X_pillow=X_pillow,
-                 B=B)
+    np.savez(f_save,
+             corrs=corrs,
+             yhat=yhat,
+             sigma_vals=sigma_vals,
+             mdl=mdl,
+             y=y,
+             X=X,
+             X_pillow=X_pillow,
+             B=B)
 
 if __name__=='__main__':
     sys.exit(main())
