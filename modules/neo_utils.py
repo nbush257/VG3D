@@ -9,24 +9,38 @@ from neo.io import PickleIO as PIO
 from sklearn.preprocessing import StandardScaler
 
 
-def get_var(blk,varname='M',join=True,keep_neo=False):
+def get_var(blk,varname='M',join=True,keep_neo=True):
     ''' use this utility to access an analog variable from all segments in a block easily
     If you choose to join the segments, returns a list of '''
     varnames = ['M','F','PHIE','TH','Rcp','THcp','PHIcp']
     idx = varnames.index(varname)
     split_points = []
     var = []
-    if keep_neo and join:
-        raise ValueError('Cannot join and keep neo structure')
-
+    # Create a list of the analog signals for each segment
     for seg in blk.segments:
         if keep_neo:
             var.append(seg.analogsignals[idx])
         else:
             var.append(seg.analogsignals[idx].as_array())
             split_points.append(seg.analogsignals[idx].shape[0])
+
     if join:
-        var = np.concatenate(var,axis=0)
+        if keep_neo:
+            data = np.empty([0,var[0].shape[-1]])
+            t_start = 0.*pq.s
+            t_stop = 0.*pq.s
+            for seg in var:
+                data = np.append(data,seg.as_array(),axis=0)
+                t_stop +=seg.t_stop
+
+            sig = neo.core.AnalogSignal(data*var[0].units,
+                                        t_start=t_start,
+                                        t_stop=t_stop,
+                                        sampling_rate=var[0].sampling_rate,
+                                        name=var[0].name)
+            return sig
+        else:
+            var = np.concatenate(var,axis=0)
         return (var, split_points)
     else:
         return var
@@ -45,9 +59,6 @@ def concatenate_sp(blk):
 
         sp[unit.name] = SpikeTrain(sp[unit.name], t_stop = t_start)
     return sp
-
-def concatenate_analog(blk):
-    for sig in blk.channel_indexes
 
 def nan_helper(y):
     """Helper to handle indices and logical indices of NaNs.
