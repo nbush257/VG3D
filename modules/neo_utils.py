@@ -142,7 +142,7 @@ def create_unit_chan(blk):
 def create_analog_chan(blk):
     '''maps the mechanical and kinematic signals to a channel index.'''
     varnames = ['M','F','PHIE','TH','Rcp','THcp','PHIcp']
-    for ii in range(7):
+    for ii in range(len(varnames)):
         chx = ChannelIndex(0,name=varnames[ii])
         blk.channel_indexes.append(chx)
     for seg in blk.segments:

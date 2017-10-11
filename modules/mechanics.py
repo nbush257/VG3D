@@ -117,10 +117,10 @@ def categorize_deflections(blk):
 
 
 def get_MB_MD(M):
-    ''' eventually develop this to take neo signals'''
     MD = np.arctan2(M[:, 2], M[:, 1])
     MB = np.sqrt(M[:, 1] ** 2 + M[:, 2] ** 2)
-
+    if type(MD)==neo.core.analogsignal.AnalogSignal:
+        MD.units=pq.radians
     return (MB, MD)
 
 
