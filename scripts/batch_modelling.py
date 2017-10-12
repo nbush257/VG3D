@@ -26,7 +26,7 @@ def init_model_params():
     B = make_bases(5, [0, 15], b=2)
     winsize = int(B[0].shape[0])
 
-def create_design_matrix(blk,varlist,binsize=1*pq.ms,deriv_tgl=False,bases=None):
+def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
     ''' 
     Takes a list of variables and turns it into a matrix.
     Sets the non-contact mechanics to zero, but keeps all the kinematics as NaN
@@ -145,7 +145,7 @@ def main():
         bases = None
 
     # calculate the design matrices based on input toggles
-    X = create_design_matrix(blk,varlist,binsize=binsize,deriv_tgl=deriv_tgl,bases=bases)
+    X = create_design_matrix(blk,varlist,deriv_tgl=deriv_tgl,bases=bases)
 
 
     for unit in blk.channel_indexes[-1].units:
@@ -188,7 +188,7 @@ def main():
 
         if run_conv_tgl:
             for num_filters in conv_filters:
-                yhat['conv_{}_node'.format(num_filters)],mdl['conv_{}_node'.format(num_filters)]=conv_model(X,y,num_filters=num_filters,winsize=winsize)
+                yhat['conv_{}_node'.format(num_filters)],mdl['conv_{}_node'.format(num_filters)]=conv_model(Xt,y,num_filters=num_filters,winsize=winsize)
 
         # ===================================== #
         # EVALUATE ALL THE MODELS -- THIS MAY NEED TO BE ALTERED
