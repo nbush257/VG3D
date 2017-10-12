@@ -39,8 +39,8 @@ def main(argv=None):
     fid = PIO(fname)
     blk = fid.read_block()
 
-    M = get_var(blk,'M')[0]
-    F = get_var(blk,'F')[0]
+    M = get_var(blk,'M',keep_neo=False)[0]
+    F = get_var(blk,'F',keep_neo=False)[0]
 
     Cbool = get_Cbool(blk)
 
