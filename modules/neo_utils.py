@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 def get_var(blk,varname='M',join=True,keep_neo=True):
     ''' use this utility to access an analog variable from all segments in a block easily
     If you choose to join the segments, returns a list of '''
-    varnames = ['M','F','PHIE','TH','Rcp','THcp','PHIcp']
+    varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
     idx = varnames.index(varname)
     split_points = []
     var = []
