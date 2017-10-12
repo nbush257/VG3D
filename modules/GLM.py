@@ -1,6 +1,7 @@
 import numpy as np
 from pygam import GAM
 from pygam.utils import generate_X_grid
+import neo
 import statsmodels.api as sm
 import elephant
 from scipy import corrcoef
@@ -21,12 +22,34 @@ except ImportError:
 
 
 
-def make_tensor(timeseries, window_size=16):
+def make_tensor(timeseries, window_size=10):
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size,timeseries.shape[0]-window_size):
         X[ii,:,:] = timeseries[ii-window_size:ii,:]
     return X
 
+def make_binned_tensor(signal,binned_train,window_size=10):
+    ''' gets a tensor to represent the inputs leading up to a bin of a spike train. 
+    Might be more general to use neo signals and trains, but is wayyy slow'''
+
+    # Init the output tensor
+    X = np.empty((binned_train.num_bins,window_size,signal.shape[-1]))
+    X[:] = np.nan
+
+    # convert signal to array if needed
+    if type(signal)==neo.core.analogsignal.AnalogSignal:
+        signal =signal.as_array()
+
+    # get indices of bin start time
+    starts = binned_train.bin_edges.magnitude.astype('int')
+
+    # slice the input signal and put it in the tensor
+    for ii,start in enumerate(starts[:-1]):
+        if (start-window_size)<0:
+            continue
+        X[ii,:,:]=signal[start-window_size:start,:]
+
+    return X
 
 def reshape_tensor(X):
     if X.ndim!=3:

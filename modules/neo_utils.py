@@ -1,5 +1,5 @@
 from neo.io import NeoMatlabIO as NIO
-from neo.core import Block,ChannelIndex,Unit,SpikeTrain
+from neo.core import Block,ChannelIndex,Unit,SpikeTrain,AnalogSignal
 from elephant.conversion import binarize
 import quantities as pq
 import numpy as np
@@ -33,7 +33,7 @@ def get_var(blk,varname='M',join=True,keep_neo=True):
                 data = np.append(data,seg.as_array(),axis=0)
                 t_stop +=seg.t_stop
 
-            sig = neo.core.AnalogSignal(data*var[0].units,
+            sig = AnalogSignal(data*var[0].units,
                                         t_start=t_start,
                                         sampling_rate=var[0].sampling_rate,
                                         name=var[0].name)
