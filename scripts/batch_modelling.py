@@ -1,12 +1,15 @@
 from neo.io import PickleIO as PIO
 import os
+import sys
+VG3D_modules = os.path.join(os.path.abspath(os.path.join(os.getcwd(),os.pardir)),'modules')
+sys.path.append(VG3D_modules)
 from neo_utils import *
 from mechanics import *
 from GLM import *
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import sys
+
 if sys.version_info.major==3:
     import pickle
 else:
@@ -19,12 +22,11 @@ from optparse import OptionParser
 from sklearn.preprocessing import RobustScaler,StandardScaler
 sns.set()
 
-
-
 def init_model_params():
     sigma_vals = np.arange(2, 200, 4)
     B = make_bases(5, [0, 15], b=2)
     winsize = int(B[0].shape[0])
+    return sigma_vals,B,winsize
 
 def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
     ''' 
@@ -34,6 +36,8 @@ def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
     Scales, but does not center the output
     '''
     X = []
+
+
     Cbool = get_Cbool(blk)
 
     # ================================ #
@@ -83,16 +87,17 @@ def main():
     parser.add_option('-p','--prefix',
                       dest='prefix',
                       default='model_results',
+                      type=str,
                       help='prefix to append to the results filename')
     parser.add_option('-v','--varlist',
                       dest='varlist',
                       default='M',
-                      action='callback',
-                      callback=optarg_list,
+                      type=str,
                       help='list of strings which indicate which variables to include in the model')
     parser.add_option('-b','--binsize',
                       dest='binsize',
                       default=1,
+                      type=int,
                       help='number of milliseconds to bin the spikes.')
     parser.add_option('-D','--deriv_tgl',
                       dest='deriv_tgl',
@@ -118,14 +123,34 @@ def main():
                       dest='plot_tgl',
                       default=False,
                       help='Plot toggle, call to plot the results during the run. This should never be called on quest.')
-
+    parser.add_option('-w','--conv_window',
+                      dest='conv_window',
+                      default=50,
+                      type=int,
+                      help='Window into the past to set the convolutional window to look in ms')
+    parser.add_option('-n','--num_conv',
+                      dest='max_num_conv',
+                      default=4,
+                      type=int,
+                      help='Max number of convolutional nodes to use')
     (options,args)=parser.parse_args()
     if len(args)<1:
         parser.error('Need to pass a filename first')
 
+    # map options
+    plot_tgl = options.plot_tgl
+    pillow_tgl = options.pillow_tgl
+    varlist = options.varlist.split(',')
+    conv_tgl = options.conv_tgl
+    gam_tgl = options.gam_tgl
+    binsize = options.binsize
+    deriv_tgl = options.deriv_tgl
+    prefix = options.prefix
+    conv_window = options.conv_window
+    max_num_conv = options.max_num_conv
 
     # Get desired filenames
-    fname = args[1]
+    fname = args[0]
     p_save = os.path.split(fname)[0]
     print(os.path.basename(fname))
 
@@ -135,6 +160,9 @@ def main():
 
     # set binsize to a quantity
     binsize = binsize*pq.ms
+
+    # initialize parameters
+    sigma_vals, B, winsize = init_model_params()
 
     # calculate pillow bases if desired.
     if pillow_tgl:
@@ -155,6 +183,7 @@ def main():
         yhat={}
         mdl={}
         corrs={}
+        weights={}
 
         id =get_root(blk,int(unit.name[-1]))
         f_save = os.path.join(p_save, '{}_{}.npz'.format(prefix,id))
@@ -167,7 +196,10 @@ def main():
         # ===================================== #
         sp = concatenate_sp(blk)[unit.name]
         b = elephant.conversion.BinnedSpikeTrain(sp,binsize=binsize)
-        if binsize==pq.ms:
+        Cbool=get_Cbool(blk)
+
+        spike_isbool=binsize==pq.ms
+        if spike_isbool:
             y = b.to_bool_array().ravel().astype('int')
         else:
             y = b.to_array().ravel().astype('int')
@@ -175,21 +207,24 @@ def main():
         # ===================================== #
         # MAKE TENSOR FOR CONV NETS
         # ===================================== #
-        Xt = make_binned_tensor(X, b, window_size=binsize)
+        Xt = make_binned_tensor(X, b, window_size=conv_window)
 
         # ===================================== #
         # RUN ALL THE MODELS REQUESTED
         # ===================================== #
         if pillow_tgl:
-            yhat['glm'],mdl['glm'] = run_GLM(X_pillow,y)
+            yhat['glm'],mdl['glm'] = run_GLM(X,y)
+            weights['glm'] = mdl.params
 
         if gam_tgl:
             yhat['gam'],mdl['gam'] = run_GAM(X,y)
 
-        if run_conv_tgl:
-            for num_filters in conv_filters:
-                yhat['conv_{}_node'.format(num_filters)],mdl['conv_{}_node'.format(num_filters)]=conv_model(Xt,y,num_filters=num_filters,winsize=winsize)
-                weights['conv_{}_node'] =
+        if conv_tgl:
+            for num_filters in range(1,max_num_conv+1):
+                mdl_name = 'conv_{}_node'.format(num_filters)
+                yhat[mdl_name],mdl[mdl_name]=conv_model(Xt,y[:,np.newaxis,np.newaxis],num_filters=num_filters,winsize=conv_window,is_bool=spike_isbool,l2_penalty=0.)
+                weights[mdl_name] = mdl[mdl_name].get_weights()[0]
+
         # ===================================== #
         # EVALUATE ALL THE MODELS -- THIS MAY NEED TO BE ALTERED
         # ===================================== #

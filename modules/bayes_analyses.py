@@ -47,7 +47,7 @@ def get_MD_tuning_curve(MD,b,nbins=100):
         ax.plot(smooth[:,0],smooth[:,1],linewidth=5,alpha=0.6)
 
     plt.tight_layout()
-    return fig
+    return fig,MD_bayes,edges_prior
 
 
 # MB Bayes

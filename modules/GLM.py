@@ -11,8 +11,10 @@ import sys
 from numpy.random import binomial
 try:
     from keras.models import Sequential
+
     from keras.constraints import max_norm
-    from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation
+    from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation,ELU
+    from keras.utils.np_utils import to_categorical
     from keras.regularizers import l2,l1
     from keras.constraints import Constraint
     import keras.backend as K
@@ -187,7 +189,7 @@ if keras_tgl:
             full_w = K.concatenate([w[:,:-1, :], last_row], axis=1)
             return full_w
 
-    def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8):
+    def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):
         # set y
         if y.ndim==1:
             y = y[:, np.newaxis, np.newaxis]
@@ -213,11 +215,18 @@ if keras_tgl:
         model.add(Activation('relu'))
 
         model.add(Dense(1))
-        model.add(Activation('sigmoid'))
-        model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-        model.fit(X[idx,:,:], y[idx,:,:], epochs=5, batch_size=32, validation_split=0.20)	
+        if is_bool:
+            model.add(Activation('sigmoid'))
+            model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
 
-	    yhat[idx] = model.predict(X[idx,:,:]).squeeze()
+        else:
+            cat_labels=to_categorical(y,num_classes=None)[:,:,np.newaxis]
+            model.add(Activation('linear'))
+            model.compile(loss='mean_absolute_error', optimizer='sgd', metrics=['accuracy'])
+
+        model.fit(X[idx, :, :], y[idx, :, :], epochs=15, batch_size=32, validation_split=0.20)
+
+        yhat[idx] = model.predict(X[idx,:,:]).squeeze()
 
         return yhat,model
 
@@ -288,7 +297,7 @@ def map_bases(weights,bases):
     columns of ww are the basis, rows are the inputs
     '''
 
-    ww = weights[1:].reshape([-1,bases[0].shape[1]])
+    ww = weights.reshape([-1,bases[0].shape[1]])
     filters = np.dot(bases[0],ww.T)
 
     return filters,ww
