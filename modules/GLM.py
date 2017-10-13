@@ -187,7 +187,7 @@ if keras_tgl:
             full_w = K.concatenate([w[:,:-1, :], last_row], axis=1)
             return full_w
 
-    def conv_model(X,y,num_filters,winsize,l2_penalty=1e-9):
+    def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8):
         # set y
         if y.ndim==1:
             y = y[:, np.newaxis, np.newaxis]
@@ -200,7 +200,6 @@ if keras_tgl:
             X = make_tensor(X,winsize)
 
         idx = np.all(np.all(np.isfinite(X), axis=1), axis=1)
-	print('Shape of idx is:{}'.format(idx.shape))
 
         input_shape = X.shape[1:3]
 
@@ -218,7 +217,7 @@ if keras_tgl:
         model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
         model.fit(X[idx,:,:], y[idx,:,:], epochs=5, batch_size=32, validation_split=0.20)	
 
-	yhat[idx] = model.predict(X[idx,:,:]).squeeze()
+	    yhat[idx] = model.predict(X[idx,:,:]).squeeze()
 
         return yhat,model
 
@@ -282,4 +281,15 @@ def apply_bases(X,bases):
             temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
             X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
     return(X_out)
+
+
+def map_bases(weights,bases):
+    '''takes the fitted weights from the GLM and maps them back into time space
+    columns of ww are the basis, rows are the inputs
+    '''
+
+    ww = weights[1:].reshape([-1,bases[0].shape[1]])
+    filters = np.dot(bases[0],ww.T)
+
+    return filters,ww
 

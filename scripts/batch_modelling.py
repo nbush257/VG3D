@@ -189,7 +189,7 @@ def main():
         if run_conv_tgl:
             for num_filters in conv_filters:
                 yhat['conv_{}_node'.format(num_filters)],mdl['conv_{}_node'.format(num_filters)]=conv_model(Xt,y,num_filters=num_filters,winsize=winsize)
-
+                weights['conv_{}_node'] =
         # ===================================== #
         # EVALUATE ALL THE MODELS -- THIS MAY NEED TO BE ALTERED
         # ===================================== #
