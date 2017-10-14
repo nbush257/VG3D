@@ -1,6 +1,7 @@
 import numpy as np
 from pygam import GAM
 from pygam.utils import generate_X_grid
+import neo
 import statsmodels.api as sm
 import elephant
 from scipy import corrcoef
@@ -10,8 +11,10 @@ import sys
 from numpy.random import binomial
 try:
     from keras.models import Sequential
+
     from keras.constraints import max_norm
-    from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation
+    from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation,ELU
+    from keras.utils.np_utils import to_categorical
     from keras.regularizers import l2,l1
     from keras.constraints import Constraint
     import keras.backend as K
@@ -21,12 +24,34 @@ except ImportError:
 
 
 
-def make_tensor(timeseries, window_size=16):
+def make_tensor(timeseries, window_size=10):
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size,timeseries.shape[0]-window_size):
         X[ii,:,:] = timeseries[ii-window_size:ii,:]
     return X
 
+def make_binned_tensor(signal,binned_train,window_size=10):
+    ''' gets a tensor to represent the inputs leading up to a bin of a spike train. 
+    Might be more general to use neo signals and trains, but is wayyy slow'''
+
+    # Init the output tensor
+    X = np.empty((binned_train.num_bins,window_size,signal.shape[-1]))
+    X[:] = np.nan
+
+    # convert signal to array if needed
+    if type(signal)==neo.core.analogsignal.AnalogSignal:
+        signal =signal.as_array()
+
+    # get indices of bin start time
+    starts = binned_train.bin_edges.magnitude.astype('int')
+
+    # slice the input signal and put it in the tensor
+    for ii,start in enumerate(starts[:-1]):
+        if (start-window_size)<0:
+            continue
+        X[ii,:,:]=signal[start-window_size:start,:]
+
+    return X
 
 def reshape_tensor(X):
     if X.ndim!=3:
@@ -164,7 +189,7 @@ if keras_tgl:
             full_w = K.concatenate([w[:,:-1, :], last_row], axis=1)
             return full_w
 
-    def conv_model(X,y,num_filters,winsize,l2_penalty=1e-9):
+    def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):
         # set y
         if y.ndim==1:
             y = y[:, np.newaxis, np.newaxis]
@@ -177,7 +202,6 @@ if keras_tgl:
             X = make_tensor(X,winsize)
 
         idx = np.all(np.all(np.isfinite(X), axis=1), axis=1)
-	print('Shape of idx is:{}'.format(idx.shape))
 
         input_shape = X.shape[1:3]
 
@@ -191,11 +215,18 @@ if keras_tgl:
         model.add(Activation('relu'))
 
         model.add(Dense(1))
-        model.add(Activation('sigmoid'))
-        model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-        model.fit(X[idx,:,:], y[idx,:,:], epochs=5, batch_size=32, validation_split=0.20)	
+        if is_bool:
+            model.add(Activation('sigmoid'))
+            model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
 
-	yhat[idx] = model.predict(X[idx,:,:]).squeeze()
+        else:
+            cat_labels=to_categorical(y,num_classes=None)[:,:,np.newaxis]
+            model.add(Activation('linear'))
+            model.compile(loss='mean_absolute_error', optimizer='sgd', metrics=['accuracy'])
+
+        model.fit(X[idx, :, :], y[idx, :, :], epochs=15, batch_size=32, validation_split=0.20)
+
+        yhat[idx] = model.predict(X[idx,:,:]).squeeze()
 
         return yhat,model
 
@@ -259,4 +290,15 @@ def apply_bases(X,bases):
             temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
             X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
     return(X_out)
+
+
+def map_bases(weights,bases):
+    '''takes the fitted weights from the GLM and maps them back into time space
+    columns of ww are the basis, rows are the inputs
+    '''
+
+    ww = weights.reshape([-1,bases[0].shape[1]])
+    filters = np.dot(bases[0],ww.T)
+
+    return filters,ww
 
