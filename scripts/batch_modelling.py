@@ -125,7 +125,7 @@ def main():
                       help='Plot toggle, call to plot the results during the run. This should never be called on quest.')
     parser.add_option('-w','--conv_window',
                       dest='conv_window',
-                      default=50,
+                      default=10,
                       type=int,
                       help='Window into the past to set the convolutional window to look in ms')
     parser.add_option('-n','--num_conv',
