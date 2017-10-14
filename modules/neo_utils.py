@@ -1,5 +1,6 @@
 from neo.io import NeoMatlabIO as NIO
 from neo.core import Block,ChannelIndex,Unit,SpikeTrain
+import neo
 from elephant.conversion import binarize
 import quantities as pq
 import numpy as np
