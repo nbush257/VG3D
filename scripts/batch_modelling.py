@@ -228,7 +228,7 @@ def main():
         if conv_tgl:
             for num_filters in range(1,max_num_conv+1):
                 mdl_name = 'conv_{}_node'.format(num_filters)
-                yhat[mdl_name],mdl[mdl_name]=conv_model(Xt,y[:,np.newaxis,np.newaxis],num_filters=num_filters,winsize=conv_window,is_bool=spike_isbool,l2_penalty=0.)
+                yhat[mdl_name],mdl[mdl_name]=conv_model(Xt,y[:,np.newaxis,np.newaxis],num_filters=num_filters,winsize=conv_window,is_bool=spike_isbool,l2_penalty=l2_penalty)
                 weights[mdl_name] = mdl[mdl_name].get_weights()[0]
 
         # ===================================== #
