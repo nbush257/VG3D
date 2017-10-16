@@ -46,7 +46,7 @@ def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
     for varname in varlist:
         var = get_var(blk,varname, keep_neo=False)[0]
         if varname in ['M','F']:
-            var[Cbool,:]=0
+            var[np.invert(Cbool),:]=0
             var = replace_NaNs(var,'pchip')
             var = replace_NaNs(var,'interp')
 

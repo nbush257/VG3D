@@ -7,6 +7,7 @@ import elephant
 from scipy import corrcoef
 import quantities as pq
 from neo.io import PickleIO as PIO
+
 import sys
 from numpy.random import binomial
 try:
