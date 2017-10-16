@@ -215,16 +215,10 @@ if keras_tgl:
         model.add(Activation('relu'))
 
         model.add(Dense(1))
-        if is_bool:
-            model.add(Activation('sigmoid'))
-            model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+        model.add(Activation('sigmoid'))
+        model.compile(loss='binary_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
 
-        else:
-            cat_labels=to_categorical(y,num_classes=None)[:,:,np.newaxis]
-            model.add(Activation('linear'))
-            model.compile(loss='mean_absolute_error', optimizer='sgd', metrics=['accuracy'])
-
-        model.fit(X[idx, :, :], y[idx, :, :], epochs=15, batch_size=32, validation_split=0.20)
+        model.fit(X[idx, :, :], y[idx, :, :], epochs=5, batch_size=32, validation_split=0.)
 
         yhat[idx] = model.predict(X[idx,:,:]).squeeze()
 
