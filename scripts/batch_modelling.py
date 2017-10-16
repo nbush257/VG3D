@@ -133,6 +133,11 @@ def main():
                       default=4,
                       type=int,
                       help='Max number of convolutional nodes to use')
+    parser.add_option('--l2',
+                      dest='l2_penalty',
+                      default=1e-6,
+                      type=float,
+                      help='l2 penalty')
     (options,args)=parser.parse_args()
     if len(args)<1:
         parser.error('Need to pass a filename first')
@@ -148,6 +153,7 @@ def main():
     prefix = options.prefix
     conv_window = options.conv_window
     max_num_conv = options.max_num_conv
+    l2_penalty = options.l2_penalty
 
     # Get desired filenames
     fname = args[0]
@@ -258,7 +264,6 @@ def main():
                  mdl=mdl,
                  y=y,
                  X=X,
-                 X_pillow=X_pillow,
                  B=B)
 
 if __name__=='__main__':
