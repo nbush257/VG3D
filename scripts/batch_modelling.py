@@ -206,9 +206,9 @@ def main():
 
         spike_isbool=binsize==pq.ms
         if spike_isbool:
-            y = b.to_bool_array().ravel().astype('int')
+            y = b.to_bool_array().ravel().astype('float32')
         else:
-            y = b.to_array().ravel().astype('int')
+            y = b.to_array().ravel().astype('float32')
 
         # ===================================== #
         # MAKE TENSOR FOR CONV NETS
