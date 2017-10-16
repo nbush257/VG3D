@@ -102,8 +102,54 @@ def plot_latencies(summary_dat_file,cutoff=100*pq.ms,plot_tgl=True):
         ax.set_ylabel('Number of cells')
         ax.set_title('Median latencies to first spike',fontsize=18)
         plt.tight_layout()
-    return(median_latencies)
+    return median_latencies,pre
 
+def plot_regularity(summary_dat_file,plot_tgl=True,nbins=25):
+    dat = np.load(summary_dat_file)
+    CV = dat['all_CV']
+    LV = dat['all_LV']
+
+    median_CV = np.array([np.nanmedian(x) if len(x) > 0 else np.nan for x in CV])
+    median_LV = np.array([np.nanmedian(x) if len(x) > 0 else np.nan for x in LV])
+    if plot_tgl:
+        fig_CV = plt.figure()
+        ax_CV = fig_CV.add_subplot(111)
+        plt.hist(median_CV[np.isfinite(median_CV)],nbins,color='k',alpha=0.5)
+
+        fig_LV = plt.figure()
+        ax_LV = fig_LV.add_subplot(111)
+        plt.hist(median_LV[np.isfinite(median_LV)],nbins,color='k',alpha=0.5)
+
+        ax_CV.set_xlabel('CV')
+        ax_LV.set_xlabel('LV')
+        ax_CV.set_ylabel('Number of Cells')
+        ax_LV.set_ylabel('Number of Cells')
+
+        ax_CV.set_title('Distribution of median Coefficient of Variation (CV)')
+        ax_LV.set_title('Distribution of median Local Variation (LV)')
+
+    return median_CV,median_LV
+
+
+def joint_latency_regularity(summary_dat_file):
+    median_latencies,pre = np.array(plot_latencies(summary_dat_file,plot_tgl=False))
+    median_CV,median_LV = plot_regularity(summary_dat_file,plot_tgl=False)
+
+    sns.jointplot(median_latencies, median_CV,kind='reg',color='k',marginal_kws={'kde':False}).set_axis_labels('Latency','CV')
+    plt.tight_layout()
+    sns.jointplot(median_latencies, median_LV,kind='reg',color='k',marginal_kws={'kde':False}).set_axis_labels('Latency','LV')
+    plt.tight_layout()
+    sns.jointplot(median_CV, median_LV,kind='reg',color='k',marginal_kws={'kde':False}).set_axis_labels('CV','LV')
+    plt.tight_layout()
+
+    log_latencies = np.log(median_latencies+pre)-np.log(pre)
+    sns.jointplot(log_latencies, median_CV, kind='reg', color='k', marginal_kws={'kde': False}).set_axis_labels(
+        'Log-Latency', 'CV')
+    plt.tight_layout()
+    sns.jointplot(log_latencies, median_LV, kind='reg', color='k', marginal_kws={'kde': False}).set_axis_labels(
+        'Log-Latency', 'LV')
+
+    plt.tight_layout()
 
 
 if __name__=='__main__':
