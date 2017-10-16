@@ -79,6 +79,33 @@ def main(p,file,save_path):
         plt.savefig(os.path.join(save_path, root + '_ISI.png'), dpi=300)
         plt.close('all')
 
+def plot_latencies(summary_dat_file,cutoff=100*pq.ms,plot_tgl=True):
+    if type(cutoff)!=pq.quantity.Quantity:
+        raise ValueError('Cutoff must be a quantity')
+    dat = np.load(summary_dat_file)
+    latencies = dat['all_latencies']
+    pre = dat['pre']
+    median_latencies = [np.nanmedian(x)-pre*pq.ms for x in latencies]
+    mean_latencies = [np.nanmean(x)-pre*pq.ms for x in latencies]
+    median_latencies_sub = [x for x in median_latencies if x < cutoff]
+    if plot_tgl:
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        plt.hist(median_latencies_sub,np.arange(-pre,np.nanmax(median_latencies_sub),2),alpha=0.5,color='k')
+        ax_inset = plt.axes([0.5,0.5,0.3,0.3])
+        plt.hist(median_latencies,np.arange(-pre,np.nanmax(median_latencies),5),alpha=0.5,color='k')
+        ax_inset.patch.set_facecolor('w')
+        ax_inset.grid(color='k',linestyle=':',axis='y')
+        ax_inset.grid('off', axis='x')
+
+        ax.set_xlabel('Latency ({})'.format(median_latencies[0].dimensionality))
+        ax.set_ylabel('Number of cells')
+        ax.set_title('Median latencies to first spike',fontsize=18)
+        plt.tight_layout()
+    return(median_latencies)
+
+
+
 if __name__=='__main__':
     p = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\data'
     save_path = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\figs'
