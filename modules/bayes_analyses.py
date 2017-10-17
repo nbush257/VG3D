@@ -22,6 +22,7 @@ from matplotlib.ticker import MaxNLocator
 from sklearn.neighbors import KernelDensity as KD
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.stats import vonmises
 sns.set()
 
 
@@ -157,6 +158,21 @@ def plot_summary(blk,cell_no,p_save):
         plt.close()
 
 
+def PD_fitting(MD,sp):
+    if type(MD)==neo.core.analogsignal.AnalogSignal:
+        MD = MD.magnitude
+
+    MD = MD.ravel()
+
+    not_nan = np.where(np.isfinite(MD))[0]
+    prior,prior_edges = np.histogram(MD[np.isfinite(MD)],bins=100)
+    spt = sp.times.magnitude.astype('int')
+
+    idx = [x for x in spt if x in not_nan]
+    posterior, posterior_edges = np.histogram(MD[idx],bins=100)
+    bayes = np.divide(posterior,prior,dtype='float32')
+
+    return bayes,prior_edges
 if __name__=='__main__':
     p = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\data'
     p_save = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\figs'

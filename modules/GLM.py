@@ -167,7 +167,7 @@ def evaluate_correlation(yhat,y,Cbool=None,kernel_mode='box',sigma_vals=np.arang
         kernel =get_kernel(mode=kernel_mode,sigma=sigma)
         # get rate, need to convert from a neo analog signal to a numpy float,
         if kernel_mode=='box':
-            r = scipy.signal.convolve(kernel,y,'full')[sigma/2:][:len(y)]
+            r = scipy.signal.convolve(kernel,y,'full')[sigma/2:][:len(y)]*1000
         elif kernel_mode == 'gaussian':
             r = scipy.signal.convolve(kernel, y, 'full')[sigma*5:][:len(y)]
 

@@ -117,10 +117,14 @@ def categorize_deflections(blk):
 
 
 def get_MB_MD(M):
-    MD = np.arctan2(M[:, 2], M[:, 1])
-    MB = np.sqrt(M[:, 1] ** 2 + M[:, 2] ** 2)
-    if type(MD)==neo.core.analogsignal.AnalogSignal:
-        MD.units=pq.radians
+    dat = M.magnitude
+    MD = np.arctan2(dat[:, 2], dat[:, 1])
+    MB = np.sqrt(dat[:, 1] ** 2 + dat[:, 2] ** 2)
+    if type(M)==neo.core.analogsignal.AnalogSignal:
+        MD = neo.core.AnalogSignal(MD, units=pq.radians, sampling_rate=pq.kHz)
+        MB = neo.core.AnalogSignal(MB, units=pq.N*pq.m, sampling_rate=pq.kHz)
+
+
     return (MB, MD)
 
 
