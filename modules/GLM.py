@@ -138,15 +138,16 @@ def evaluate_correlation(yhat,y,Cbool=None,kernel_mode='box',sigma_vals=np.arang
     def get_kernel(mode='box',sigma=5.):
         ''' Get the kernel for a given mode and sigma'''
         if mode=='box':
-            kernel = scipy.signal.boxcar(sigma)
+            box_sigma = sigma / 2 / np.sqrt(3)
+            kernel = elephant.kernels.RectangularKernel(sigma=box_sigma)
         elif mode=='gaussian':
-            kernel = scipy.signal.gaussian(sigma * 10, sigma)
+            kernel = elephant.kernels.GaussianKernel(sigma=sigma)
         elif mode=='exp':
-            pass
+            kernel = elephant.kernels.ExponentialKernel(sigma=sigma)
         elif mode=='alpha':
-            pass
+            kernel = elephant.kernels.AlphaKernel(sigma=sigma)
         elif mode=='epan':
-            pass
+            kernel = elephant.kernels.EpanechnikovLikeKernel(sigma=sigma)
         else:
             raise ValueError('Kernel mode is not a valid kernel')
 
@@ -166,10 +167,7 @@ def evaluate_correlation(yhat,y,Cbool=None,kernel_mode='box',sigma_vals=np.arang
     for sigma in sigma_vals:
         kernel =get_kernel(mode=kernel_mode,sigma=sigma)
         # get rate, need to convert from a neo analog signal to a numpy float,
-        if kernel_mode=='box':
-            r = scipy.signal.convolve(kernel,y,'full')[sigma/2:][:len(y)]*1000
-        elif kernel_mode == 'gaussian':
-            r = scipy.signal.convolve(kernel, y, 'full')[sigma*5:][:len(y)]
+        r = elephant.statistics.instantaneous_rate(sp, kernel=kernel, sampling_period=pq.ms).magnitude.squeeze()
 
         rr.append(corrcoef(r[idx], yhat[idx])[1, 0])
     return rr
