@@ -1,4 +1,5 @@
-from neo.io import NeoMatlabIO as NIO
+import os
+import sys
 from neo.core import Block,ChannelIndex,Unit,SpikeTrain,AnalogSignal
 from elephant.conversion import binarize
 import neo
@@ -8,7 +9,17 @@ import scipy
 import elephant
 from neo.io import PickleIO as PIO
 from sklearn.preprocessing import StandardScaler
+usr_path = os.path.expanduser('~')
+proc_path = os.path.join(usr_path,r'Documents\hartmann_lab\proc')
 
+sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
+sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
+
+def get_blk(f):
+    usr_path = os.path.expanduser('~')
+    dat_path = os.path.join(usr_path,r'Box Sync\__VG3D\deflection_trials\data')
+    fid = PIO(os.path.join(dat_path,f))
+    return fid.read_block()
 
 def get_var(blk,varname='M',join=True,keep_neo=True):
     ''' use this utility to access an analog variable from all segments in a block easily

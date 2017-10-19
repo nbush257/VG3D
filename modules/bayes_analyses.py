@@ -69,7 +69,7 @@ def get_MB_tuning_curve(MB,b,nbins=100):
     ax.set_title('Probability of a spike given Bending Moment')
     return ax
 
-def bayes_plots(var1,var2,b,bins=None,ax=None):
+def bayes_plots(var1,var2,b,bins=None,ax=None,contour=False):
     # bin_size = 5e-9
     if type(bins)==int:
         nbins = bins
@@ -108,11 +108,15 @@ def bayes_plots(var1,var2,b,bins=None,ax=None):
         fig = plt.figure()
         ax = fig.add_subplot(111)
     levels = MaxNLocator(nbins=30).tick_values(H_bayesm.min(), H_bayesm.max())
-    # cf = ax.contourf(x_edges[:-1], y_edges[:-1], H_bayesm, levels=levels, cmap='OrRd')
-    pmesh = ax.pcolormesh(x_edges,y_edges,H_bayesm,cmap='OrRd')
+    if contour:
+        handle = ax.contourf(x_edges[:-1], y_edges[:-1], H_bayesm, levels=levels, cmap='OrRd')
+    else:
+        handle = ax.pcolormesh(x_edges,y_edges,H_bayesm,cmap='OrRd')
+
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(pmesh,cax=cax)
+    plt.colorbar(handle,cax=cax)
+    ax.grid('off')
     ax.set_aspect('equal')
     return ax
 
