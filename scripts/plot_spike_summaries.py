@@ -153,20 +153,20 @@ def joint_latency_regularity(summary_dat_file):
     plt.tight_layout()
 
 
-def plot_latencies(circ_stats_file,kappa_cut=15):
-    circ_stats_file = r'C:\Users\nbush257\Box Sync\__VG3D\deflection_trials\data\circ_stats\all_circ_stats.mat'
+def plot_circstats(circ_stats_file,kappa_cut=5):
+
     dat = loadmat(circ_stats_file)
     PDs = dat['theta_hat'].squeeze()
     kappa = dat['kappa'].squeeze()
     kappa[kappa>kappa_cut]=np.nan
-    fig = plt.figure()
-    ax = fig.add_subplot(111,projection='polar')
+    fig_PD = plt.figure()
+    ax = fig_PD.add_subplot(111,projection='polar')
     plt.hist(PDs[np.isfinite(PDs)],bins=15,color='k',alpha=0.7)
     ax.set_title('Distribution of Preferred Directions')
     plt.tight_layout()
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    fig_kappa = plt.figure()
+    ax = fig_kappa.add_subplot(111)
     plt.hist(kappa[np.isfinite(kappa)],bins=50,color='k',alpha=0.7)
     ax.set_xlabel('Directional Tuning Strength (kappa)')
     ax.set_ylabel('Number of Cells')
@@ -177,6 +177,7 @@ def plot_latencies(circ_stats_file,kappa_cut=15):
     ax.grid(color='k',linestyle=':')
     plt.hist(kappa[np.logical_and(np.isfinite(kappa),kappa<2.5)],bins=50,color='k',alpha=0.7)
 
+    return fig_PD,fig_kappa
 
 
 if __name__=='__main__':

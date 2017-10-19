@@ -11,14 +11,16 @@ for f in glob.glob(os.path.join(p_in,'rat*.pkl')):
     print(os.path.basename(f))
     fid = PIO(f)
     blk = fid.read_block()
+    M = get_var(blk)
+    MB, MD = get_MB_MD(M)
     for unit in blk.channel_indexes[-1].units:
-        sp = concatenate_sp(blk)[unit.name]
-        root = get_root(blk,int(unit.name[-1]))
+        unit_num = int(unit.name[-1])
+        r,b = get_rate_b(blk,unit_num)
+        root = get_root(blk,unit_num)
         output_fname = 'circ_stats_{}.mat'.format(root)
-        M = get_var(blk)
-        MB,MD = get_MB_MD(M)
 
-        w,edges=PD_fitting(MD,sp)
+
+        w,edges=PD_fitting(MD,r)
         save_dict = {
             'w':w,
             'alpha':edges[:-1],

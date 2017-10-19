@@ -21,6 +21,12 @@ def get_blk(f):
     fid = PIO(os.path.join(dat_path,f))
     return fid.read_block()
 
+def get_rate_b(blk,unit_num,sigma=10*pq.ms):
+    sp = concatenate_sp(blk)['cell_{}'.format(unit_num)]
+    kernel = elephant.kernels.GaussianKernel(sigma=sigma)
+    b = elephant.conversion.binarize(sp,sampling_rate=pq.kHz)[:-1]
+    r = elephant.statistics.instantaneous_rate(sp,sampling_period=pq.ms,kernel=kernel).magnitude.squeeze()
+    return(r,b)
 def get_var(blk,varname='M',join=True,keep_neo=True):
     ''' use this utility to access an analog variable from all segments in a block easily
     If you choose to join the segments, returns a list of '''
