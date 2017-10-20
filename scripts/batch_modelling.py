@@ -272,7 +272,7 @@ def main():
                  y=y,
                  X=X,
                  Cbool=Cbool,
-                 options,options,
+                 options=options,
                  B=B)
 
 if __name__=='__main__':
