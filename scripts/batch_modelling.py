@@ -243,7 +243,7 @@ def main():
         # ===================================== #
 
         for model in yhat.iterkeys():
-            corrs[model] = evaluate_correlation(yhat[model],y,kernel_mode=kernel_mode,Cbool,sigma_vals=sigma_vals)
+            corrs[model] = evaluate_correlation(yhat[model],y,kernel_mode=kernel_mode,Cbool=Cbool,sigma_vals=sigma_vals)
         # ===================================== #
         # PLOT IF REQUESTED
         # ===================================== #
