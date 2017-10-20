@@ -9,15 +9,15 @@ import scipy
 import elephant
 from neo.io import PickleIO as PIO
 from sklearn.preprocessing import StandardScaler
-usr_path = os.path.expanduser('~')
-proc_path = os.path.join(usr_path,r'Documents\hartmann_lab\proc')
 
+# import my functions
+proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
 sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
 
 def get_blk(f):
-    usr_path = os.path.expanduser('~')
-    dat_path = os.path.join(usr_path,r'Box Sync\__VG3D\deflection_trials\data')
+    box_path = os.environ['BOX_PATH']
+    dat_path = os.path.join(box_path,r'__VG3D\deflection_trials\data')
     fid = PIO(os.path.join(dat_path,f))
     return fid.read_block()
 
