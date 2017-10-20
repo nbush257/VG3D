@@ -7,6 +7,12 @@ import elephant
 from scipy import corrcoef
 import quantities as pq
 from neo.io import PickleIO as PIO
+try:
+    import cmt
+    from cmt.models import STM,Bernoulli
+    from cmt.nonlinear import LogisticFunction
+except:
+    pass
 
 import sys
 from numpy.random import binomial
@@ -299,3 +305,22 @@ def map_bases(weights,bases):
 
     return filters,ww
 
+def STM(X,y,num_components=3,num_features=20):
+    if X.shape[0]>X.shape[1]:
+        X = X.T
+
+    if y.ndim==1:
+        y = y[:,np.newaxis]
+
+    if y.shape[0]>y.shape[1]:
+        y = y.T
+
+    model = STM(X.shape[0], 0, num_components, num_features, LogisticFunction, Bernoulli)
+
+    model.train(X,y, parameters={
+        'verbosity':1,
+        'threshold':1e-8
+            }
+                )
+    yhat = model.predict(X).ravel()
+    return yhat,model
