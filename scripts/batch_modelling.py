@@ -23,7 +23,7 @@ from sklearn.preprocessing import RobustScaler,StandardScaler
 sns.set()
 
 def init_model_params():
-    sigma_vals = np.arange(2, 200, 4)
+    sigma_vals = np.arange(2, 200, 4)*pq.ms
     B = make_bases(5, [0, 15], b=2)
     winsize = int(B[0].shape[0])
     return sigma_vals,B,winsize
