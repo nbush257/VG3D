@@ -227,7 +227,7 @@ def main():
         # ===================================== #
         if pillow_tgl:
             yhat['glm'],mdl['glm'] = run_GLM(X_pillow,y)
-            weights['glm'] = mdl.params
+            weights['glm'] = mdl['glm'].params
 
         if gam_tgl:
             yhat['gam'],mdl['gam'] = run_GAM(X,y)
