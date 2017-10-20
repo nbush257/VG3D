@@ -7,6 +7,7 @@ import elephant
 from scipy import corrcoef
 import quantities as pq
 from neo.io import PickleIO as PIO
+
 import sys
 from numpy.random import binomial
 try:
@@ -125,7 +126,7 @@ def run_GAM(X,y,n_splines=15,distr='binomial',link='logit'):
     return yhat,gam
 
 
-def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
+def evaluate_correlation(yhat,y,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
     '''
     Takes a predict spike rate and smooths the
     observed spike rate at different values to find the optimal smoothing.
@@ -137,17 +138,19 @@ def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.aran
     def get_kernel(mode='box',sigma=5.):
         ''' Get the kernel for a given mode and sigma'''
         if mode=='box':
-            kernel = elephant.kernels.RectangularKernel(sigma=sigma * pq.ms)
+            box_sigma = sigma / 2 / np.sqrt(3)
+            kernel = elephant.kernels.RectangularKernel(sigma=box_sigma)
         elif mode=='gaussian':
-            kernel = elephant.kernels.GaussianKernel(sigma=sigma * pq.ms)
+            kernel = elephant.kernels.GaussianKernel(sigma=sigma)
         elif mode=='exp':
-            kernel = elephant.kernels.ExponentialKernel(sigma=sigma * pq.ms)
+            kernel = elephant.kernels.ExponentialKernel(sigma=sigma)
         elif mode=='alpha':
-            kernel = elephant.kernels.AlphaKernel(sigma=sigma * pq.ms)
+            kernel = elephant.kernels.AlphaKernel(sigma=sigma)
         elif mode=='epan':
-            kernel = elephant.kernels.EpanechnikovLikeKernel(sigma=sigma * pq.ms)
+            kernel = elephant.kernels.EpanechnikovLikeKernel(sigma=sigma)
         else:
             raise ValueError('Kernel mode is not a valid kernel')
+
         return kernel
 
     if Cbool is None:
@@ -156,7 +159,7 @@ def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.aran
 
     # only calculate correlation on non nans and contact(if desired)
     idx = np.logical_and(np.isfinite(yhat),Cbool)
-    if type(sp)==dict:
+    if type(y)==dict:
         raise ValueError('Need to choose a cell from the spiketrain dict')
 
     # calculate Pearson correlation for all smoothings
@@ -164,9 +167,9 @@ def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.aran
     for sigma in sigma_vals:
         kernel =get_kernel(mode=kernel_mode,sigma=sigma)
         # get rate, need to convert from a neo analog signal to a numpy float,
-        r = elephant.statistics.instantaneous_rate(sp, sampling_period=pq.ms, kernel=kernel).as_array().astype('f8')/1000
+        r = elephant.statistics.instantaneous_rate(sp, kernel=kernel, sampling_period=pq.ms).magnitude.squeeze()
 
-        rr.append(corrcoef(r[idx].ravel(), yhat[idx])[1, 0])
+        rr.append(corrcoef(r[idx], yhat[idx])[1, 0])
     return rr
 
 

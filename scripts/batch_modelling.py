@@ -46,7 +46,7 @@ def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
     for varname in varlist:
         var = get_var(blk,varname, keep_neo=False)[0]
         if varname in ['M','F']:
-            var[Cbool,:]=0
+            var[np.invert(Cbool),:]=0
             var = replace_NaNs(var,'pchip')
             var = replace_NaNs(var,'interp')
 
@@ -138,6 +138,11 @@ def main():
                       default=1e-6,
                       type=float,
                       help='l2 penalty')
+    parser.add_option('-k','--kernel',
+                      dest='kernel_mode',
+                      default='gaussian',
+                      type=str,
+                      help='Kernel Mode (\'box\',\'gaussian\',\'exp\',\'alpha\',\'epan\')')
     (options,args)=parser.parse_args()
     if len(args)<1:
         parser.error('Need to pass a filename first')
@@ -154,7 +159,7 @@ def main():
     conv_window = options.conv_window
     max_num_conv = options.max_num_conv
     l2_penalty = options.l2_penalty
-
+    kernel_mode = options.kernel_mode
     # Get desired filenames
     fname = args[0]
     p_save = os.path.split(fname)[0]
@@ -170,16 +175,18 @@ def main():
     # initialize parameters
     sigma_vals, B, winsize = init_model_params()
 
+    # calculate the design matrices based on input toggles
+    X = create_design_matrix(blk, varlist, deriv_tgl=deriv_tgl, bases=None)
+
     # calculate pillow bases if desired.
     if pillow_tgl:
         B = make_bases(5,[0,15],2)
         bases=B[0]
+        X_pillow = create_design_matrix(blk, varlist, deriv_tgl=deriv_tgl, bases=bases)
     else:
         B=None
         bases = None
-
-    # calculate the design matrices based on input toggles
-    X = create_design_matrix(blk,varlist,deriv_tgl=deriv_tgl,bases=bases)
+        X_pillow = X
 
 
     for unit in blk.channel_indexes[-1].units:
@@ -206,9 +213,9 @@ def main():
 
         spike_isbool=binsize==pq.ms
         if spike_isbool:
-            y = b.to_bool_array().ravel().astype('int')
+            y = b.to_bool_array().ravel().astype('float32')
         else:
-            y = b.to_array().ravel().astype('int')
+            y = b.to_array().ravel().astype('float32')
 
         # ===================================== #
         # MAKE TENSOR FOR CONV NETS
@@ -219,7 +226,7 @@ def main():
         # RUN ALL THE MODELS REQUESTED
         # ===================================== #
         if pillow_tgl:
-            yhat['glm'],mdl['glm'] = run_GLM(X,y)
+            yhat['glm'],mdl['glm'] = run_GLM(X_pillow,y)
             weights['glm'] = mdl.params
 
         if gam_tgl:
@@ -236,7 +243,7 @@ def main():
         # ===================================== #
 
         for model in yhat.iterkeys():
-            corrs[model] = evaluate_correlation(yhat[model],sp,Cbool=Cbool,sigma_vals=sigma_vals)
+            corrs[model] = evaluate_correlation(yhat[model],y,kernel_mode=kernel_mode,Cbool,sigma_vals=sigma_vals)
         # ===================================== #
         # PLOT IF REQUESTED
         # ===================================== #
@@ -264,6 +271,8 @@ def main():
                  mdl=mdl,
                  y=y,
                  X=X,
+                 Cbool=Cbool,
+                 options,options,
                  B=B)
 
 if __name__=='__main__':

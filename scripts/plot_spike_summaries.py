@@ -7,6 +7,7 @@ import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 import quantities as pq
+from scipy.io.matlab import loadmat
 sns.set()
 
 
@@ -150,6 +151,33 @@ def joint_latency_regularity(summary_dat_file):
         'Log-Latency', 'LV')
 
     plt.tight_layout()
+
+
+def plot_circstats(circ_stats_file,kappa_cut=5):
+
+    dat = loadmat(circ_stats_file)
+    PDs = dat['theta_hat'].squeeze()
+    kappa = dat['kappa'].squeeze()
+    kappa[kappa>kappa_cut]=np.nan
+    fig_PD = plt.figure()
+    ax = fig_PD.add_subplot(111,projection='polar')
+    plt.hist(PDs[np.isfinite(PDs)],bins=15,color='k',alpha=0.7)
+    ax.set_title('Distribution of Preferred Directions')
+    plt.tight_layout()
+
+    fig_kappa = plt.figure()
+    ax = fig_kappa.add_subplot(111)
+    plt.hist(kappa[np.isfinite(kappa)],bins=50,color='k',alpha=0.7)
+    ax.set_xlabel('Directional Tuning Strength (kappa)')
+    ax.set_ylabel('Number of Cells')
+    ax.set_title('Distribution of Preferred Direction Tuning')
+
+    ax = plt.axes([0.5,0.5,0.3,0.3])
+    ax.patch.set_color('w')
+    ax.grid(color='k',linestyle=':')
+    plt.hist(kappa[np.logical_and(np.isfinite(kappa),kappa<2.5)],bins=50,color='k',alpha=0.7)
+
+    return fig_PD,fig_kappa
 
 
 if __name__=='__main__':

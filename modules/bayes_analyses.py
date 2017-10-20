@@ -22,29 +22,30 @@ from matplotlib.ticker import MaxNLocator
 from sklearn.neighbors import KernelDensity as KD
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from scipy.stats import vonmises
 sns.set()
 
 
 
-def get_MD_tuning_curve(MD,b,nbins=100):
+def get_MD_tuning_curve(MD,b,nbins=100,smooth_tgl=False,barplot=False):
 
     fig = plt.figure()
-    barplot=False
 
     bins = np.arange(-np.pi, np.pi, 2*np.pi/nbins)
     MD_prior,edges_prior = np.histogram(MD[np.isfinite(MD)],bins=bins)
     MD_post,edges_post = np.histogram(MD[np.isfinite(MD)],bins=bins,weights=b[np.isfinite(MD)])
     MD_bayes = MD_post/MD_prior
     PD = edges_prior[np.argmax(MD_post/MD_prior)]
-    smooth = lowess(MD_bayes,edges_post[:-1],frac=0.1)
+    if smooth_tgl:
+        smooth = lowess(MD_bayes,edges_post[:-1],frac=0.1)
     ax = plt.subplot(111, polar=True)
     if barplot:
         width = (2 * np.pi) / nbins
         ax.bar(edges_post[:-1],MD_post/MD_prior,width=width,edgecolor='k')
     else:
-
         ax.plot(edges_post[:-1],MD_post/MD_prior,'o')
-        ax.plot(smooth[:,0],smooth[:,1],linewidth=5,alpha=0.6)
+        if smooth_tgl:
+            ax.plot(smooth[:,0],smooth[:,1],linewidth=5,alpha=0.6)
 
     plt.tight_layout()
     return fig,MD_bayes,edges_prior
@@ -61,14 +62,15 @@ def get_MB_tuning_curve(MB,b,nbins=100):
     MB_prior,edges_prior = np.histogram(MB[idx_MB],bins=nbins)
     MB_post,edges_post = np.histogram(MB[idx_MB],bins=nbins,weights=b[idx_MB])
     MB_prior[MB_prior<1]=0
+    MB_bayes = MB_post/MB_prior
     plt.plot(edges_post[:-1],MB_post/MB_prior,'o')
     ax = plt.gca()
     ax.set_xlabel('MB (N-m)')
     ax.set_ylabel('Spike Probability')
     ax.set_title('Probability of a spike given Bending Moment')
-    return ax
+    return ax,MB_bayes,edges_post
 
-def bayes_plots(var1,var2,b,bins=None,ax=None):
+def bayes_plots(var1,var2,b,bins=None,ax=None,contour=False):
     # bin_size = 5e-9
     if type(bins)==int:
         nbins = bins
@@ -107,12 +109,17 @@ def bayes_plots(var1,var2,b,bins=None,ax=None):
         fig = plt.figure()
         ax = fig.add_subplot(111)
     levels = MaxNLocator(nbins=30).tick_values(H_bayesm.min(), H_bayesm.max())
-    # cf = ax.contourf(x_edges[:-1], y_edges[:-1], H_bayesm, levels=levels, cmap='OrRd')
-    pmesh = ax.pcolormesh(x_edges,y_edges,H_bayesm,cmap='OrRd')
+    if contour:
+        handle = ax.contourf(x_edges[:-1], y_edges[:-1], H_bayesm, levels=levels, cmap='OrRd')
+        for c in handle.collections:
+            c.set_edgecolor("face")
+    else:
+        handle = ax.pcolormesh(x_edges[:-1],y_edges[:-1],H_bayesm,cmap='OrRd',edgecolors='None')
+
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    plt.colorbar(pmesh,cax=cax)
-    ax.set_aspect('equal')
+    plt.colorbar(handle,cax=cax)
+    ax.grid('off')
     return ax
 
 
@@ -157,6 +164,24 @@ def plot_summary(blk,cell_no,p_save):
         plt.close()
 
 
+def PD_fitting(MD,sp):
+    if type(MD)==neo.core.analogsignal.AnalogSignal:
+        MD = MD.magnitude
+
+    MD = MD.ravel()
+
+    not_nan = np.where(np.isfinite(MD))[0]
+    prior,prior_edges = np.histogram(MD[np.isfinite(MD)],bins=100)
+    if type(sp)==neo.core.spiketrain.SpikeTrain:
+        spt = sp.times.magnitude.astype('int')
+        idx = [x for x in spt if x in not_nan]
+        posterior, posterior_edges = np.histogram(MD[idx], bins=100)
+    else:
+        posterior, posterior_edges = np.histogram(MD[not_nan], weights=sp[not_nan],bins=100)
+
+    bayes = np.divide(posterior,prior,dtype='float32')
+
+    return bayes,prior_edges
 if __name__=='__main__':
     p = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\data'
     p_save = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\figs'
