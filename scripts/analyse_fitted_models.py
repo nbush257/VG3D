@@ -1,6 +1,7 @@
 import numpy as np
 import glob
 import os
+import sys
 import matplotlib.pyplot as plt
 import seaborn as sns
 import elephant
@@ -13,10 +14,6 @@ import sklearn
 import statsmodels
 from mpl_toolkits.mplot3d import Axes3D
 sns.set()
-
-colors = [[0.4, 0.5, 1], [1, 0.5, 0.4], [0.8, 0.8, 0.8], [0.6, 0.6, 0.6], [0.4, 0.4, 0.4], [0.2, 0.2, 0.2]]
-model_names = ['glm', 'gam', 'conv_1_node', 'conv_2_node', 'conv_3_node', 'conv_4_node']
-
 
 def get_weights(models):
     '''take a npz file of data and 
@@ -57,9 +54,20 @@ def get_yhat(fid,model_names):
     return yhat
 
 def analyse_model(p,f,model_names,plot_tgl=False):
+    ''' runs all the analyses we generally want from a particular cell
+    INPUTS: 
+        p:              path to where the model file is
+        f:              filename of the model
+        model_names:    list of model names we are evaluating, in the order they are to appear
+        plot_tgl:       Boolean whether we want to plot this data now. Default False
+    OUTPUTS:
+        rr:             numpy aray of correlations for all sigma values ordered by model_names
+        weights:        dict of model weights
+        yhat:           predicted firing rate as a numpy array. Columns correspond to model names
+        y:              Observed spiking
+        B:              Basis functions used
+    '''
     fid = np.load((os.path.join(p,f)))
-    # import to make this list to order the outputs
-
     # get sigmas
     sigma_vals = fid['sigma_vals']
 
@@ -91,20 +99,25 @@ def analyse_model(p,f,model_names,plot_tgl=False):
 
     return rr,weights,yhat,fid['y'],B
 
-def concatenate_data():
-    # this script is OK to modify for different datasets
-    p = r'K:\VG3D\_model_results'
-    f_out = 'glm-gam-conv1-4model_results.npz'
-    spec = 'model*.npz'
-    model_names = ['glm', 'gam', 'conv_1_node', 'conv_2_node', 'conv_3_node', 'conv_4_node']
-
+def concatenate_data(p,fspec,f_out,model_names):
+    ''' creates a numpy file that carries all the cells modeled data
+    INPUTS:
+        p:              path to where the models live
+        fspec:          wildcard expression to grab models with a particular filename type
+        f_out:          name to put all the concatenated data in
+        model_names:    list of model names to care about in order 
+    OUTPUTS:
+        none--saves a numpy array to '<fspec>'     
+    '''
+    
+    
     all_rr = np.empty([50, 6, 0])
     all_weights = []
     all_yhat = []
     all_y = []
     id = []
     B = None
-    for f in glob.glob(os.path.join(p, spec)):
+    for f in glob.glob(os.path.join(p, fspec)):
         print(f)
         rr, weights, yhat, y, B = analyse_model(p, f,model_names=model_names,plot_tgl=False)
 
@@ -121,11 +134,17 @@ def concatenate_data():
              bases=B,
              id=id)
 
-def plot_summary_performance():
-    p =r'K:\VG3D\_model_results'
-    f = r'glm-gam-conv1-4model_results.npz'
+def plot_summary_performance(p,f,model_names):
+    ''' Takes the summary file (which contains the data from all cells) and creates violin/swarm plots of the model accuracies and best smoothinig parameters.
+        INPUTS:
+            p:              path to the model summary file
+            f:              filename of the model summary file
+            model_names:    list of model names to care about in order
+        OUTPUTS:
+            none--creates plots
+    '''
+    
     sigma_vals = np.arange(2,200,4)
-    model_names = ['glm', 'gam', 'conv_1_node', 'conv_2_node', 'conv_3_node', 'conv_4_node']
     res = np.load(os.path.join(p,f))
     weights = res['weights']
     rr = res['rr']
@@ -157,10 +176,15 @@ def plot_summary_performance():
     for ii in xrange(6):
         sns.jointplot(best_smoothing_vals[ii, :], max_rr[ii, :],edgecolor='w',marginal_kws=dict(bins=25), size=5, ratio=4, color=colors[ii]).plot_joint(sns.kdeplot,n_levels=3)
 
-def glm_PCA(B):
-    p = r'K:\VG3D\_model_results'
-    f = r'glm-gam-conv1-4model_results.npz'
-
+def glm_PCA(p,f):
+    '''Takes the summary file (which contains data from all cells) and plots the PCA space of the GLM weights
+        INPUTS: 
+            p:              path to the model summary file
+            f:              filename of the model summary file
+        OUTPUTS:
+            none--creates plots    
+    '''
+    B = res['bases']
     res = np.load(os.path.join(p, f))
     weights = res['weights']
     ww = np.empty([0,len(weights[0]['glm'])])
@@ -211,6 +235,11 @@ def glm_PCA(B):
 
 
 def plot_weights(weights,model_names,B,rr,id,sigma_vals,f_out=None):
+    '''
+    This is a more complicated script which plots the weights and model performance for a cell in one big figure. 
+    This will likely not be run in a general sense yet, and I do not have time now to make it generalized.
+
+    '''
     colors = [[0.4, 0.5, 1], [1, 0.5, 0.4], [0.8, 0.8, 0.8], [0.6, 0.6, 0.6], [0.4, 0.4, 0.4], [0.2, 0.2, 0.2]]
 
     fig = plt.figure()
@@ -252,8 +281,10 @@ def plot_weights(weights,model_names,B,rr,id,sigma_vals,f_out=None):
         plt.savefig(f_out,dpi=300)
     plt.close('all')
 
-def batch_weight_plots(f_in):
-    model_names = ['glm', 'gam', 'conv_1_node', 'conv_2_node', 'conv_3_node', 'conv_4_node']
+def batch_weight_plots(p,f,model_names):
+    '''Calls plot weights for each cell in the summary file
+    '''
+    f_in = os.path.join(p,f)
     fid = np.load(f_in)
     p_save = os.path.split(f_in)[0]
     sigma_vals = np.arange(2,200,4)
@@ -267,6 +298,7 @@ def batch_weight_plots(f_in):
 
 
 if __name__=='__main__':
+    pass
     # concatenate_data()
-    f_in = r'K:\VG3D\_model_results\glm-gam-conv1-4model_results.npz'
-    batch_weight_plots(f_in)
+    # f_in = sys.argv[1]
+    # batch_weight_plots(f_in)
