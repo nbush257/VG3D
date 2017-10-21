@@ -23,14 +23,14 @@ def get_model_names(p,fspec):
     first_file = np.load(glob.glob(os.path.join(p, fspec))[0])
     opts = first_file['options'].keys
     model_names = []
-    if opts['pillow_tgl']:
+    if opts.pillow_tgl:
         model_names.append('glm')
 
-    if opts['gam_tgl']:
+    if opts.gam_tgl:
         model_names.append('gam')
 
-    if opts['conv_tgl']:
-        for ii in range(opts['max_num_conv']):
+    if opts.conv_tgl:
+        for ii in range(opts.max_num_conv):
             model.names.append('conv_{}_node'.format(ii+1))
 
     return model_names
