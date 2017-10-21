@@ -97,7 +97,7 @@ def analyse_model(p,f,model_names,plot_tgl=False):
 
     yhat = get_yhat(fid,model_names)
 
-    return rr,weights,yhat,fid['y'],B
+    return rr,weights,yhat,fid['y'],B,fid['Cbool'],fid['options']
 
 def concatenate_data(p,fspec,f_out,model_names):
     ''' creates a numpy file that carries all the cells modeled data
@@ -116,15 +116,19 @@ def concatenate_data(p,fspec,f_out,model_names):
     all_yhat = []
     all_y = []
     id = []
+    all_Cbool = []
+    all_opts = []
     B = None
     for f in glob.glob(os.path.join(p, fspec)):
         print(f)
-        rr, weights, yhat, y, B = analyse_model(p, f,model_names=model_names,plot_tgl=False)
+        rr, weights, yhat, y, B, Cbool, opts = analyse_model(p, f,model_names=model_names,plot_tgl=False)
 
         all_rr = np.concatenate([all_rr, rr[:, :, np.newaxis]], axis=-1)
         all_weights.append(weights)
         all_yhat.append(yhat)
         all_y.append(y)
+        all_Cbool.append(Cbool)
+        all_opts.append(opts)
         id.append(f[-15:-4])
     np.savez(os.path.join(p, f_out),
              rr=all_rr,
