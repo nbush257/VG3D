@@ -21,7 +21,7 @@ def get_model_names(p,fspec):
     so will need to be updated with new model introductions'''
 
     first_file = np.load(glob.glob(os.path.join(p, fspec))[0])
-    opts = first_file['options'].keys
+    opts = first_file['options'].item()
     model_names = []
     if opts.pillow_tgl:
         model_names.append('glm')
