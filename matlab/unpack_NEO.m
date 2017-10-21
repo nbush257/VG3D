@@ -9,9 +9,11 @@ for ii= 1:length(block.segments)
     F{ii} = seg.analogsignals{2}.signal;
     PHIE{ii} = seg.analogsignals{3}.signal;
     TH{ii} = seg.analogsignals{4}.signal;
-    Rcp{ii} = seg.analogsignals{5}.signal;
-    THcp{ii} = seg.analogsignals{6}.signal;
-    PHIcp{ii} = seg.analogsignals{7}.signal;
+    ZETA{ii} = seg.analogsignals{5}.signal;
+    Rcp{ii} = seg.analogsignals{6}.signal;
+    THcp{ii} = seg.analogsignals{7}.signal;
+    PHIcp{ii} = seg.analogsignals{8}.signal;
+    Zcp{ii} = seg.analogsignals{9}.signal;
     
     cc{ii} = [seg.epochs{1}.times(:) seg.epochs{1}.times(:)+seg.epochs{1}.durations(:)];
 end
@@ -33,9 +35,11 @@ if concat_TGL
     F = vertcat(F{:});
     PHIcp = vertcat(PHIcp{:});
     PHIE = vertcat(PHIE{:});
+    ZETA = vertcat(ZETA{:});
     Rcp = vertcat(Rcp{:});
     TH = vertcat(TH{:});
     THcp = vertcat(THcp{:});
+    Zcp = vertcat(Zcp{:});
     cc = vertcat(cc{:});
     for ii = 1:size(sp,2)
         temp{ii} = [sp{:,ii}];
