@@ -319,8 +319,8 @@ def plot_weights(weights,model_names,B,rr,id,sigma_vals,f_out=None):
 def batch_weight_plots(f):
     '''Calls plot weights for each cell in the summary file
     '''
-    f_in = os.path.join(p,f)
-    fid = np.load(f_in)
+    
+    fid = np.load(f)
     model_names = fid['model_names']
     p_save = os.path.split(f_in)[0]
     sigma_vals = np.arange(2,200,4)
