@@ -31,7 +31,7 @@ def get_model_names(p,fspec):
 
     if opts.conv_tgl:
         for ii in range(opts.max_num_conv):
-            model.names.append('conv_{}_node'.format(ii+1))
+            model_names.append('conv_{}_node'.format(ii+1))
 
     return model_names
 
