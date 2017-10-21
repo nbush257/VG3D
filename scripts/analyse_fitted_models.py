@@ -20,7 +20,7 @@ def get_model_names(p,fspec):
     This is not going to be a very flexible function, 
     so will need to be updated with new model introductions'''
 
-    first_file = glob.glob(os.path.join(p, fspec))[0]
+    first_file = np.load(glob.glob(os.path.join(p, fspec))[0])
     opts = first_file['options'].keys
     model_names = []
     if opts['pillow_tgl']:
@@ -321,6 +321,7 @@ def batch_weight_plots(f):
     '''
     
     fid = np.load(f)
+    bname = os.path.splitext(os.path.basename(f))[0]
     model_names = fid['model_names']
     p_save = os.path.split(f_in)[0]
     sigma_vals = np.arange(2,200,4)
@@ -329,7 +330,7 @@ def batch_weight_plots(f):
         B = make_bases(5,[0,15],2)
         rr = fid['rr'][:,:,ii]
         id = fid['id'][ii]
-        f_out = os.path.join(p_save,'weights_{}.png'.format(id))
+        f_out = os.path.join(p_save,'{}_weights_{}.png'.format(bname,id))
         plot_weights(weights,model_names,B,rr,id,sigma_vals,f_out)
 
 
