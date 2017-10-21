@@ -15,6 +15,27 @@ import statsmodels
 from mpl_toolkits.mplot3d import Axes3D
 sns.set()
 
+def get_model_names(p,fspec):
+    ''' use the options to get a list of model names. 
+    This is not going to be a very flexible function, 
+    so will need to be updated with new model introductions'''
+
+    first_file = glob.glob(os.path.join(p, fspec))[0]
+    opts = first_file['options'].keys
+    model_names = []
+    if opts['pillow_tgl']:
+        model_names.append('glm')
+
+    if opts['gam_tgl']:
+        model_names.append('gam')
+
+    if opts['conv_tgl']:
+        for ii in range(opts['max_num_conv']):
+            model.names.append('conv_{}_node'.format(ii+1))
+
+    return model_names
+
+
 def get_weights(models):
     '''take a npz file of data and 
     returns a dict of model weights. 
