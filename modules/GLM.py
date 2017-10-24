@@ -323,4 +323,4 @@ def STM(X,y,num_components=3,num_features=20):
             }
                 )
     yhat = model.predict(X).ravel()
-    return yhat,model
+    return yhat, model

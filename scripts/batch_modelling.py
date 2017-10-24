@@ -143,6 +143,24 @@ def main():
                       default='gaussian',
                       type=str,
                       help='Kernel Mode (\'box\',\'gaussian\',\'exp\',\'alpha\',\'epan\')')
+    parser.add_option('--STM','--STM_tgl',
+                      action='store_true',
+                      dest='stm_tgl',
+                      default=False,
+                      help='STM toggle. Call the flag to run a STM network (Thies 2013)')
+    parser.add_option('--num_stm_components',
+                      action='store',
+                      dest='num_stm_components',
+                      default=3,
+                      type=int,
+                      help='Number of components to use in the STM model')
+    parser.add_option('--num_stm_features',
+                      action='store',
+                      dest='num_stm_components',
+                      default=20,
+                      type=int,
+                      help='Number of features to use in the STM model')
+
     (options,args)=parser.parse_args()
     if len(args)<1:
         parser.error('Need to pass a filename first')
@@ -160,6 +178,10 @@ def main():
     max_num_conv = options.max_num_conv
     l2_penalty = options.l2_penalty
     kernel_mode = options.kernel_mode
+
+
+
+
     # Get desired filenames
     fname = args[0]
     p_save = os.path.split(fname)[0]
@@ -237,6 +259,12 @@ def main():
                 mdl_name = 'conv_{}_node'.format(num_filters)
                 yhat[mdl_name],mdl[mdl_name]=conv_model(Xt,y[:,np.newaxis,np.newaxis],num_filters=num_filters,winsize=conv_window,is_bool=spike_isbool,l2_penalty=l2_penalty)
                 weights[mdl_name] = mdl[mdl_name].get_weights()[0]
+
+        if options.stm_tgl:
+            yhat['stm'], mdl['stm'] = STM(X, y,
+                                          num_components=options.num_stm_components,
+                                          num_features=options.num_stm_feats)
+
 
         # ===================================== #
         # EVALUATE ALL THE MODELS -- THIS MAY NEED TO BE ALTERED
