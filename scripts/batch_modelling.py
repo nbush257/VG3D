@@ -108,7 +108,12 @@ def main():
                       action='store_true',
                       dest='pillow_tgl',
                       default=False,
-                      help='Basis toggle, set to true to map the inputs to a pillow basis')
+                      help='Basis toggle, set to true to map the inputs to a pillow basis \nfor use in the GLM only at this time')
+    parser.add_option('--GLM',
+                      action='store_true',
+                      dest='glm_tgl',
+                      default=False,
+                      help='Toggles a GLM model. \nIf pillow toggle is false, takes an input where each point in the windowsize is its own dimension ')
     parser.add_option('--GAM',
                       action='store_true',
                       dest='gam_tgl',
@@ -124,8 +129,8 @@ def main():
                       dest='plot_tgl',
                       default=False,
                       help='Plot toggle, call to plot the results during the run. This should never be called on quest.')
-    parser.add_option('-w','--conv_window',
-                      dest='conv_window',
+    parser.add_option('-w','--window',
+                      dest='window',
                       default=10,
                       type=int,
                       help='Window into the past to set the convolutional window to look in ms')
@@ -164,8 +169,8 @@ def main():
     parser.add_option('--silence_noncontact',
                       action='store_true',
                       dest='silence_noncontact',
-                      default=True,
-                      help='If true, sets all spiking that occurs during non_contact to zero')
+                      default=False,
+                      help='If called, sets all spiking that occurs during non_contact to zero')
 
     (options,args)=parser.parse_args()
     if len(args)<1:
@@ -180,7 +185,6 @@ def main():
     binsize = options.binsize
     deriv_tgl = options.deriv_tgl
     prefix = options.prefix
-    conv_window = options.conv_window
     max_num_conv = options.max_num_conv
     l2_penalty = options.l2_penalty
     kernel_mode = options.kernel_mode
@@ -251,7 +255,8 @@ def main():
         # ===================================== #
         # MAKE TENSOR FOR CONV NETS
         # ===================================== #
-        Xt = make_binned_tensor(X, b, window_size=conv_window)
+        Xt = make_binned_tensor(X, b, window_size=options.window)
+
 
         # ===================================== #
         # RUN ALL THE MODELS REQUESTED
@@ -266,7 +271,12 @@ def main():
         if conv_tgl:
             for num_filters in range(1,max_num_conv+1):
                 mdl_name = 'conv_{}_node'.format(num_filters)
-                yhat[mdl_name],mdl[mdl_name]=conv_model(Xt,y[:,np.newaxis,np.newaxis],num_filters=num_filters,winsize=conv_window,is_bool=spike_isbool,l2_penalty=l2_penalty)
+                yhat[mdl_name],mdl[mdl_name]=conv_model(Xt,y[:,np.newaxis,np.newaxis],
+                                                        num_filters=num_filters,
+                                                        winsize=options.window,
+                                                        is_bool=spike_isbool,
+                                                        l2_penalty=l2_penalty
+                                                        )
                 weights[mdl_name] = mdl[mdl_name].get_weights()[0]
 
         if options.stm_tgl:
