@@ -18,8 +18,6 @@ import sys
 from numpy.random import binomial
 try:
     from keras.models import Sequential
-
-    from keras.constraints import max_norm
     from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation,ELU
     from keras.utils.np_utils import to_categorical
     from keras.regularizers import l2,l1
@@ -34,7 +32,7 @@ except ImportError:
 def make_tensor(timeseries, window_size=10):
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size,timeseries.shape[0]-window_size):
-        X[ii,:,:] = timeseries[ii-window_size:ii,:]
+        X[ii,:,:] = timeseries[ii-window_size+1:ii+1,:]
     return X
 
 def make_binned_tensor(signal,binned_train,window_size=10):
@@ -187,15 +185,6 @@ def split_pos_neg(var):
     return var_out
 
 if keras_tgl:
-
-    class NonPosLast(Constraint):
-
-        def __call__(self, w):
-            last_row = w[:,-1, :] * K.cast(K.less_equal(w[:,-1, :], 0.), K.floatx())
-            last_row = K.expand_dims(last_row, axis=1)
-            full_w = K.concatenate([w[:,:-1, :], last_row], axis=1)
-            return full_w
-
     def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):
         # set y
         if y.ndim==1:

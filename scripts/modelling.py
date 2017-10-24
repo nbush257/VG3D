@@ -131,7 +131,7 @@ def main():
                       help='Plot toggle, call to plot the results during the run. This should never be called on quest.')
     parser.add_option('-w','--window',
                       dest='window',
-                      default=10,
+                      default=1,
                       type=int,
                       help='Window into the past to set the convolutional window to look in ms')
     parser.add_option('-n','--num_conv',
@@ -194,7 +194,7 @@ def main():
 
     # Get desired filenames
     fname = args[0]
-    p_save = os.path.split(fname)[0]
+    p_save = os.path.join(os.path.split(fname)[0],'results')
     print(os.path.basename(fname))
 
     # read data in
@@ -209,6 +209,8 @@ def main():
 
     # calculate the design matrices based on input toggles
     X = create_design_matrix(blk, varlist, deriv_tgl=deriv_tgl, bases=None)
+    X_window = make_tensor(X,options.window)
+    X_window = reshape_tensor(X_window)
 
     # calculate pillow bases if desired.
     if pillow_tgl:
@@ -258,20 +260,24 @@ def main():
         Xt = make_binned_tensor(X, b, window_size=options.window)
 
 
+
         # ===================================== #
         # RUN ALL THE MODELS REQUESTED
         # ===================================== #
-        if pillow_tgl:
-            yhat['glm'],mdl['glm'] = run_GLM(X_pillow,y)
-            weights['glm'] = mdl['glm'].params
-
+        if options.glm_tgl:
+            if pillow_tgl:
+                yhat['glm'],mdl['glm'] = run_GLM(X_pillow, y)
+                weights['glm'] = mdl['glm'].params
+            else:
+                yhat['glm'], mdl['glm'] = run_GLM(X_window, y)
+                weights['glm'] = mdl['glm'].params
         if gam_tgl:
-            yhat['gam'],mdl['gam'] = run_GAM(X,y)
+            yhat['gam'],mdl['gam'] = run_GAM(X_window, y)
 
         if conv_tgl:
             for num_filters in range(1,max_num_conv+1):
                 mdl_name = 'conv_{}_node'.format(num_filters)
-                yhat[mdl_name],mdl[mdl_name]=conv_model(Xt,y[:,np.newaxis,np.newaxis],
+                yhat[mdl_name],mdl[mdl_name]=conv_model(Xt, y[:, np.newaxis, np.newaxis],
                                                         num_filters=num_filters,
                                                         winsize=options.window,
                                                         is_bool=spike_isbool,
@@ -280,7 +286,7 @@ def main():
                 weights[mdl_name] = mdl[mdl_name].get_weights()[0]
 
         if options.stm_tgl:
-            yhat['stm'], mdl['stm'] = run_STM(X, y,
+            yhat['stm'], mdl['stm'] = run_STM(X_window, y,
                                           num_components=options.num_stm_components,
                                           num_features=options.num_stm_features)
 
@@ -300,7 +306,7 @@ def main():
 
             ax = plt.gca()
             ax.set_ylim(-0.1,1)
-            ax.legend(corrs.get_keys())
+            ax.legend(corrs.keys())
             ax.set_xlabel('Gaussian Rate Kernel Sigma')
             ax.set_ylabel('Pearson Correlation')
             ax.set_title(id)
