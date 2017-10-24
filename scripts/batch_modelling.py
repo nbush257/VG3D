@@ -23,7 +23,7 @@ from sklearn.preprocessing import RobustScaler,StandardScaler
 sns.set()
 
 def init_model_params():
-    sigma_vals = np.arange(2, 200, 4)
+    sigma_vals = np.arange(2, 200, 4)*pq.ms
     B = make_bases(5, [0, 15], b=2)
     winsize = int(B[0].shape[0])
     return sigma_vals,B,winsize
@@ -100,6 +100,7 @@ def main():
                       type=int,
                       help='number of milliseconds to bin the spikes.')
     parser.add_option('-D','--deriv_tgl',
+                      action='store_true',
                       dest='deriv_tgl',
                       default=False,
                       help='Derivative toggle, set to true to include the derivative in the model')
@@ -156,10 +157,15 @@ def main():
                       help='Number of components to use in the STM model')
     parser.add_option('--num_stm_features',
                       action='store',
-                      dest='num_stm_components',
+                      dest='num_stm_features',
                       default=20,
                       type=int,
                       help='Number of features to use in the STM model')
+    parser.add_option('--silence_noncontact',
+                      action='store_true',
+                      dest='silence_noncontact',
+                      default=True,
+                      help='If true, sets all spiking that occurs during non_contact to zero')
 
     (options,args)=parser.parse_args()
     if len(args)<1:
@@ -223,6 +229,7 @@ def main():
         id =get_root(blk,int(unit.name[-1]))
         f_save = os.path.join(p_save, '{}_{}.npz'.format(prefix,id))
         if os.path.isfile(f_save):
+            raise Warning('Output file found. Skipping {}'.format(id))
             continue
 
         # ===================================== #
@@ -239,6 +246,8 @@ def main():
         else:
             y = b.to_array().ravel().astype('float32')
 
+        if options.silence_noncontact:
+            y[np.invert(Cbool)] = 0
         # ===================================== #
         # MAKE TENSOR FOR CONV NETS
         # ===================================== #
@@ -261,9 +270,9 @@ def main():
                 weights[mdl_name] = mdl[mdl_name].get_weights()[0]
 
         if options.stm_tgl:
-            yhat['stm'], mdl['stm'] = STM(X, y,
+            yhat['stm'], mdl['stm'] = run_STM(X, y,
                                           num_components=options.num_stm_components,
-                                          num_features=options.num_stm_feats)
+                                          num_features=options.num_stm_features)
 
 
         # ===================================== #
@@ -271,7 +280,7 @@ def main():
         # ===================================== #
 
         for model in yhat.iterkeys():
-            corrs[model] = evaluate_correlation(yhat[model],y,kernel_mode=kernel_mode,Cbool=Cbool,sigma_vals=sigma_vals)
+            corrs[model] = evaluate_correlation(yhat[model],sp,kernel_mode=kernel_mode,Cbool=Cbool,sigma_vals=sigma_vals)
         # ===================================== #
         # PLOT IF REQUESTED
         # ===================================== #

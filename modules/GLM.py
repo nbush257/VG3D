@@ -132,7 +132,7 @@ def run_GAM(X,y,n_splines=15,distr='binomial',link='logit'):
     return yhat,gam
 
 
-def evaluate_correlation(yhat,y,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
+def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
     '''
     Takes a predict spike rate and smooths the
     observed spike rate at different values to find the optimal smoothing.
@@ -165,8 +165,6 @@ def evaluate_correlation(yhat,y,Cbool=None,kernel_mode='box',sigma_vals=np.arang
 
     # only calculate correlation on non nans and contact(if desired)
     idx = np.logical_and(np.isfinite(yhat),Cbool)
-    if type(y)==dict:
-        raise ValueError('Need to choose a cell from the spiketrain dict')
 
     # calculate Pearson correlation for all smoothings
     rr = []
@@ -305,7 +303,7 @@ def map_bases(weights,bases):
 
     return filters,ww
 
-def STM(X,y,num_components=3,num_features=20):
+def run_STM(X,y,num_components=3,num_features=20):
     if X.shape[0]>X.shape[1]:
         X = X.T
 
@@ -319,7 +317,7 @@ def STM(X,y,num_components=3,num_features=20):
 
     model.train(X,y, parameters={
         'verbosity':1,
-        'threshold':1e-8
+        'threshold':1e-7
             }
                 )
     yhat = model.predict(X).ravel()
