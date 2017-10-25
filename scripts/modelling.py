@@ -310,7 +310,7 @@ def main():
             ax.set_xlabel('Gaussian Rate Kernel Sigma')
             ax.set_ylabel('Pearson Correlation')
             ax.set_title(id)
-            plt.savefig(os.path.join(p_save,'model_performance_{}.png'.format(id)), dpi=300)
+            plt.savefig(os.path.join(p_save,'performance_{}_{}.png'.format(options.prefix,id)), dpi=300)
             plt.close('all')
 
         # ===================================== #
