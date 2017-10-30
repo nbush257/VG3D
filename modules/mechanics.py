@@ -7,6 +7,7 @@ import matplotlib.ticker as ticker
 from sklearn.preprocessing import scale
 from scipy.signal import savgol_filter
 from neo_utils import *
+from sklearn.decomposition import PCA
 
 ''' this module needs cleanup'''
 def get_analog_contact(var, cc):
@@ -127,4 +128,15 @@ def get_MB_MD(M):
 
     return (MB, MD)
 
+def applyPCA(var,Cbool):
+    if type(var) == neo.core.analogsignal.AnalogSignal:
+        var = var.magnitude
+    var[np.invert(Cbool),:] =0
+    var = replace_NaNs(var,'interp')
+    scaler=StandardScaler(with_mean=False)
+    var = scaler.fit_transform(var)
+    pca = PCA()
+
+    PC = pca.fit_transform(var)
+    return(PC,pca.explained_variance_)
 

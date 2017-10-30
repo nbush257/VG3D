@@ -28,7 +28,12 @@ def init_model_params():
     winsize = int(B[0].shape[0])
     return sigma_vals,B,winsize
 
-def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
+def bin_design_matrix(X,binsize):
+    idx = np.arange(0,X.shape[0],binsize)
+    return(X[idx,:])
+
+
+def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=None):
     ''' 
     Takes a list of variables and turns it into a matrix.
     Sets the non-contact mechanics to zero, but keeps all the kinematics as NaN
@@ -37,12 +42,12 @@ def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
     '''
     X = []
 
-
     Cbool = get_Cbool(blk)
 
     # ================================ #
     # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
     # ================================ #
+
     for varname in varlist:
         var = get_var(blk,varname, keep_neo=False)[0]
         if varname in ['M','F']:
@@ -51,14 +56,21 @@ def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
             var = replace_NaNs(var,'interp')
 
         X.append(var)
-    X = np.concatenate(X,axis=1)
+    X = np.concatenate(X, axis=1)
 
     # ================================ #
     # CALCULATE DERIVATIVE
     # ================================ #
     if deriv_tgl:
          Xdot = get_deriv(X)
-         X = np.append(X,Xdot,axis=1)
+         X = np.append(X, Xdot, axis=1)
+
+    # ================================ #
+    # APPLY WINDOW
+    # ================================ #
+
+    X = make_tensor(X, window)
+    X = reshape_tensor(X)
 
      # ================================ #
      # APPLY BASES FUNCTIONS
@@ -71,7 +83,10 @@ def create_design_matrix(blk,varlist,deriv_tgl=False,bases=None):
     # ================================ #
     scaler = StandardScaler(with_mean=False)
     X = scaler.fit_transform(X)
+
+    X = bin_design_matrix(X)
     return X
+
 
 def optarg_list(option,opt,value,parser):
     ''' Parses a comma seperated list of variables to include in the model'''
@@ -208,9 +223,8 @@ def main():
     sigma_vals, B, winsize = init_model_params()
 
     # calculate the design matrices based on input toggles
-    X = create_design_matrix(blk, varlist, deriv_tgl=deriv_tgl, bases=None)
-    X_window = make_tensor(X,options.window)
-    X_window = reshape_tensor(X_window)
+    X = create_design_matrix(blk, varlist, window=options.window, binsize=options.binsize,deriv_tgl=deriv_tgl, bases=None)
+
 
     # calculate pillow bases if desired.
     if pillow_tgl:
@@ -259,8 +273,6 @@ def main():
         # ===================================== #
         Xt = make_binned_tensor(X, b, window_size=options.window)
 
-
-
         # ===================================== #
         # RUN ALL THE MODELS REQUESTED
         # ===================================== #
@@ -307,10 +319,10 @@ def main():
             ax = plt.gca()
             ax.set_ylim(-0.1,1)
             ax.legend(corrs.keys())
-            ax.set_xlabel('Gaussian Rate Kernel Sigma')
+            ax.set_xlabel('{} Rate Kernel Sigma'.format(options.kernel_mode))
             ax.set_ylabel('Pearson Correlation')
             ax.set_title(id)
-            plt.savefig(os.path.join(p_save,'performance_{}_{}.png'.format(options.prefix,id)), dpi=300)
+            plt.savefig(os.path.join(p_save,'performance_{}_{}.svg'.format(options.prefix,id)))
             plt.close('all')
 
         # ===================================== #
