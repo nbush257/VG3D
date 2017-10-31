@@ -23,6 +23,7 @@ from sklearn.neighbors import KernelDensity as KD
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.stats import vonmises
+import spm1d
 sns.set()
 
 
@@ -30,6 +31,8 @@ sns.set()
 def get_MD_tuning_curve(MD,b,nbins=100,smooth_tgl=False,barplot=False):
 
     fig = plt.figure()
+    if smooth_tgl==False:
+        smooth=None
 
     bins = np.arange(-np.pi, np.pi, 2*np.pi/nbins)
     MD_prior,edges_prior = np.histogram(MD[np.isfinite(MD)],bins=bins)
@@ -54,7 +57,7 @@ def get_MD_tuning_curve(MD,b,nbins=100,smooth_tgl=False,barplot=False):
 
 
 # MB Bayes
-def get_MB_tuning_curve(MB,b,nbins=100):
+def get_MB_tuning_curve(MB,b,nbins=100,min_obs=1):
     fig = plt.figure()
     max_MB = np.nanmax(MB)
     idx_MB = np.isfinite(MB)
@@ -62,17 +65,32 @@ def get_MB_tuning_curve(MB,b,nbins=100):
     # step = round(max_MB/nbins,abs(np.floor(math.log10(max_MB))+2)
     # bins=np.arange(0,np.max(MB[idx_MB]),nbins)
     MB_prior,edges_prior = np.histogram(MB[idx_MB],bins=nbins)
-    MB_post,edges_post = np.histogram(MB[idx_MB],bins=nbins,weights=b[idx_MB])
-    MB_prior[MB_prior<1]=0
-    MB_bayes = MB_post/MB_prior
-    plt.plot(edges_post[:-1],MB_post/MB_prior,'o')
+    if b.dtype=='bool':
+        MB_post, edges_post = np.histogram(MB[np.logical_and(idx_MB,b)], bins=nbins)
+    else:
+        MB_post,edges_post = np.histogram(MB[idx_MB],bins=nbins,weights=b[idx_MB])
+    MB_prior[MB_prior<min_obs]=0
+    MB_bayes = np.divide(MB_post,MB_prior,dtype='f8')
+    plt.plot(edges_post[:-1],MB_bayes,'o')
     ax = plt.gca()
     ax.set_xlabel('MB (N-m)')
     ax.set_ylabel('Spike Probability')
     ax.set_title('Probability of a spike given Bending Moment')
     return ax,MB_bayes,edges_post
 
-def bayes_plots(var1,var2,b,bins=None,ax=None,contour=False):
+def get_single_var_tuning(var,b,nbins=100,min_obs=5):
+    max_var = np.nanmax(var)
+    idx_var = np.isfinite(var)
+    prior, edges = np.histogram(var[idx_var], bins=nbins)
+    if b.dtype == 'bool':
+        post, edges_post = np.histogram(var[np.logical_and(idx_var, b)], bins=nbins)
+    else:
+        post, edges_post = np.histogram(var[idx_var], bins=nbins, weights=b[idx_var])
+    prior[prior < min_obs] = 0
+    bayes = np.divide(post, prior, dtype='f8')
+    return(bayes,edges)
+
+def bayes_plots(var1,var2,b,bins=None,ax=None,contour=False,min_obs=5):
     # bin_size = 5e-9
     if type(bins)==int:
         nbins = bins
@@ -102,9 +120,9 @@ def bayes_plots(var1,var2,b,bins=None,ax=None,contour=False):
 
     H_prior,x_edges,y_edges= np.histogram2d(var1[idx],var2[idx],bins=bins)
     H_post = np.histogram2d(var1[idx],var2[idx],bins=bins,weights = b[idx])[0]
-    H_bayes = H_post/H_prior
+    H_bayes = np.divide(H_post,H_prior,dtype='f8')
     H_bayes = H_bayes.T
-    idx_mask = np.logical_or(np.isnan(H_bayes),H_prior.T<1)
+    idx_mask = np.logical_or(np.isnan(H_bayes),H_prior.T<min_obs)
     H_bayesm = np.ma.masked_where(idx_mask,H_bayes)
     X,Y = np.meshgrid(x_edges,y_edges)
     if ax==None:
@@ -167,6 +185,7 @@ def plot_summary(blk,cell_no,p_save):
 
 
 def PD_fitting(MD,sp):
+    '''outputs histogram edges and heights, along with a vector sum and weight of the bins'''
     if type(MD)==neo.core.analogsignal.AnalogSignal:
         MD = MD.magnitude
 
@@ -177,13 +196,42 @@ def PD_fitting(MD,sp):
     if type(sp)==neo.core.spiketrain.SpikeTrain:
         spt = sp.times.magnitude.astype('int')
         idx = [x for x in spt if x in not_nan]
-        posterior, posterior_edges = np.histogram(MD[idx], bins=100)
+        posterior, theta_k = np.histogram(MD[idx], bins=100)
     else:
-        posterior, posterior_edges = np.histogram(MD[not_nan], weights=sp[not_nan],bins=100)
+        posterior, theta_k = np.histogram(MD[not_nan], weights=sp[not_nan],bins=100)
 
-    bayes = np.divide(posterior,prior,dtype='float32')
+    rate = np.divide(posterior,prior,dtype='float32')
 
-    return bayes,prior_edges
+    L_dir = np.abs(
+        np.sum(
+            rate*np.exp(1j*theta_k[:-1]))/np.sum(rate)
+    )
+    # 1-DirCirVar = L_dir
+
+    x = rate * np.cos(theta_k[:-1])
+    y = rate * np.sin(theta_k[:-1])
+
+    X = np.sum(x) / len(x)
+    Y = np.sum(y) / len(x)
+
+    W = np.sqrt(X ** 2 + Y ** 2)
+    theta = np.arctan2(Y, X)
+
+    return rate,theta_k,L_dir,theta
+
+def direction_test(rate,theta_k):
+    x = rate*np.cos(theta_k[:-1])
+    y = rate*np.sin(theta_k[:-1])
+    X = np.sum(x) / len(x)
+    Y = np.sum(y) / len(x)
+
+    obs = np.concatenate([x[:, np.newaxis], y[:, np.newaxis]], axis=1)
+    preferred = np.array([X,Y])[:,np.newaxis]/np.sqrt(X**2+Y**2)
+
+    projection=np.dot(obs,preferred)
+    t = scipy.stats.ttest_1samp(projection,0.05)
+    return t.pvalue
+
 if __name__=='__main__':
     p = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\data'
     p_save = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\figs'
