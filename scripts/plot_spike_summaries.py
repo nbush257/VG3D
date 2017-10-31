@@ -54,7 +54,7 @@ def main(p,file,save_path):
         ax.set_ylabel('Spikes per second')
         ax.set_title('PSTH for: {}'.format(root))
 
-        plt.savefig(os.path.join(save_path,root+'_PSTH.png'),dpi=300)
+        plt.savefig(os.path.join(save_path,root+'_PSTH.svg'))
         plt.close('all')
         # ============================================
 
@@ -77,7 +77,7 @@ def main(p,file,save_path):
         a_inset.set_ylabel('# of Contacts')
         sns.distplot(CV_array,color='g',kde=False)
         ax.set_title('ISI distribution for {}'.format(root))
-        plt.savefig(os.path.join(save_path, root + '_ISI.png'), dpi=300)
+        plt.savefig(os.path.join(save_path, root + '_ISI.svg'))
         plt.close('all')
 
 def plot_latencies(summary_dat_file,cutoff=100*pq.ms,plot_tgl=True):
@@ -93,7 +93,7 @@ def plot_latencies(summary_dat_file,cutoff=100*pq.ms,plot_tgl=True):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         plt.hist(median_latencies_sub,np.arange(-pre,np.nanmax(median_latencies_sub),2),alpha=0.5,color='k')
-        ax_inset = plt.axes([0.5,0.5,0.3,0.3])
+        ax_inset = plt.axes([0.65,0.6,0.25,0.25])
         plt.hist(median_latencies,np.arange(-pre,np.nanmax(median_latencies),5),alpha=0.5,color='k')
         ax_inset.patch.set_facecolor('w')
         ax_inset.grid(color='k',linestyle=':',axis='y')
@@ -101,7 +101,7 @@ def plot_latencies(summary_dat_file,cutoff=100*pq.ms,plot_tgl=True):
 
         ax.set_xlabel('Latency ({})'.format(median_latencies[0].dimensionality))
         ax.set_ylabel('Number of cells')
-        ax.set_title('Median latencies to first spike',fontsize=18)
+        ax.set_title('Median latencies to first spike')
         plt.tight_layout()
     return median_latencies,pre
 

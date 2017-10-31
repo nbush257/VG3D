@@ -41,6 +41,8 @@ def get_MD_tuning_curve(MD,b,nbins=100,smooth_tgl=False,barplot=False):
     PD = edges_prior[np.argmax(MD_post/MD_prior)]
     if smooth_tgl:
         smooth = lowess(MD_bayes,edges_post[:-1],frac=0.1)
+    else:
+        smooth = None
     ax = plt.subplot(111, polar=True)
     if barplot:
         width = (2 * np.pi) / nbins
