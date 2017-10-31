@@ -14,9 +14,7 @@ if sys.version_info.major==3:
     import pickle
 else:
     import cPickle as pickle
-import statsmodels.api as sm
 import elephant
-import pygam
 import glob
 from optparse import OptionParser
 from sklearn.preprocessing import RobustScaler,StandardScaler
@@ -84,7 +82,7 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     scaler = StandardScaler(with_mean=False)
     X = scaler.fit_transform(X)
 
-    X = bin_design_matrix(X)
+    X = bin_design_matrix(X,binsize)
     return X
 
 
@@ -271,7 +269,9 @@ def main():
         # ===================================== #
         # MAKE TENSOR FOR CONV NETS
         # ===================================== #
-        Xt = make_binned_tensor(X, b, window_size=options.window)
+        Xt = create_design_matrix(blk, varlist, window=1, deriv_tgl=deriv_tgl,
+                                 bases=None)
+        Xt = make_binned_tensor(Xt, b, window_size=options.window)
 
         # ===================================== #
         # RUN ALL THE MODELS REQUESTED
@@ -281,10 +281,10 @@ def main():
                 yhat['glm'],mdl['glm'] = run_GLM(X_pillow, y)
                 weights['glm'] = mdl['glm'].params
             else:
-                yhat['glm'], mdl['glm'] = run_GLM(X_window, y)
+                yhat['glm'], mdl['glm'] = run_GLM(X, y)
                 weights['glm'] = mdl['glm'].params
         if gam_tgl:
-            yhat['gam'],mdl['gam'] = run_GAM(X_window, y)
+            yhat['gam'],mdl['gam'] = run_GAM(X, y)
 
         if conv_tgl:
             for num_filters in range(1,max_num_conv+1):
@@ -298,7 +298,7 @@ def main():
                 weights[mdl_name] = mdl[mdl_name].get_weights()[0]
 
         if options.stm_tgl:
-            yhat['stm'], mdl['stm'] = run_STM(X_window, y,
+            yhat['stm'], mdl['stm'] = run_STM(X, y,
                                           num_components=options.num_stm_components,
                                           num_features=options.num_stm_features)
 
