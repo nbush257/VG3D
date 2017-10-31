@@ -74,10 +74,7 @@ def get_deriv(var,smooth=False):
     if smooth:
         var = savgol_filter(var,window_length=21)
 
-    zero_pad = np.zeros([1, var.shape[1]], dtype='f8')
-    var = np.concatenate([zero_pad, var], axis=0)
-
-    return np.diff(var,axis=0)
+    return(np.gradient(var)[0])
 
 
 def epoch_to_cc(epoch):
