@@ -79,7 +79,6 @@ def get_MB_tuning_curve(MB,b,nbins=100,min_obs=1):
     return ax,MB_bayes,edges_post
 
 def get_single_var_tuning(var,b,nbins=100,min_obs=5):
-    max_var = np.nanmax(var)
     idx_var = np.isfinite(var)
     prior, edges = np.histogram(var[idx_var], bins=nbins)
     if b.dtype == 'bool':
@@ -182,6 +181,23 @@ def plot_summary(blk,cell_no,p_save):
         ax.set_facecolor([0.3,0.3,0.3])
         plt.savefig(os.path.join(p_save, root + '_heatmap.png'), dpi=300)
         plt.close()
+def get_PD_from_hist(theta_k,rate):
+
+    L_dir = np.abs(
+        np.sum(
+            rate * np.exp(1j * theta_k[:-1])) / np.sum(rate)
+    )
+    # L_dir = 1-CircVar
+    x = rate * np.cos(theta_k[:-1])
+    y = rate * np.sin(theta_k[:-1])
+
+    X = np.sum(x) / len(x)
+    Y = np.sum(y) / len(x)
+
+    theta = np.arctan2(Y, X)
+    return(theta,L_dir)
+
+
 
 
 def PD_fitting(MD,sp):
@@ -202,20 +218,8 @@ def PD_fitting(MD,sp):
 
     rate = np.divide(posterior,prior,dtype='float32')
 
-    L_dir = np.abs(
-        np.sum(
-            rate*np.exp(1j*theta_k[:-1]))/np.sum(rate)
-    )
-    # 1-DirCirVar = L_dir
 
-    x = rate * np.cos(theta_k[:-1])
-    y = rate * np.sin(theta_k[:-1])
-
-    X = np.sum(x) / len(x)
-    Y = np.sum(y) / len(x)
-
-    W = np.sqrt(X ** 2 + Y ** 2)
-    theta = np.arctan2(Y, X)
+    theta,L_dir = get_PD_from_hist(theta_k,rate)
 
     return rate,theta_k,L_dir,theta
 
