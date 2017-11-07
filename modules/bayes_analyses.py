@@ -9,6 +9,7 @@ import neo
 import quantities as pq
 import elephant
 import sys
+import math
 from neo.io import PickleIO as PIO
 import math
 import glob
@@ -98,19 +99,49 @@ def angular_response_hist(angular_var, sp, nbins=100,min_obs=5):
     return rate,theta_k,theta,L_dir
 
 
-def get_single_var_tuning(var,b,nbins=100,min_obs=5):
-    idx_var = np.isfinite(var)
-    prior, edges = np.histogram(var[idx_var], bins=nbins)
-    if b.dtype == 'bool':
-        post, edges_post = np.histogram(var[np.logical_and(idx_var, b)], bins=nbins)
-    else:
-        post, edges_post = np.histogram(var[idx_var], bins=nbins, weights=b[idx_var])
-    prior[prior < min_obs] = 0
-    bayes = np.divide(post, prior, dtype='f8')
-    return(bayes,edges)
+def stim_response_hist(var, sp, nbins=100, min_obs=5):
+    ''' Return the histograms for a single variable normalized by the number of observations of that variable
+    INPUTS: var -- either a numpy array or a neo analog signal. Should be unambiguously converted to a vector
+            sp -- either a neo spike train, or a numpy array. The numpy array can be a continuous rate estimate
+            nbins -- number of bins, or boundaries of bins to make the histograms
+            min_obs -- minimum number of observations of the prior to count as an instance. If less than min obs, returns nan for that bin
 
-def bayes_plots(var1,var2,b,bins=None,ax=None,contour=False,min_obs=5):
-    # bin_size = 5e-9
+    OUTPUTS:    response -- probability (or rate) of spiking for the associated bin index
+                stim_edges -- edges of the bins of the stimulus histogram
+    '''
+
+    # Handle input variable:
+    if type(var)==neo.core.analogsignal.AnalogSignal:
+        var = var.magnitude
+    if var.ndim==2:
+        if var.shape[1] == 1:
+            var = var.ravel()
+        else:
+            raise Exception('var must be able to be unambiguously converted into a vector')
+
+    # grab indicies of finite variable observations
+    not_nan = np.where(np.isfinite(var))[0]
+
+    # compute prior
+    prior, stim_edges = np.histogram(var[np.isfinite(var)], bins=nbins)
+
+    # compute posterior
+    if type(sp)==neo.core.spiketrain.SpikeTrain:
+        spt = sp.times.magnitude.astype('int')
+        idx = [x for x in spt if x in not_nan]
+        post, stim_edges = np.histogram(var[idx], bins=nbins)
+    else:
+        post, stim_edges = np.histogram(var[not_nan], weights=sp[not_nan], bins=bins)
+
+    # remove too few observations
+    prior[prior < min_obs] = 0
+
+    # get normalized response
+    response = np.divide(post, prior, dtype='float32')
+
+    return response,stim_edges
+
+def joint_response(var1, var2, sp, bins=None, min_obs=5):
     if type(bins)==int:
         nbins = bins
         bins=None
@@ -120,10 +151,10 @@ def bayes_plots(var1,var2,b,bins=None,ax=None,contour=False,min_obs=5):
         nbins = 50
 
 
-    idx = np.isfinite(var1) & np.isfinite(var2)
+    idx = np.logical_and(np.isfinite(var1), np.isfinite(var2))
+
     if bins == None:
         bins = []
-
         max_var1 = np.nanmax(var1)
         min_var1 = np.nanmin(var1)
         step = round(max_var1 / nbins, abs(np.floor(math.log10(max_var1)).astype('int64')) + 2)
@@ -137,30 +168,31 @@ def bayes_plots(var1,var2,b,bins=None,ax=None,contour=False,min_obs=5):
         bins.append(np.arange(min_var2, max_var2, step))
         # bins.append(np.arange(min_var2, max_var2, bin_size))
 
-    H_prior,x_edges,y_edges= np.histogram2d(var1[idx],var2[idx],bins=bins)
-    H_post = np.histogram2d(var1[idx],var2[idx],bins=bins,weights = b[idx])[0]
-    H_bayes = np.divide(H_post,H_prior,dtype='f8')
-    H_bayes = H_bayes.T
-    idx_mask = np.logical_or(np.isnan(H_bayes),H_prior.T<min_obs)
-    H_bayesm = np.ma.masked_where(idx_mask,H_bayes)
-    X,Y = np.meshgrid(x_edges,y_edges)
+    prior,x_edges,y_edges= np.histogram2d(var1[idx],var2[idx],bins=bins)
+    prior[np.where(prior<min_obs)]=0
+    if sp.type==
+    post = np.histogram2d(var1[idx], var2[idx], bins=bins, weights = sp[idx])[0]
+    bayes = np.divide(post,prior,dtype='float32')
+    bayes = bayes.T
+    idx_mask = np.logical_or(np.isnan(bayes),prior.T<min_obs)
+    bayesm = np.ma.masked_where(idx_mask,bayes)
+    return bayesm,x_edges,y_edges
+
+def plot_joint_response(bayes,x_edges,y_edges,contour=False,ax=None):
     if ax==None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
-    levels = MaxNLocator(nbins=30).tick_values(H_bayesm.min(), H_bayesm.max())
+    levels = MaxNLocator(nbins=30).tick_values(bayes.min(), bayes.max())
     if contour:
-        handle = ax.contourf(x_edges[:-1], y_edges[:-1], H_bayesm, levels=levels, cmap='OrRd')
+        handle = ax.contourf(x_edges[:-1], y_edges[:-1], bayes, levels=levels, cmap='OrRd')
         for c in handle.collections:
             c.set_edgecolor("face")
     else:
-        handle = ax.pcolormesh(x_edges[:-1],y_edges[:-1],H_bayesm,cmap='OrRd',edgecolors='None')
+        handle = ax.pcolormesh(x_edges[:-1],y_edges[:-1],bayes,cmap='OrRd',edgecolors='None')
 
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(handle,cax=cax)
-    ax.grid('off')
-    return ax
-
 
 def plot_summary(blk,cell_no,p_save):
     plotMD=True
