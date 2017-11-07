@@ -77,8 +77,8 @@ def angular_response_hist(angular_var, sp, nbins=100,min_obs=5):
             angular_var = angular_var.ravel()
         else:
             raise Exception('Angular var must be able to be unambiguously converted into a vector')
-
-    bins = np.linspace(-np.pi,np.pi,nbins,endpoint=True)
+    if type(nbins)==int:
+        bins = np.linspace(-np.pi,np.pi,nbins,endpoint=True)
     # not nan is a list of finite sample indices, rather than a boolean mask. This is used in computing the posterior
     not_nan = np.where(np.isfinite(angular_var))[0]
     prior,prior_edges = np.histogram(angular_var[np.isfinite(angular_var)], bins=bins)
