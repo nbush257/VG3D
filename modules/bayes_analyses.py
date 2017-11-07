@@ -1,32 +1,29 @@
-from neo_utils import *
-from spikeAnalysis import *
-from mechanics import *
 import numpy as np
-from scipy.io.matlab import loadmat, savemat
-from neo.core import SpikeTrain
-from quantities import ms, s
 import neo
-import quantities as pq
-import elephant
-import sys
 import math
-from neo.io import PickleIO as PIO
-import math
-import glob
-import os
-import re
 import matplotlib.pyplot as plt
 import seaborn as sns
-from elephant.statistics import *
-import elephant
 from matplotlib.ticker import MaxNLocator
-from sklearn.neighbors import KernelDensity as KD
-from statsmodels.nonparametric.smoothers_lowess import lowess
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from scipy.stats import vonmises
-import spm1d
 sns.set()
 
+
+def direction_test(rate, theta_k):
+    '''This will eventually be used to calcualte whether direction tuning is signifcant for a given neuron'''
+    if True:
+        raise Exception('This code has not been verified to work.')
+
+    x = rate * np.cos(theta_k[:-1])
+    y = rate * np.sin(theta_k[:-1])
+    X = np.sum(x) / len(x)
+    Y = np.sum(y) / len(x)
+
+    obs = np.concatenate([x[:, np.newaxis], y[:, np.newaxis]], axis=1)
+    preferred = np.array([X, Y])[:, np.newaxis] / np.sqrt(X ** 2 + Y ** 2)
+
+    projection = np.dot(obs, preferred)
+    t = scipy.stats.ttest_1samp(projection, 0.05)
+    return t.pvalue
 
 
 def get_PD_from_hist(theta_k,rate):
@@ -79,7 +76,7 @@ def angular_response_hist(angular_var, sp, nbins=100,min_obs=5):
         else:
             raise Exception('Angular var must be able to be unambiguously converted into a vector')
     if type(nbins)==int:
-        bins = np.linspace(-np.pi,np.pi,nbins,endpoint=True)
+        bins = np.linspace(-np.pi,np.pi,nbins+1,endpoint=True)
     # not nan is a list of finite sample indices, rather than a boolean mask. This is used in computing the posterior
     not_nan = np.where(np.isfinite(angular_var))[0]
     prior,prior_edges = np.histogram(angular_var[np.isfinite(angular_var)], bins=bins)
@@ -94,7 +91,7 @@ def angular_response_hist(angular_var, sp, nbins=100,min_obs=5):
 
     #
     rate = np.divide(posterior,prior,dtype='float32')
-    theta,L_dir = get_PD_from_hist(theta_k,rate)
+    theta,L_dir = get_PD_from_hist(theta_k[:-1],rate)
 
     return rate,theta_k,theta,L_dir
 
@@ -159,6 +156,20 @@ def joint_response_hist(var1, var2, sp, bins=None, min_obs=5):
         pass
     else:
         nbins = 50
+    if type(var1)==neo.core.analogsignal.AnalogSignal:
+        var1 = var1.magnitude.ravel()
+    if type(var2)==neo.core.analogsignal.AnalogSignal:
+        var2 = var2.magnitude.ravel()
+    if var1.ndim==2:
+        if var1.shape[1] == 1:
+            var1 = var1.ravel()
+        else:
+            raise Exception('var1 must be able to be unambiguously converted into a vector')
+    if var2.ndim==2:
+        if var2.shape[1] == 1:
+            var2 = var2.ravel()
+        else:
+            raise Exception('var2 must be able to be unambiguously converted into a vector')
 
     # use only observations where both vars are finite
     not_nan_mask = np.logical_and(np.isfinite(var1), np.isfinite(var2))
@@ -213,28 +224,4 @@ def plot_joint_response(bayes,x_edges,y_edges,contour=False,ax=None):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(handle,cax=cax)
-
-def direction_test(rate,theta_k):
-    x = rate*np.cos(theta_k[:-1])
-    y = rate*np.sin(theta_k[:-1])
-    X = np.sum(x) / len(x)
-    Y = np.sum(y) / len(x)
-
-    obs = np.concatenate([x[:, np.newaxis], y[:, np.newaxis]], axis=1)
-    preferred = np.array([X,Y])[:,np.newaxis]/np.sqrt(X**2+Y**2)
-
-    projection=np.dot(obs,preferred)
-    t = scipy.stats.ttest_1samp(projection,0.05)
-    return t.pvalue
-
-if __name__=='__main__':
-    p = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\data'
-    p_save = r'C:\Users\guru\Box Sync\__VG3D\deflection_trials\figs'
-    for file in glob.glob(p+'\*.pkl'):
-        print(file)
-        fid = PIO(os.path.join(p, file))
-        blk = fid.read_block()
-        for cell_no,cell in enumerate(blk.channel_indexes[-1].units):
-            plot_summary(blk,cell_no,p_save)
-
 
