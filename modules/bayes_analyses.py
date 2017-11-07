@@ -57,7 +57,7 @@ def get_PD_from_hist(theta_k,rate):
     return theta,L_dir
 
 
-def angular_response_hist(angular_var, sp):
+def angular_response_hist(angular_var, sp, nbins=100,min_obs=5):
     '''Given an angular variable (like MD that varies on -pi:pi,
     returns the probability of observing a spike (or gives a spike rate) normalized by
     the number of observations of that angular variable.
@@ -78,17 +78,18 @@ def angular_response_hist(angular_var, sp):
         else:
             raise Exception('Angular var must be able to be unambiguously converted into a vector')
 
+    bins = np.linspace(-np.pi,np.pi,nbins,endpoint=True)
     # not nan is a list of finite sample indices, rather than a boolean mask. This is used in computing the posterior
     not_nan = np.where(np.isfinite(angular_var))[0]
-    prior,prior_edges = np.histogram(angular_var[np.isfinite(angular_var)], bins=100)
-
+    prior,prior_edges = np.histogram(angular_var[np.isfinite(angular_var)], bins=bins)
+    prior[prior < min_obs] = 0
     # allows the function to take a spike train or a continuous rate to get the posterior
     if type(sp)==neo.core.spiketrain.SpikeTrain:
         spt = sp.times.magnitude.astype('int')
         idx = [x for x in spt if x in not_nan]
-        posterior, theta_k = np.histogram(angular_var[idx], bins=100)
+        posterior, theta_k = np.histogram(angular_var[idx], bins=bins)
     else:
-        posterior, theta_k = np.histogram(angular_var[not_nan], weights=sp[not_nan], bins=100)
+        posterior, theta_k = np.histogram(angular_var[not_nan], weights=sp[not_nan], bins=bins)
 
     #
     rate = np.divide(posterior,prior,dtype='float32')
@@ -96,27 +97,6 @@ def angular_response_hist(angular_var, sp):
 
     return rate,theta_k,theta,L_dir
 
-
-def get_MB_tuning_curve(MB,b,nbins=100,min_obs=1):
-    fig = plt.figure()
-    max_MB = np.nanmax(MB)
-    idx_MB = np.isfinite(MB)
-    # nbins = 20
-    # step = round(max_MB/nbins,abs(np.floor(math.log10(max_MB))+2)
-    # bins=np.arange(0,np.max(MB[idx_MB]),nbins)
-    MB_prior,edges_prior = np.histogram(MB[idx_MB],bins=nbins)
-    if b.dtype=='bool':
-        MB_post, edges_post = np.histogram(MB[np.logical_and(idx_MB,b)], bins=nbins)
-    else:
-        MB_post,edges_post = np.histogram(MB[idx_MB],bins=nbins,weights=b[idx_MB])
-    MB_prior[MB_prior<min_obs]=0
-    MB_bayes = np.divide(MB_post,MB_prior,dtype='f8')
-    plt.plot(edges_post[:-1],MB_bayes,'o')
-    ax = plt.gca()
-    ax.set_xlabel('MB (N-m)')
-    ax.set_ylabel('Spike Probability')
-    ax.set_title('Probability of a spike given Bending Moment')
-    return ax,MB_bayes,edges_post
 
 def get_single_var_tuning(var,b,nbins=100,min_obs=5):
     idx_var = np.isfinite(var)
