@@ -141,7 +141,17 @@ def stim_response_hist(var, sp, nbins=100, min_obs=5):
 
     return response,stim_edges
 
-def joint_response(var1, var2, sp, bins=None, min_obs=5):
+def joint_response_hist(var1, var2, sp, bins=None, min_obs=5):
+    ''' Returns the noramlized response histogram of two variables
+    INPUTS:     var1,var2 -- the two variables on which to plot the joint histogram. Must be either 1D numpy or column vector
+                sp -- either a neo spike train, or a numpy array. The numpy array can be a continuous rate estimate
+                nbins -- number of bins, or boundaries of bins to make the histograms
+                min_obs -- minimum number of observations of the prior to count as an instance. If less than min obs, returns nan for that bin
+    OUTPUS:     bayesm -- a masked joint histogram hiehgts
+                var1_edges = bin edges on the first variable
+                var2_edges = bin edges on the second variable
+    '''
+    # handle bins -- could probably be cleaned up NEB
     if type(bins)==int:
         nbins = bins
         bins=None
@@ -150,9 +160,11 @@ def joint_response(var1, var2, sp, bins=None, min_obs=5):
     else:
         nbins = 50
 
+    # use only observations where both vars are finite
+    not_nan_mask = np.logical_and(np.isfinite(var1), np.isfinite(var2))
+    not_nan = np.where(not_nan_mask)[0]
 
-    idx = np.logical_and(np.isfinite(var1), np.isfinite(var2))
-
+    # handle bins -- NEB may want to make this more flexible/clean.
     if bins == None:
         bins = []
         max_var1 = np.nanmax(var1)
@@ -168,17 +180,25 @@ def joint_response(var1, var2, sp, bins=None, min_obs=5):
         bins.append(np.arange(min_var2, max_var2, step))
         # bins.append(np.arange(min_var2, max_var2, bin_size))
 
-    prior,x_edges,y_edges= np.histogram2d(var1[idx],var2[idx],bins=bins)
-    prior[np.where(prior<min_obs)]=0
-    if sp.type==
-    post = np.histogram2d(var1[idx], var2[idx], bins=bins, weights = sp[idx])[0]
+
+    prior,var1_edges,var2_edges= np.histogram2d(var1[not_nan_mask],var2[not_nan_mask],bins=bins)
+
+    if type(sp)==neo.core.spiketrain.SpikeTrain:
+        spt = sp.times.magnitude.astype('int')
+        idx = [x for x in spt if x in not_nan]
+        post = np.histogram2d(var1[idx], var2[idx], bins=bins,)[0]
+    else:
+        post = np.histogram2d(var1[not_nan_mask], var2[not_nan_mask], bins=bins, weights = sp[not_nan_mask])[0]
+
     bayes = np.divide(post,prior,dtype='float32')
     bayes = bayes.T
     idx_mask = np.logical_or(np.isnan(bayes),prior.T<min_obs)
     bayesm = np.ma.masked_where(idx_mask,bayes)
-    return bayesm,x_edges,y_edges
+    return bayesm,var1_edges,var2_edges
+
 
 def plot_joint_response(bayes,x_edges,y_edges,contour=False,ax=None):
+    '''previously used code to plot the joints. It is moved out of the calculation of the joint histograms.'''
     if ax==None:
         fig = plt.figure()
         ax = fig.add_subplot(111)
@@ -193,49 +213,6 @@ def plot_joint_response(bayes,x_edges,y_edges,contour=False,ax=None):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(handle,cax=cax)
-
-def plot_summary(blk,cell_no,p_save):
-    plotMD=True
-    plotMB=True
-    plotbayes=True
-    root = get_root(blk,cell_no)
-    cell_str = 'cell_{}'.format(cell_no)
-
-    M = get_var(blk,'M')[0]
-    MB,MD = get_MB_MD(M)
-    sp = concatenate_sp(blk)
-    st = sp[cell_str]
-    kernel = elephant.kernels.GaussianKernel(5*pq.ms)
-    b = binarize(st,sampling_rate=pq.kHz)
-    r = np.array(instantaneous_rate(st,sampling_period=pq.ms,kernel =kernel)).ravel()
-    trains = get_contact_sliced_trains(blk)
-
-
-    if plotMD:
-        get_MD_tuning_curve(MD,r,nbins=100)
-        plt.gca().set_title('Spike rate by MD {}'.format(root))
-        plt.savefig(os.path.join(p_save,root+'_MD.png'),dpi=300)
-        plt.close()
-    if plotMB:
-        get_MB_tuning_curve(MB,r,nbins=100)
-        plt.gca().set_title(root)
-        plt.savefig(os.path.join(p_save,root + '_MB.png'), dpi=300)
-        plt.close()
-
-    if plotbayes:
-        bayes_plots(M[:,1]*10e6,M[:,2]*10e6,r,50)
-        ax = plt.gca()
-        ax.set_title(root)
-        ax.set_xlabel('M$_y$ ($\mu$N-m)')
-        ax.set_ylabel('M$_z$ ($\mu$N-m)')
-        plt.tight_layout()
-        ax.grid('off')
-        ax.set_facecolor([0.3,0.3,0.3])
-        plt.savefig(os.path.join(p_save, root + '_heatmap.png'), dpi=300)
-        plt.close()
-
-
-
 
 def direction_test(rate,theta_k):
     x = rate*np.cos(theta_k[:-1])
