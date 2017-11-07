@@ -28,35 +28,75 @@ sns.set()
 
 
 
-def get_MD_tuning_curve(MD,b,nbins=100,smooth_tgl=False,barplot=False):
+def get_PD_from_hist(theta_k,rate):
+    '''Calculate the vector sum direction and tuning strength from a histogram of responses in polar space
+    e.g.: we have a histogram on -pi:pi of spike rates for a given Bending direction.
+    This should generalize to any polar histogram
+    INPUTS: theta_k -- sampled bin locations from a polar histogram.
+                        * Assumes number of bins is the same as the number of observed rates (i.e. if you use bin edges you will probably have to truncate the input to fit)
+                        * Bin centers is a better usage
+            rate -- observed rate at each bin location
+    OUTPUTS:    theta -- the vector mean direction of the input bin locations and centers
+                L_dir -- the strength of the tuning as defined by Mazurek FiNC 2014. Equivalient to 1- Circular Variance
+            '''
+    # Calculate the direction tuning strength
+    L_dir = np.abs(
+        np.sum(
+            rate * np.exp(1j * theta_k)) / np.sum(rate)
+    )
 
-    fig = plt.figure()
-    if smooth_tgl==False:
-        smooth=None
+    # calculate vector mean
+    x = rate * np.cos(theta_k)
+    y = rate * np.sin(theta_k)
 
-    bins = np.arange(-np.pi, np.pi, 2*np.pi/nbins)
-    MD_prior,edges_prior = np.histogram(MD[np.isfinite(MD)],bins=bins)
-    MD_post,edges_post = np.histogram(MD[np.isfinite(MD)],bins=bins,weights=b[np.isfinite(MD)])
-    MD_bayes = MD_post/MD_prior
-    PD = edges_prior[np.argmax(MD_post/MD_prior)]
-    if smooth_tgl:
-        smooth = lowess(MD_bayes,edges_post[:-1],frac=0.1)
+    X = np.sum(x) / len(x)
+    Y = np.sum(y) / len(x)
+
+    theta = np.arctan2(Y, X)
+
+    return theta,L_dir
+
+
+def angular_response_hist(angular_var, sp):
+    '''Given an angular variable (like MD that varies on -pi:pi,
+    returns the probability of observing a spike (or gives a spike rate) normalized by
+    the number of observations of that angular variable.
+    INPUTS: angular var -- either a numpy array or a neo analog signal. Should be 1-D
+            sp -- type: neo.core.SpikeTrain, numpy array. Sp can either be single spikes or a rate
+
+    OUTPUTS:    rate -- the stimulus evoked rate at each observed theta bin
+                theta_k -- the observed theta bins
+                theta -- the preferred direction as determined by vector mean
+                L_dir -- The preferred direction tuning strength (1-CircVar)
+    '''
+
+    if type(angular_var)==neo.core.analogsignal.AnalogSignal:
+        angular_var = angular_var.magnitude
+    if angular_var.ndim==2:
+        if angular_var.shape[1] == 1:
+            angular_var = angular_var.ravel()
+        else:
+            raise Exception('Angular var must be able to be unambiguously converted into a vector')
+
+    # not nan is a list of finite sample indices, rather than a boolean mask. This is used in computing the posterior
+    not_nan = np.where(np.isfinite(angular_var))[0]
+    prior,prior_edges = np.histogram(angular_var[np.isfinite(angular_var)], bins=100)
+
+    # allows the function to take a spike train or a continuous rate to get the posterior
+    if type(sp)==neo.core.spiketrain.SpikeTrain:
+        spt = sp.times.magnitude.astype('int')
+        idx = [x for x in spt if x in not_nan]
+        posterior, theta_k = np.histogram(angular_var[idx], bins=100)
     else:
-        smooth = None
-    ax = plt.subplot(111, polar=True)
-    if barplot:
-        width = (2 * np.pi) / nbins
-        ax.bar(edges_post[:-1],MD_post/MD_prior,width=width,edgecolor='k')
-    else:
-        ax.plot(edges_post[:-1],MD_post/MD_prior,'o')
-        if smooth_tgl:
-            ax.plot(smooth[:,0],smooth[:,1],linewidth=5,alpha=0.6)
+        posterior, theta_k = np.histogram(angular_var[not_nan], weights=sp[not_nan], bins=100)
 
-    plt.tight_layout()
-    return fig,MD_bayes,edges_prior,smooth
+    #
+    rate = np.divide(posterior,prior,dtype='float32')
+    theta,L_dir = get_PD_from_hist(theta_k,rate)
+
+    return rate,theta_k,theta,L_dir
 
 
-# MB Bayes
 def get_MB_tuning_curve(MB,b,nbins=100,min_obs=1):
     fig = plt.figure()
     max_MB = np.nanmax(MB)
@@ -181,47 +221,9 @@ def plot_summary(blk,cell_no,p_save):
         ax.set_facecolor([0.3,0.3,0.3])
         plt.savefig(os.path.join(p_save, root + '_heatmap.png'), dpi=300)
         plt.close()
-def get_PD_from_hist(theta_k,rate):
-
-    L_dir = np.abs(
-        np.sum(
-            rate * np.exp(1j * theta_k[:-1])) / np.sum(rate)
-    )
-    # L_dir = 1-CircVar
-    x = rate * np.cos(theta_k[:-1])
-    y = rate * np.sin(theta_k[:-1])
-
-    X = np.sum(x) / len(x)
-    Y = np.sum(y) / len(x)
-
-    theta = np.arctan2(Y, X)
-    return(theta,L_dir)
 
 
 
-
-def PD_fitting(MD,sp):
-    '''outputs histogram edges and heights, along with a vector sum and weight of the bins'''
-    if type(MD)==neo.core.analogsignal.AnalogSignal:
-        MD = MD.magnitude
-
-    MD = MD.ravel()
-
-    not_nan = np.where(np.isfinite(MD))[0]
-    prior,prior_edges = np.histogram(MD[np.isfinite(MD)],bins=100)
-    if type(sp)==neo.core.spiketrain.SpikeTrain:
-        spt = sp.times.magnitude.astype('int')
-        idx = [x for x in spt if x in not_nan]
-        posterior, theta_k = np.histogram(MD[idx], bins=100)
-    else:
-        posterior, theta_k = np.histogram(MD[not_nan], weights=sp[not_nan],bins=100)
-
-    rate = np.divide(posterior,prior,dtype='float32')
-
-
-    theta,L_dir = get_PD_from_hist(theta_k,rate)
-
-    return rate,theta_k,L_dir,theta
 
 def direction_test(rate,theta_k):
     x = rate*np.cos(theta_k[:-1])
