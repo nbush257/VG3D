@@ -38,13 +38,13 @@ def make_tensor(timeseries, window_size=10,lag=0):
     :param window_size: number of samples for the window to look into the past
     :param lag: number of samples to lag the entries of the Q dimension
     :return: X -- a tensor of N x Q x M tensor where N is the number of timesteps in the original timeseries, M is the number of variable dimensions, and Q is the window size
-                    the 0th slice of the Q dimension is the furthest back in time, the -1th slice is the most recent time (corresponds to current_time-lag).
+                    the 0th slice of the Q dimension is the current-lag, the -1th slice is the most latent time.
     '''
     if type(timeseries) == neo.core.analogsignal.AnalogSignal:
         timeseries = timeseries.magnitude
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size+lag,timeseries.shape[0]-window_size):
-        X[ii,:,:] = timeseries[ii-window_size+1-lag:ii+1-lag,:]
+        X[ii,:,:] = np.flipud(timeseries[ii-window_size+1-lag:ii+1-lag,:])
     return X
 
 def make_binned_tensor(signal,binned_train,window_size=10):
@@ -71,6 +71,14 @@ def make_binned_tensor(signal,binned_train,window_size=10):
     return X
 
 def reshape_tensor(X):
+    '''
+    takes a 3D tensor and flattens it to a 2D array such that each observation in a window is now a column.
+    Orders columns such that the adjacent columns corrspond to the same variable at different points in the window
+    (0th column is oth variable at current time, 1st column is zeroth variable 1 sample into the past...)
+
+    :param X: input tensor
+    :return:
+    '''
 
     if X.ndim!=3:
         raise ValueError('Input tensor needs to have three dimensions')
