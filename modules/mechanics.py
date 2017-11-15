@@ -15,7 +15,7 @@ def get_analog_contact(var, cc):
     print('Minmax only works for zero-centered data')
     # MINMAX ONLY WORKS FOR ZERO CENTERED DATA, AND IT IS PRONE TO POINT NOISE!!!
     if type(var)==neo.core.analogsignal.AnalogSignal:
-        var = np.array(var)
+        var = var.magnitude
     mean_var = np.empty([cc.shape[0], var.shape[1]])
     minmax_var = np.empty([cc.shape[0], var.shape[1]])
 
@@ -65,28 +65,7 @@ def create_heatmap(var1,var2,bins,C,r):
 
     plt.colorbar()
 
-def get_deriv(var,smooth=False):
-    ''' returns the temporal derivative of a numpy array with time along the 0th axis'''
-    if var.ndim==1:
-        var = var[:,np.newaxis]
-    if var.shape[1]>var.shape[0]:
-        raise Warning('Matrix was wider than it is tall, are variables in the columns?')
-    # assumes a matrix or vector where the columns are variables
-    if smooth:
-        var = savgol_filter(var,window_length=21)
 
-    return(np.gradient(var)[0])
-
-
-def epoch_to_cc(epoch):
-    ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
-    has contact onset in the first column and contact offset in the second.'''
-    cc = np.empty([len(epoch),2])
-    cc[:,0] = np.array(epoch.times).T
-    cc[:,1] = cc[:,0]+np.array(epoch.durations).T
-
-    print('cc is in {}'.format(epoch.units))
-    return cc.astype('int64')
 
 
 def categorize_deflections(blk):
@@ -114,26 +93,5 @@ def categorize_deflections(blk):
         ax.scatter(X[:,4], X[:,2], X[:,3],c = labels,cmap='hsv')
 
 
-def get_MB_MD(M):
-    dat = M.magnitude
-    MD = np.arctan2(dat[:, 2], dat[:, 1])
-    MB = np.sqrt(dat[:, 1] ** 2 + dat[:, 2] ** 2)
-    if type(M)==neo.core.analogsignal.AnalogSignal:
-        MD = neo.core.AnalogSignal(MD, units=pq.radians, sampling_rate=pq.kHz)
-        MB = neo.core.AnalogSignal(MB, units=pq.N*pq.m, sampling_rate=pq.kHz)
 
-
-    return (MB, MD)
-
-def applyPCA(var,Cbool):
-    if type(var) == neo.core.analogsignal.AnalogSignal:
-        var = var.magnitude
-    var[np.invert(Cbool),:] =0
-    var = replace_NaNs(var,'interp')
-    scaler=StandardScaler(with_mean=False)
-    var = scaler.fit_transform(var)
-    pca = PCA()
-
-    PC = pca.fit_transform(var)
-    return(PC,pca.explained_variance_)
 

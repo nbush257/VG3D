@@ -281,3 +281,68 @@ def get_root(blk,cell_no):
     :return: root - a unique string ID
     '''
     return(blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no))
+
+def get_deriv(var,smooth=False):
+    ''' returns the temporal derivative of a numpy array with time along the 0th axis'''
+    if var.ndim==1:
+        var = var[:,np.newaxis]
+    if var.shape[1]>var.shape[0]:
+        raise Warning('Matrix was wider than it is tall, are variables in the columns?')
+    # assumes a matrix or vector where the columns are variables
+    if smooth:
+        var = savgol_filter(var,window_length=21)
+
+    return(np.gradient(var)[0])
+
+def epoch_to_cc(epoch):
+    ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
+    has contact onset in the first column and contact offset in the second.'''
+    cc = np.empty([len(epoch),2])
+    cc[:,0] = np.array(epoch.times).T
+    cc[:,1] = cc[:,0]+np.array(epoch.durations).T
+
+    print('cc is in {}'.format(epoch.units))
+    return cc.astype('int64')
+
+def get_MB_MD(data_in):
+    '''
+    return the Bending magnitude (MB) and bending direction (MD) for a given moment signal..
+    Accepts neo block, neo analog signal, or numpy array
+    :param data_in:
+    :return: MB, MD -- either neo analog signals or numpy 1D arrays (matches input type) of bending magnitude and direction
+    '''
+
+    # accept block, analog signal, or numpy array
+    if type(data_in)==neo.core.block.Block:
+        M = get_var(blk,'M')
+    elif type(data_in)==neo.core.analogsignal.AnalogSignal:
+        dat = data_in.magnitude
+    elif type(data_in)==numpy.ndarray:
+        dat = data_in
+
+    MD = np.arctan2(dat[:, 2], dat[:, 1])
+    MB = np.sqrt(dat[:, 1] ** 2 + dat[:, 2] ** 2)
+    if type(data_in)==neo.core.analogsignal.AnalogSignal or type(data_in)==neo.core.block.Block:
+        MD = neo.core.AnalogSignal(MD, units=pq.radians, sampling_rate=pq.kHz)
+        MB = neo.core.AnalogSignal(MB, units=pq.N*pq.m, sampling_rate=pq.kHz)
+    return (MB, MD)
+
+def applyPCA(var,Cbool):
+    '''
+    apply PCA to a given signal only during contact. Can accept neo analog signal.
+    Useful as convenience function which takes care of contact masking and interpolating NaNs.
+    :param var: either analog signal or numpy array of signal to apply PCA to
+    :param Cbool: boolean contact
+    :return: principle components skelarn object, explained variance
+    '''
+    if type(var) == neo.core.analogsignal.AnalogSignal:
+        var = var.magnitude
+    var[np.invert(Cbool),:] =0
+    var = replace_NaNs(var,'interp')
+    scaler=StandardScaler(with_mean=False)
+    var = scaler.fit_transform(var)
+    pca = PCA()
+
+    PC = pca.fit_transform(var)
+    return(PC,pca.explained_variance_)
+

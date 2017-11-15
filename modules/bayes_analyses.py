@@ -128,7 +128,7 @@ def stim_response_hist(var, sp, nbins=100, min_obs=5):
         idx = [x for x in spt if x in not_nan]
         post, stim_edges = np.histogram(var[idx], bins=nbins)
     else:
-        post, stim_edges = np.histogram(var[not_nan], weights=sp[not_nan], bins=bins)
+        post, stim_edges = np.histogram(var[not_nan], weights=sp[not_nan], bins=nbins)
 
     # remove too few observations
     prior[prior < min_obs] = 0
@@ -224,4 +224,6 @@ def plot_joint_response(bayes,x_edges,y_edges,contour=False,ax=None):
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(handle,cax=cax)
+    ax.grid('off')
+    return ax
 
