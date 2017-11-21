@@ -54,18 +54,19 @@ def createSeg(fname):
     spikes = dat['spikes'][0]
 
     # initialize the segment
-    seg = neo.core.Segment(PT['id'][0],file_origin=fname,index=trial_idx)
+    seg = neo.core.Segment(str(PT['id'][0]),file_origin=fname,index=trial_idx)
 
     seg.annotate(
-        ratnum      =   PT['ratnum'][0],
-        whisker     =   PT['whisker'][0],
-        trial       =   PT['trial'][0],
-        id          =   PT['id'][0],
-        frames      =   PT['Frames'][0],
-        TAG         =   PT['TAG'][0],
-        s           =   PT['s'][0],
-        rbase       =   PT['E3D_rbase'][0],
-        rtip        =   PT['E3D_rtip'][0],
+        nix_name    =   str(PT['id'][0]),
+        ratnum      =   str(PT['ratnum'][0]),
+        whisker     =   str(PT['whisker'][0]),
+        trial       =   str(PT['trial'][0]),
+        id          =   str(PT['id'][0]),
+        frames      =   str(PT['Frames'][0]),
+        TAG         =   str(PT['TAG'][0]),
+        s           =   str(PT['s'][0]),
+        rbase       =   str(PT['E3D_rbase'][0]),
+        rtip        =   str(PT['E3D_rtip'][0]),
         trial_type  =   'deflection'
     )
 
@@ -82,7 +83,7 @@ def createSeg(fname):
             U = pq.m
             name = varname
         else:
-            U = pq.deg
+            U = pq.rad
             name = varname
 
         # append the signal to the segment
