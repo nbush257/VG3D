@@ -14,6 +14,13 @@ import sklearn
 import statsmodels
 from mpl_toolkits.mplot3d import Axes3D
 sns.set()
+# colors = [[0.4, 0.5, 1], [1, 0.5, 0.4], [0.8, 0.8, 0.8], [0.6, 0.6, 0.6], [0.4, 0.4, 0.4], [0.2, 0.2, 0.2]]
+
+def get_colors(model_names):
+    # I don't have time to make this good, but this will eventually want to be nice depending on model types and numbe
+    colors = [[0.4, 0.5, 1], [1, 0.5, 0.4], [0.8, 0.8, 0.8], [0.6, 0.6, 0.6], [0.4, 0.4, 0.4], [0.2, 0.2, 0.2]]
+    return colors
+
 
 def get_model_names(p,fspec):
     ''' use the options to get a list of model names. 
@@ -168,16 +175,16 @@ def concatenate_data(p,fspec,f_out,model_names):
              )
 
 
-def plot_summary_performance(f):
+def plot_summary_performance(f,colors=None):
     ''' Takes the summary file (which contains the data from all cells) and creates violin/swarm plots of the model accuracies and best smoothinig parameters.
         INPUTS:
             f:  full filename of the model summary file
         OUTPUTS:
             none--creates plots
     '''
-    
+    colors = get_colors(None)
     sigma_vals = np.arange(2,200,4)
-    res = np.load(os.path.join(p,f))
+    res = np.load(f)
     model_names = res['model_names']
     weights = res['weights']
     rr = res['rr']
@@ -199,16 +206,17 @@ def plot_summary_performance(f):
     ax2 = fig.add_subplot(212)
     sns.swarmplot(data=best_smoothing_vals.T,palette=colors,orient='h')
     ax2.set_yticklabels(model_names)
-    ax2.set_xlabel('Box kernel width (ms)')
+    ax2.set_xlabel('Gaussian kernel sigma (ms)')
     ax2.set_title('Best smoothing kernel width')
     plt.tight_layout()
+    fig3 = plt.figure()
     for ii in xrange(len(model_names)):
         sns.distplot(best_smoothing_vals[ii,:],20,kde=False)
 
     # performance and smoothing parameter
     for ii in xrange(6):
         sns.jointplot(best_smoothing_vals[ii, :], max_rr[ii, :],edgecolor='w',marginal_kws=dict(bins=25), size=5, ratio=4, color=colors[ii]).plot_joint(sns.kdeplot,n_levels=3)
-
+    plt.show()        
 
 def glm_PCA(f):
     '''Takes the summary file (which contains data from all cells) and plots the PCA space of the GLM weights
@@ -219,6 +227,8 @@ def glm_PCA(f):
     '''
     
     res = np.load(f)
+    colors = get_colors(None)
+
     B = res['bases']
     weights = res['weights']
     ww = np.empty([0,len(weights[0]['glm'])])
@@ -274,7 +284,8 @@ def plot_weights(weights,model_names,B,rr,id,sigma_vals,f_out=None):
     This will likely not be run in a general sense yet, and I do not have time now to make it generalized.
 
     '''
-    colors = [[0.4, 0.5, 1], [1, 0.5, 0.4], [0.8, 0.8, 0.8], [0.6, 0.6, 0.6], [0.4, 0.4, 0.4], [0.2, 0.2, 0.2]]
+    colors = get_colors(None)
+
 
     fig = plt.figure()
     col=0
