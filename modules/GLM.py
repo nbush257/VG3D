@@ -1,19 +1,25 @@
 import numpy as np
+import statsmodels.api as sm
+import numpy.matlib as matlib
 from pygam import GAM
 from pygam.utils import generate_X_grid
 import neo
-import statsmodels.api as sm
+
 import elephant
 from scipy import corrcoef
 import quantities as pq
 from neo.io import PickleIO as PIO
+try:
+    import cmt
+    from cmt.models import STM,Bernoulli
+    from cmt.nonlinear import LogisticFunction
+except:
+    pass
 
 import sys
 from numpy.random import binomial
 try:
     from keras.models import Sequential
-
-    from keras.constraints import max_norm
     from keras.layers import Dense,Convolution1D,Dropout,MaxPooling1D,AtrousConv1D,Flatten,AveragePooling1D,UpSampling1D,Activation,ELU
     from keras.utils.np_utils import to_categorical
     from keras.regularizers import l2,l1
@@ -28,7 +34,7 @@ except ImportError:
 def make_tensor(timeseries, window_size=10):
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size,timeseries.shape[0]-window_size):
-        X[ii,:,:] = timeseries[ii-window_size:ii,:]
+        X[ii,:,:] = timeseries[ii-window_size+1:ii+1,:]
     return X
 
 def make_binned_tensor(signal,binned_train,window_size=10):
@@ -64,6 +70,12 @@ def reshape_tensor(X):
     X2 = X2[:,np.argsort(pos)]
     return X2
 
+def add_spike_history(X,y):
+    B = make_bases(2, [1, 4])[0]
+    yy = apply_bases(y,B,delay=1)
+    XX = np.concatenate([X,yy],axis=1)
+    return XX
+
 
 
 def run_GLM(X,y,family=None,link=None):
@@ -98,6 +110,8 @@ def run_GLM(X,y,family=None,link=None):
     # fit and predict
     glm_binom = sm.GLM(y,X,family=family,missing='drop')
     glm_result = glm_binom.fit()
+    # history_names = glm_binom.exog_names[-2:]
+    # res_c = glm_binom.fit_constrained(['{}<=0'.format(history_names[0]),'{}<=0'.format(history_names[1])])
     yhat[idx] = glm_result.predict(X[idx,:])
 
     return yhat,glm_result
@@ -126,7 +140,7 @@ def run_GAM(X,y,n_splines=15,distr='binomial',link='logit'):
     return yhat,gam
 
 
-def evaluate_correlation(yhat,y,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
+def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
     '''
     Takes a predict spike rate and smooths the
     observed spike rate at different values to find the optimal smoothing.
@@ -159,8 +173,6 @@ def evaluate_correlation(yhat,y,Cbool=None,kernel_mode='box',sigma_vals=np.arang
 
     # only calculate correlation on non nans and contact(if desired)
     idx = np.logical_and(np.isfinite(yhat),Cbool)
-    if type(y)==dict:
-        raise ValueError('Need to choose a cell from the spiketrain dict')
 
     # calculate Pearson correlation for all smoothings
     rr = []
@@ -183,15 +195,6 @@ def split_pos_neg(var):
     return var_out
 
 if keras_tgl:
-
-    class NonPosLast(Constraint):
-
-        def __call__(self, w):
-            last_row = w[:,-1, :] * K.cast(K.less_equal(w[:,-1, :], 0.), K.floatx())
-            last_row = K.expand_dims(last_row, axis=1)
-            full_w = K.concatenate([w[:,:-1, :], last_row], axis=1)
-            return full_w
-
     def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):
         # set y
         if y.ndim==1:
@@ -270,13 +273,13 @@ def make_bases(num_bases,endpoints,b=1):
         a1[a1<-np.pi]=-np.pi
         return (np.cos(a1)+1)/2
 
-    xx = np.matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
-    cc = np.matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
+    xx = matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
+    cc = matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
 
     return(f_t(xx,cc,db),ctrs,iht)
 
 
-def apply_bases(X,bases):
+def apply_bases(X,bases,delay=0):
     if np.any(np.isnan(X)):
         raise Warning('input contains NaNs. some timepoints will lose data')
 
@@ -285,6 +288,8 @@ def apply_bases(X,bases):
     for ii in xrange(X.shape[1]):
         for jj in xrange(bases.shape[1]):
             temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
+            zero_pad = np.zeros(delay)
+            temp = np.concatenate([zero_pad,temp[:-delay]])
             X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
     return(X_out)
 
@@ -299,3 +304,22 @@ def map_bases(weights,bases):
 
     return filters,ww
 
+def run_STM(X,y,num_components=3,num_features=20):
+    if X.shape[0]>X.shape[1]:
+        X = X.T
+
+    if y.ndim==1:
+        y = y[:,np.newaxis]
+
+    if y.shape[0]>y.shape[1]:
+        y = y.T
+
+    model = STM(X.shape[0], 0, num_components, num_features, LogisticFunction, Bernoulli)
+
+    model.train(X,y, parameters={
+        'verbosity':1,
+        'threshold':1e-6
+            }
+                )
+    yhat = model.predict(X).ravel()
+    return yhat, model
