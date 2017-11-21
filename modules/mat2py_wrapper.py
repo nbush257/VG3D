@@ -6,8 +6,7 @@ import neo
 import quantities as pq
 import elephant
 import sys
-from neo.io import NeoMatlabIO as MIO
-from neo.io import PickleIO as PIO
+import neo.io
 from neo_utils import add_channel_indexes
 import glob
 import os
@@ -122,33 +121,52 @@ def batch_convert(d_list, p):
         try:
             root_full = os.path.join(p, root)
             fname_M = root_full + '_NEO.mat'
-            fname_P = root_full + '_NEO.pkl'
+            fname_N = root_full + '_NEO.h5'
 
-            fid_M = MIO(fname_M)
-            fid_P = PIO(fname_P)
+            fid_M = neo.io.NeoMatlabIO(fname_M)
+
             files = glob.glob(root_full + '*1K.mat')
-            blk = neo.core.Block()
+
             for filename in files:
+                fid_N = neo.io.NixIO(fname_N)
                 print(filename)
                 seg = createSeg(filename)
-                if os.path.isfile(fname_P):
-                    blk = fid_P.read_block()
-                blk.annotate(
-                    ratnum=seg.annotations['ratnum'],
-                    whisker=seg.annotations['whisker'],
-                    id=seg.annotations['id'],
-                    s=seg.annotations['s'],
-                    rbase=seg.annotations['rbase'],
-                    rtip=seg.annotations['rtip'],
-                    trial_type=seg.annotations['trial_type']
-                )
-                blk.segments.append(seg)
-                add_channel_indexes(blk)
+                if len(fid_N.read_all_blocks())!=0:
+                    blk = fid_N.read_block()
+                else:
+                    blk = neo.core.Block(name=seg.annotations['id'][:-3])
+                    blk.annotate(
+                        ratnum=seg.annotations['ratnum'],
+                        whisker=seg.annotations['whisker'],
+                        id=seg.annotations['id'],
+                        s=seg.annotations['s'],
+                        rbase=seg.annotations['rbase'],
+                        rtip=seg.annotations['rtip'],
+                        trial_type=seg.annotations['trial_type'],
+                        date=re.search('(?<=_)[A-Z]{3}\d\d(?=_)',seg.annotations['TAG']).group()
+                    )
 
-                fid_P.write_block(blk)
-                fid_M.write_block(blk)
+                blk.segments.append(seg)
+
+                fid_N.write_block(blk)
+
+                fid_N.close()
+                # create channel indexes
+
+            # create chx
+            fid_N = neo.io.NixIO(fname_N)
+            blk = fid_N.read_block()
+            add_channel_indexes(blk)
+
+            # write NIX
+            fid_N.write_block(blk)
+            fid_N.close()
+
+            #write matlab
+            fid_M.write_block(blk)
         except:
             print('problem with {}'.format(root))
+
 
 
 def get_list(p, fname_spec):

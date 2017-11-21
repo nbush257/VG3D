@@ -157,34 +157,42 @@ def replace_NaNs(var, mode='zero'):
 
 
 def create_unit_chan(blk):
-    chx = ChannelIndex(0,name='Units')
+    chx = neo.core.ChannelIndex(0,name='Units')
+
     num_units = []
     for seg in blk.segments:
         num_units.append(len(seg.spiketrains))
     num_units = max(num_units)
     for ii in xrange(num_units):
-        unit = Unit(name='cell_{}'.format(ii))
+        unit = neo.core.Unit(name='cell_{}'.format(ii))
         chx.units.append(unit)
     for seg in blk.segments:
         for ii,train in enumerate(seg.spiketrains):
             chx.units[ii].spiketrains.append(train)
-    blk.channel_indexes.append(chx)
+
+    return chx
 
 
 def create_analog_chan(blk):
     '''maps the mechanical and kinematic signals to a channel index.'''
-    varnames = ['M','F','PHIE','TH','Rcp','THcp','PHIcp']
+    varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
+    chx_list = []
     for ii in range(len(varnames)):
-        chx = ChannelIndex(0,name=varnames[ii])
-        blk.channel_indexes.append(chx)
+        chx = neo.core.ChannelIndex(0,name=varnames[ii])
+        chx_list.append(chx)
     for seg in blk.segments:
-        for chx,sig in zip(blk.channel_indexes,seg.analogsignals):
+        for chx,sig in zip(chx_list,seg.analogsignals):
             chx.analogsignals.append(sig)
+    return chx_list
 
 
-def add_channel_indexes(blk):
-    create_analog_chan(blk)
-    create_unit_chan(blk)
+
+def appen_channel_indexes(blk):
+    chx_list = create_analog_chan(blk)
+    units = create_unit_chan(blk)
+    for chx in chx_list:
+        blk.channel_indexes.append(chx)
+    blk.append(units)
 
 
 def get_Cbool(blk):
