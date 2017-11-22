@@ -4,10 +4,7 @@ from neo.core import SpikeTrain
 from quantities import ms, s
 import neo
 import quantities as pq
-import elephant
-import sys
 import neo.io
-import neo_utils
 import glob
 import os
 import re
@@ -33,6 +30,43 @@ def convertC(C):
     cends = np.where(d == -1)[0]
     # return the Nx2 Matrix of onsets (inclusive) and offsets(exclusive)
     return np.vstack((cstarts, cends)).T
+def create_unit_chan(blk):
+    chx = neo.core.ChannelIndex(index=np.array([0]),name='electrode_0')
+
+    num_units = []
+    for seg in blk.segments:
+        num_units.append(len(seg.spiketrains))
+    num_units = max(num_units)
+    for ii in xrange(num_units):
+        unit = neo.core.Unit(name='cell_{}'.format(ii))
+        chx.units.append(unit)
+    for seg in blk.segments:
+        for ii,train in enumerate(seg.spiketrains):
+            chx.units[ii].spiketrains.append(train)
+
+    return chx
+
+
+def create_analog_chan(blk):
+    '''maps the mechanical and kinematic signals to a channel index.'''
+    varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
+    chx_list = []
+    for ii in range(len(varnames)):
+        chx = neo.core.ChannelIndex(np.array([0]),name=varnames[ii])
+        chx_list.append(chx)
+    for seg in blk.segments:
+        for chx,sig in zip(chx_list,seg.analogsignals):
+            chx.analogsignals.append(sig)
+    return chx_list
+
+
+
+def append_channel_indexes(blk):
+    chx_list = create_analog_chan(blk)
+    units = create_unit_chan(blk)
+    for chx in chx_list:
+        blk.channel_indexes.append(chx)
+    blk.channel_indexes.append(units)
 
 
 def createSeg(fname):
@@ -122,46 +156,38 @@ def batch_convert(d_list, p):
             fname_M = root_full + '_NEO.mat'
             fname_N = root_full + '_NEO.h5'
 
-            fid_M = neo.io.NeoMatlabIO(fname_M)
-
             files = glob.glob(root_full + '*1K.mat')
 
+            # get a list of segments
+            seg_list = []
             for filename in files:
-                fid_N = neo.io.NixIO(fname_N)
                 print(filename)
-                seg = createSeg(filename)
-                if len(fid_N.read_all_blocks())!=0:
-                    blk = fid_N.read_block()
-                else:
-                    blk = neo.core.Block(name=seg.annotations['id'][:-3])
-                    blk.annotate(
-                        ratnum=seg.annotations['ratnum'],
-                        whisker=seg.annotations['whisker'],
-                        id=seg.annotations['id'],
-                        s=seg.annotations['s'],
-                        rbase=seg.annotations['rbase'],
-                        rtip=seg.annotations['rtip'],
-                        trial_type=seg.annotations['trial_type'],
-                        date=re.search('(?<=_)[A-Z]{3}\d\d(?=_)',seg.annotations['TAG']).group()
-                    )
+                seg_list.append(createSeg(filename))
 
+            blk = neo.core.Block(name=seg_list[0].annotations['id'][:-3])
+            blk.annotate(
+                ratnum=seg_list[0].annotations['ratnum'],
+                whisker=seg_list[0].annotations['whisker'],
+                id=seg_list[0].annotations['id'],
+                s=seg_list[0].annotations['s'],
+                rbase=seg_list[0].annotations['rbase'],
+                rtip=seg_list[0].annotations['rtip'],
+                trial_type=seg_list[0].annotations['trial_type'],
+                date=re.search('(?<=_)[A-Z]{3}\d\d(?=_)', seg_list[0].annotations['TAG']).group()
+            )
+            for seg in seg_list:
                 blk.segments.append(seg)
 
-                fid_N.write_block(blk)
-
-                fid_N.close()
-                # create channel indexes
-
             # create chx
-            fid_N = neo.io.NixIO(fname_N)
-            blk = fid_N.read_block()
-            neo_utils.append_channel_indexes(blk)
+            append_channel_indexes(blk)
 
             # write NIX
+            fid_N = neo.io.NixIO(fname_N)
             fid_N.write_block(blk)
             fid_N.close()
 
             #write matlab
+            fid_M = neo.io.NeoMatlabIO(fname_M)
             fid_M.write_block(blk)
         except:
             print('problem with {}'.format(root))
