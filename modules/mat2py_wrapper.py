@@ -56,7 +56,6 @@ def createSeg(fname):
     seg = neo.core.Segment(str(PT['id'][0]),file_origin=fname,index=trial_idx)
 
     seg.annotate(
-        nix_name    =   str(PT['id'][0]),
         ratnum      =   str(PT['ratnum'][0]),
         whisker     =   str(PT['whisker'][0]),
         trial       =   str(PT['trial'][0]),
@@ -156,7 +155,7 @@ def batch_convert(d_list, p):
             # create chx
             fid_N = neo.io.NixIO(fname_N)
             blk = fid_N.read_block()
-            neo_utils.neo_utils.append_channel_indexes(blk)
+            neo_utils.append_channel_indexes(blk)
 
             # write NIX
             fid_N.write_block(blk)
@@ -179,8 +178,8 @@ def get_list(p, fname_spec):
 
 
 if __name__ == '__main__':
-    p = r'K:\VG3D\_E3D_PROC\_vibration_trials'
-    fname_spec = '*1k.mat'
+    p = r'D:\Users\nbush\Desktop\nix_test'
+    fname_spec = '*1K.mat'
     d_list = get_list(p, fname_spec)
     batch_convert(d_list, p)
 

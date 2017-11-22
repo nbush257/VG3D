@@ -163,7 +163,7 @@ def replace_NaNs(var, mode='zero'):
 
 
 def create_unit_chan(blk):
-    chx = neo.core.ChannelIndex([0],name='Units')
+    chx = neo.core.ChannelIndex(index=np.array([0]),name='electrode_0')
 
     num_units = []
     for seg in blk.segments:
@@ -184,7 +184,7 @@ def create_analog_chan(blk):
     varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
     chx_list = []
     for ii in range(len(varnames)):
-        chx = neo.core.ChannelIndex([0],name=varnames[ii])
+        chx = neo.core.ChannelIndex(np.array([0]),name=varnames[ii])
         chx_list.append(chx)
     for seg in blk.segments:
         for chx,sig in zip(chx_list,seg.analogsignals):
@@ -194,10 +194,10 @@ def create_analog_chan(blk):
 
 
 def append_channel_indexes(blk):
-    # chx_list = create_analog_chan(blk)
+    chx_list = create_analog_chan(blk)
     units = create_unit_chan(blk)
-    # for chx in chx_list:
-    #     blk.channel_indexes.append(chx)
+    for chx in chx_list:
+        blk.channel_indexes.append(chx)
     blk.channel_indexes.append(units)
 
 
