@@ -9,7 +9,7 @@ from scipy.signal import savgol_filter
 from neo_utils import *
 from sklearn.decomposition import PCA
 
-''' this module needs cleanup'''
+''' TODO: this module needs cleanup'''
 def get_analog_contact(var, cc):
     ''' this gets the mean and min-max of a given analog signal in each contact interval'''
     print('Minmax only works for zero-centered data')
