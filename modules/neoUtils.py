@@ -16,13 +16,27 @@ proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
 sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
 
-def get_blk(f):
+def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.pkl',fullname=False):
+    '''loads in a NEO block from a pickle file. Calling without arguments pulls in a default file'''
     box_path = os.environ['BOX_PATH']
     dat_path = os.path.join(box_path,r'__VG3D\deflection_trials\data')
-    fid = PIO(os.path.join(dat_path,f))
+    if not fullname:
+        fid = PIO(os.path.join(dat_path,f))
+    else:
+        fid = PIO(f)
+
     return fid.read_block()
 
 def get_rate_b(blk,unit_num,sigma=10*pq.ms):
+    '''
+    convinience function to get a standard rate and binary spike vector from a block and unit number
+
+    :param blk: neo block
+    :param unit_num: int dictating which unit to load
+    :param sigma: gaussian kernal smoothing parameter. Must be a quantity
+    :return:    r - soothed spike rate
+                b - binary spike vector
+    '''
     sp = concatenate_sp(blk)['cell_{}'.format(unit_num)]
     kernel = elephant.kernels.GaussianKernel(sigma=sigma)
     b = elephant.conversion.binarize(sp,sampling_rate=pq.kHz)[:-1]
@@ -82,6 +96,11 @@ def concatenate_sp(blk):
 
 
 def concatenate_epochs(blk):
+    '''
+    takes a block which may have multiple segments and returns a single Epoch which has the contact epochs concatenated and properly time aligned
+    :param blk: a neo block
+    :return: contact -- a single neo epoch array
+    '''
     starts = np.empty([0])
     durations = np.empty([0])
     t_start = 0*pq.ms
@@ -113,6 +132,11 @@ def nan_helper(y):
 
 
 def nan_bounds(var):
+    '''
+    Grabs the boundaries of the NaNs (where nan sections start and stop
+    :param var: Vector of a signal where we want to know where NaN sections start and stop
+    :return: starts, stops -- indices of the input array where nan sections start and stop
+    '''
     if var.ndim>1:
         raise ValueError('input needs to be 1D')
     nans = nan_helper(var)[0].astype('int')
@@ -120,12 +144,29 @@ def nan_bounds(var):
     return np.where(d==1)[0],np.where(d==-1)[0]
 
 
-def replace_NaNs(var, mode='zero'):
+def replace_NaNs(var, mode='zero',pad=20):
+    '''
+    takes a Vector, array, or neo Analog signal and replaces the NaNs with desired values
+    :param var: numpy array or neo analog signal to replace NaNs
+    :param mode: string indicating what to replace NaNs with:
+                    'zero'      --  replace all NaNs with zero
+                    'median'    --  replace all NaNs with vector's median. Assumes matrix columns are different variables
+                    'rm'        --  removes all NaNs CHANGES THE SHAPE OF THE ARRAY
+                    'interp'    --  linear interpolation over NaN sections using end points
+                    'pchip'     --  spline interpolation over NaN secitions using endpoints. Uses PAD number of samples on either side of the gap to compute the spline
+    :param pad: used in pchip interpolation to determine how much data to use when creating spline
+    :return:    data -- the interpolated input data, in the same type as was input.
+
+    '''
+
+    # copy input to new variable to prevent inplace operations and convert from NEO if needed.
+
     if type(var)==neo.core.analogsignal.AnalogSignal:
-        data = var.as_array().copy()
+        data = var.magnitude.copy()
     else:
         data = var.copy()
 
+    # Apply replacement depending on mode
     if mode=='zero':
         data[np.isnan(data)]=0
     elif mode=='median':
@@ -140,7 +181,6 @@ def replace_NaNs(var, mode='zero'):
             nans, x = nan_helper(data[:, ii])
             data[nans, ii] = np.interp(x(nans), x(~nans), data[~nans, ii])
     elif mode=='pchip':
-        pad=20
         for ii in xrange(data.shape[1]):
             starts,stops = nan_bounds(data[:, ii])
             for start,stop in zip(starts,stops):
@@ -149,9 +189,11 @@ def replace_NaNs(var, mode='zero'):
 
                 x = np.arange(start,stop)
                 y = scipy.interpolate.pchip_interpolate(xi,yi,x)
+    # catch undefined modes
     else:
         raise ValueError('Wrong mode indicated. May want to impute NaNs in some instances')
 
+    # map output to neo signal if needed
     if type(var)==neo.core.analogsignal.AnalogSignal:
         var_out = neo.core.AnalogSignal(data*var.units,
                                         t_start=0.*pq.ms,
@@ -164,44 +206,99 @@ def replace_NaNs(var, mode='zero'):
 
 
 def get_Cbool(blk):
+    '''
+    Given a block,get a boolean vector of contact for the concatenated data
+    :param blk: neo block
+    :return: Cbool - a boolean numpy vector of contact
+    '''
     Cbool = np.array([],dtype='bool')
-
+    # Get contact from all available segments and offset appropriately
     for seg in blk.segments:
         seg_bool = np.zeros(len(seg.analogsignals[0]),dtype='bool')
         epochs = seg.epochs[0]
+
+        # Set the samples during contact to True
         for start,dur in zip(epochs,epochs.durations):
             start = int(start)
             dur = int(dur)
             seg_bool[start:start+dur]=1
+
         Cbool = np.concatenate([Cbool,seg_bool])
     return Cbool
 
 
 def get_root(blk,cell_no):
+    '''
+    Utility function that gets a unique ID string for each cell
+    :param blk: neo block of the data
+    :param cell_no: index of the cell number
+    :return: root - a unique string ID
+    '''
     return(blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no))
 
 
-def import_data_to_model(file,vars=['M','F'],unit_idx=0):
-    ''' this is a utility to do all the common preprocessing steps I do for the modelling'''
-    fid = PIO(file)
-    blk = fid.read_block()
-    X = np.array([])
-    for var in vars:
-        if len(X)==0:
-            X = get_var(blk,var)[0]
-        else:
-            X = np.append(X,get_var(blk,var)[0],axis=1)
-    unit = blk.channel_indexes[-1].units[unit_idx]
-    sp = concatenate_sp(blk)[unit.name]
-    b = elephant.conversion.binarize(sp, sampling_rate=pq.kHz)[:-1]
-    y = b[:, np.newaxis].astype('f8')
-    Cbool = get_Cbool(blk)
-    X[np.invert(Cbool), :] = 0
-    X = replace_NaNs(X, 'pchip')
-    X = replace_NaNs(X, 'interp')
-    scaler = StandardScaler(with_mean=False)
-    X = scaler.fit_transform(X)
+def get_deriv(var,smooth=False):
+    ''' returns the temporal derivative of a numpy array with time along the 0th axis'''
+    if var.ndim==1:
+        var = var[:,np.newaxis]
+    if var.shape[1]>var.shape[0]:
+        raise Warning('Matrix was wider than it is tall, are variables in the columns?')
+    # assumes a matrix or vector where the columns are variables
+    if smooth:
+        var = savgol_filter(var,window_length=21)
 
-    return X,y,b,sp,blk,Cbool
+    return(np.gradient(var)[0])
+
+def epoch_to_cc(epoch):
+    ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
+    has contact onset in the first column and contact offset in the second.'''
+    cc = np.empty([len(epoch),2])
+    cc[:,0] = np.array(epoch.times).T
+    cc[:,1] = cc[:,0]+np.array(epoch.durations).T
+
+    print('cc is in {}'.format(epoch.units))
+    return cc.astype('int64')
+
+def get_MB_MD(data_in):
+    '''
+    return the Bending magnitude (MB) and bending direction (MD) for a given moment signal..
+    Accepts neo block, neo analog signal, or numpy array
+    :param data_in:
+    :return: MB, MD -- either neo analog signals or numpy 1D arrays (matches input type) of bending magnitude and direction
+    '''
+
+    # accept block, analog signal, or numpy array
+    if type(data_in)==neo.core.block.Block:
+        M = get_var(blk,'M')
+    elif type(data_in)==neo.core.analogsignal.AnalogSignal:
+        dat = data_in.magnitude
+    elif type(data_in)==numpy.ndarray:
+        dat = data_in
+
+    MD = np.arctan2(dat[:, 2], dat[:, 1])
+    MB = np.sqrt(dat[:, 1] ** 2 + dat[:, 2] ** 2)
+    if type(data_in)==neo.core.analogsignal.AnalogSignal or type(data_in)==neo.core.block.Block:
+        MD = neo.core.AnalogSignal(MD, units=pq.radians, sampling_rate=pq.kHz)
+        MB = neo.core.AnalogSignal(MB, units=pq.N*pq.m, sampling_rate=pq.kHz)
+    return (MB, MD)
+
+def applyPCA(var,Cbool):
+    '''
+    apply PCA to a given signal only during contact. Can accept neo analog signal.
+    Useful as convenience function which takes care of contact masking and interpolating NaNs.
+    :param var: either analog signal or numpy array of signal to apply PCA to
+    :param Cbool: boolean contact
+    :return: principle components skelarn object, explained variance
+    '''
+    if type(var) == neo.core.analogsignal.AnalogSignal:
+        var = var.magnitude
+    var[np.invert(Cbool),:] =0
+    var = replace_NaNs(var,'interp')
+    scaler=StandardScaler(with_mean=False)
+    var = scaler.fit_transform(var)
+    pca = PCA()
+
+    PC = pca.fit_transform(var)
+    return(PC,pca.explained_variance_)
 
 
