@@ -28,6 +28,8 @@ def get_rate_b(blk,unit_num,sigma=10*pq.ms):
     b = elephant.conversion.binarize(sp,sampling_rate=pq.kHz)[:-1]
     r = elephant.statistics.instantaneous_rate(sp,sampling_period=pq.ms,kernel=kernel).magnitude.squeeze()
     return(r,b)
+
+
 def get_var(blk,varname='M',join=True,keep_neo=True):
     ''' use this utility to access an analog variable from all segments in a block easily
     If you choose to join the segments, returns a list of '''
@@ -78,6 +80,7 @@ def concatenate_sp(blk):
         sp[unit.name] = SpikeTrain(sp[unit.name], t_stop = t_start)
     return sp
 
+
 def concatenate_epochs(blk):
     starts = np.empty([0])
     durations = np.empty([0])
@@ -107,12 +110,15 @@ def nan_helper(y):
     """
 
     return np.isnan(y), lambda z: z.nonzero()[0]
+
+
 def nan_bounds(var):
     if var.ndim>1:
         raise ValueError('input needs to be 1D')
     nans = nan_helper(var)[0].astype('int')
     d = np.diff(np.concatenate([[0],nans]))
     return np.where(d==1)[0],np.where(d==-1)[0]
+
 
 def replace_NaNs(var, mode='zero'):
     if type(var)==neo.core.analogsignal.AnalogSignal:
@@ -157,7 +163,7 @@ def replace_NaNs(var, mode='zero'):
 
 
 def create_unit_chan(blk):
-    chx = neo.core.ChannelIndex(0,name='Units')
+    chx = neo.core.ChannelIndex([0],name='Units')
 
     num_units = []
     for seg in blk.segments:
@@ -178,7 +184,7 @@ def create_analog_chan(blk):
     varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
     chx_list = []
     for ii in range(len(varnames)):
-        chx = neo.core.ChannelIndex(0,name=varnames[ii])
+        chx = neo.core.ChannelIndex([0],name=varnames[ii])
         chx_list.append(chx)
     for seg in blk.segments:
         for chx,sig in zip(chx_list,seg.analogsignals):
@@ -187,12 +193,12 @@ def create_analog_chan(blk):
 
 
 
-def appen_channel_indexes(blk):
-    chx_list = create_analog_chan(blk)
+def append_channel_indexes(blk):
+    # chx_list = create_analog_chan(blk)
     units = create_unit_chan(blk)
-    for chx in chx_list:
-        blk.channel_indexes.append(chx)
-    blk.append(units)
+    # for chx in chx_list:
+    #     blk.channel_indexes.append(chx)
+    blk.channel_indexes.append(units)
 
 
 def get_Cbool(blk):
@@ -211,6 +217,7 @@ def get_Cbool(blk):
 
 def get_root(blk,cell_no):
     return(blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no))
+
 
 def import_data_to_model(file,vars=['M','F'],unit_idx=0):
     ''' this is a utility to do all the common preprocessing steps I do for the modelling'''

@@ -7,7 +7,7 @@ import quantities as pq
 import elephant
 import sys
 import neo.io
-from neo_utils import add_channel_indexes
+import neo_utils
 import glob
 import os
 import re
@@ -156,7 +156,7 @@ def batch_convert(d_list, p):
             # create chx
             fid_N = neo.io.NixIO(fname_N)
             blk = fid_N.read_block()
-            add_channel_indexes(blk)
+            neo_utils.neo_utils.append_channel_indexes(blk)
 
             # write NIX
             fid_N.write_block(blk)
