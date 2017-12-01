@@ -302,14 +302,47 @@ def applyPCA(var,Cbool):
     return(PC,pca.explained_variance_)
 
 
-def get_analog_contact_slices(var, cc):
-    ''' this gets the mean and min-max of a given analog signal in each contact interval'''
+def get_analog_contact_slices(var, contact, slice2array=True):
+    '''
+    Takes all the contact intervals and extracts a contact onset centered slice of the variable. 
+    :param var:             The analog signal you want to slice. Either a numpy array, quantity, or neo analogsignal
+    :param contact:         The contact times. Can either be a list of epochs or a numpy boolean vector
+    :param slice2array      Boolean whether to put all the slices into an array with all entries fit into the size of the longest contact. If false, returns a list.
+    
+    :return var_out:  Either a list or a numpy array of the sliced input variable, depending on the input 'slice2array' flag
+                        If a numpy array output, dims are: [time after contact onset, contact index, var dimension]
+                            --Size of the first dimension is the length of the longest contact
+    '''
     print('Minmax only works for zero-centered data')
-    # MINMAX ONLY WORKS FOR ZERO CENTERED DATA, AND IT IS PRONE TO POINT NOISE!!!
+
+    # map analog signal to numpy array
     if type(var)==neo.core.analogsignal.AnalogSignal:
         var = var.magnitude
-    var_slice = []
-    for ii, contact in enumerate(cc):
-        var_slice.append(var[contact[0]:contact[1],:])
 
-    return var_slice
+    var_slice = []
+
+    # if the contact input is a boolean numpy array:
+    if type(contact)==numpy.ndarray:
+        if not((contact.dtype=='bool') and (contact.ndim==1)):
+            raise ValueError('If contact is an array, it must be a boolean vector')
+
+        starts = (np.where(np.diff(contact.astype('int')) == 1)[0] + 1)
+        stops = (np.where(np.diff(contact.astype('int')) == -1)[0] + 1)
+        for start_idx, stop_idx in zip(starts, stops):
+            var_slice.append(var[start_idx:stop_idx,:])
+    # if the contact input is an epoch
+    elif type(contact)==neo.core.epoch.Epoch:
+        for start_idx,dur in zip(contact,contact.durations):
+            var_slice.append(var[int(start_idx):int(start_idx+dur),:])
+
+
+    if slice2array:
+        max_l = max([len(x) for x in var_slice])
+        var_out = np.empty([max_l,len(var_slice),var_slice[0].shape[-1]])
+        var_out[:]=np.nan
+        for ii,slice in enumerate(var_slice):
+            var_out[:slice.shape[0],ii,:] = slice
+    else:
+        var_out = var_slice
+
+    return var_out
