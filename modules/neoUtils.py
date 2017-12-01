@@ -302,3 +302,14 @@ def applyPCA(var,Cbool):
     return(PC,pca.explained_variance_)
 
 
+def get_analog_contact_slices(var, cc):
+    ''' this gets the mean and min-max of a given analog signal in each contact interval'''
+    print('Minmax only works for zero-centered data')
+    # MINMAX ONLY WORKS FOR ZERO CENTERED DATA, AND IT IS PRONE TO POINT NOISE!!!
+    if type(var)==neo.core.analogsignal.AnalogSignal:
+        var = var.magnitude
+    var_slice = []
+    for ii, contact in enumerate(cc):
+        var_slice.append(var[contact[0]:contact[1],:])
+
+    return var_slice
