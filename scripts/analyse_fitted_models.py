@@ -12,8 +12,16 @@ from GLM import *
 import pygam
 import sklearn
 import statsmodels
+import cmt
 from mpl_toolkits.mplot3d import Axes3D
 sns.set()
+# colors = [[0.4, 0.5, 1], [1, 0.5, 0.4], [0.8, 0.8, 0.8], [0.6, 0.6, 0.6], [0.4, 0.4, 0.4], [0.2, 0.2, 0.2]]
+
+def get_colors(model_names):
+    # I don't have time to make this good, but this will eventually want to be nice depending on model types and numbe
+    colors = [[0.4, 0.5, 1], [1, 0.5, 0.4], [0.8, 0.8, 0.8], [0.6, 0.6, 0.6], [0.4, 0.4, 0.4], [0.2, 0.2, 0.2]]
+    return colors
+
 
 def get_model_names(p,fspec):
     ''' use the options to get a list of model names. 
@@ -23,11 +31,14 @@ def get_model_names(p,fspec):
     first_file = np.load(glob.glob(os.path.join(p, fspec))[0])
     opts = first_file['options'].item()
     model_names = []
-    if opts.pillow_tgl:
+    if opts.glm_tgl:
         model_names.append('glm')
 
     if opts.gam_tgl:
         model_names.append('gam')
+
+    if opts.stm_tgl:
+        model_names.append('stm')
 
     if opts.conv_tgl:
         for ii in range(opts.max_num_conv):
@@ -50,6 +61,11 @@ def get_weights(models):
             pass
         elif type(model)==statsmodels.genmod.generalized_linear_model.GLMResultsWrapper:
             weights[name] = model.params[1:]
+        elif type(model)==cmt.models.STM:
+            weights[name] = {}
+            weights[name]['features'] = model.features
+            weights[name]['weights'] = model.weights
+            weights[name]['biases'] = model.biases
         else:
             print('model not recognized, skipping')
 
@@ -123,7 +139,6 @@ def analyse_model(p,f,model_names,plot_tgl=False):
 
     return rr,weights,yhat,fid['y'],B,fid['Cbool'],fid['options']
 
-
 def concatenate_data(p,fspec,f_out,model_names):
     ''' creates a numpy file that carries all the cells modeled data
     INPUTS:
@@ -136,7 +151,7 @@ def concatenate_data(p,fspec,f_out,model_names):
     '''
     
     
-    all_rr = np.empty([50, 6, 0])
+    all_rr = np.empty([50, len(model_names), 0])
     all_weights = []
     all_yhat = []
     all_y = []
@@ -145,7 +160,7 @@ def concatenate_data(p,fspec,f_out,model_names):
     all_opts = []
     B = None
     for f in glob.glob(os.path.join(p, fspec)):
-        print(f)
+        print(os.path.basename(f))
         rr, weights, yhat, y, B, Cbool, opts = analyse_model(p, f,model_names=model_names,plot_tgl=False)
 
         all_rr = np.concatenate([all_rr, rr[:, :, np.newaxis]], axis=-1)
@@ -168,16 +183,18 @@ def concatenate_data(p,fspec,f_out,model_names):
              )
 
 
-def plot_summary_performance(f):
+def plot_summary_performance(f,colors=None):
+
     ''' Takes the summary file (which contains the data from all cells) and creates violin/swarm plots of the model accuracies and best smoothinig parameters.
         INPUTS:
             f:  full filename of the model summary file
         OUTPUTS:
             none--creates plots
     '''
-    
+    colors = get_colors(None)
     sigma_vals = np.arange(2,200,4)
-    res = np.load(os.path.join(p,f))
+    res = np.load(f)
+
     model_names = res['model_names']
     weights = res['weights']
     rr = res['rr']
@@ -199,15 +216,19 @@ def plot_summary_performance(f):
     ax2 = fig.add_subplot(212)
     sns.swarmplot(data=best_smoothing_vals.T,palette=colors,orient='h')
     ax2.set_yticklabels(model_names)
-    ax2.set_xlabel('Box kernel width (ms)')
+    ax2.set_xlabel('Gaussian kernel sigma (ms)')
     ax2.set_title('Best smoothing kernel width')
     plt.tight_layout()
+
+    fig3 = plt.figure()
+
     for ii in xrange(len(model_names)):
         sns.distplot(best_smoothing_vals[ii,:],20,kde=False)
 
     # performance and smoothing parameter
-    for ii in xrange(6):
+    for ii in xrange(len(model_names)):
         sns.jointplot(best_smoothing_vals[ii, :], max_rr[ii, :],edgecolor='w',marginal_kws=dict(bins=25), size=5, ratio=4, color=colors[ii]).plot_joint(sns.kdeplot,n_levels=3)
+    plt.show()
 
 
 def glm_PCA(f):
@@ -219,6 +240,8 @@ def glm_PCA(f):
     '''
     
     res = np.load(f)
+    colors = get_colors(None)
+
     B = res['bases']
     weights = res['weights']
     ww = np.empty([0,len(weights[0]['glm'])])
@@ -274,7 +297,8 @@ def plot_weights(weights,model_names,B,rr,id,sigma_vals,f_out=None):
     This will likely not be run in a general sense yet, and I do not have time now to make it generalized.
 
     '''
-    colors = [[0.4, 0.5, 1], [1, 0.5, 0.4], [0.8, 0.8, 0.8], [0.6, 0.6, 0.6], [0.4, 0.4, 0.4], [0.2, 0.2, 0.2]]
+    colors = get_colors(None)
+
 
     fig = plt.figure()
     col=0

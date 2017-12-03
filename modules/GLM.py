@@ -1,8 +1,10 @@
 import numpy as np
+import statsmodels.api as sm
+import numpy.matlib as matlib
 from pygam import GAM
 from pygam.utils import generate_X_grid
 import neo
-import statsmodels.api as sm
+
 import elephant
 from scipy import corrcoef
 import quantities as pq
@@ -68,6 +70,12 @@ def reshape_tensor(X):
     X2 = X2[:,np.argsort(pos)]
     return X2
 
+def add_spike_history(X,y):
+    B = make_bases(2, [1, 4])[0]
+    yy = apply_bases(y,B,delay=1)
+    XX = np.concatenate([X,yy],axis=1)
+    return XX
+
 
 
 def run_GLM(X,y,family=None,link=None):
@@ -102,6 +110,8 @@ def run_GLM(X,y,family=None,link=None):
     # fit and predict
     glm_binom = sm.GLM(y,X,family=family,missing='drop')
     glm_result = glm_binom.fit()
+    # history_names = glm_binom.exog_names[-2:]
+    # res_c = glm_binom.fit_constrained(['{}<=0'.format(history_names[0]),'{}<=0'.format(history_names[1])])
     yhat[idx] = glm_result.predict(X[idx,:])
 
     return yhat,glm_result
@@ -263,13 +273,13 @@ def make_bases(num_bases,endpoints,b=1):
         a1[a1<-np.pi]=-np.pi
         return (np.cos(a1)+1)/2
 
-    xx = np.matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
-    cc = np.matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
+    xx = matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
+    cc = matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
 
     return(f_t(xx,cc,db),ctrs,iht)
 
 
-def apply_bases(X,bases):
+def apply_bases(X,bases,delay=0):
     if np.any(np.isnan(X)):
         raise Warning('input contains NaNs. some timepoints will lose data')
 
@@ -278,6 +288,8 @@ def apply_bases(X,bases):
     for ii in xrange(X.shape[1]):
         for jj in xrange(bases.shape[1]):
             temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
+            zero_pad = np.zeros(delay)
+            temp = np.concatenate([zero_pad,temp[:-delay]])
             X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
     return(X_out)
 
@@ -306,7 +318,7 @@ def run_STM(X,y,num_components=3,num_features=20):
 
     model.train(X,y, parameters={
         'verbosity':1,
-        'threshold':1e-7
+        'threshold':1e-6
             }
                 )
     yhat = model.predict(X).ravel()

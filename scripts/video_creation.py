@@ -21,7 +21,7 @@ from matplotlib.ticker import FormatStrFormatter
 import pywt
 sns.set()
 
-RATNUM = '2017_03'
+RATNUM = '2017_02'
 WHISKER_ID = 'B1'
 TRIAL = 't01'
 CELL_NUM = 0

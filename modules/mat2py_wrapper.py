@@ -48,13 +48,13 @@ def createSeg(fname):
     C = dat['C']
     cc = convertC(C)
     num_contacts = cc.shape[0]
-
+    trial_idx = int(PT['trial'][0][1:])
     # access the neural data
     sp = dat['sp'][0]
     spikes = dat['spikes'][0]
 
     # initialize the segment
-    seg = neo.core.Segment('name',file_origin=fname)
+    seg = neo.core.Segment(PT['id'][0],file_origin=fname,index=trial_idx)
 
     seg.annotate(
         ratnum      =   PT['ratnum'][0],
@@ -73,16 +73,16 @@ def createSeg(fname):
         # get the metadata for the signal
         sig = filtvars[varname]
         if varname == 'M':
-            U = 'N*m'
+            U = pq.N*pq.m
             name = 'Moment'
         elif varname == 'F':
-            U = 'N'
+            U = pq.N
             name = 'Force'
         elif varname == 'Rcp':
-            U = 'm'
+            U = pq.m
             name = varname
         else:
-            U = 'deg'
+            U = pq.deg
             name = varname
 
         # append the signal to the segment
