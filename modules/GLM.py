@@ -30,6 +30,87 @@ except ImportError:
     keras_tgl=False
 
 
+def make_bases(num_bases,endpoints,b=1):
+    '''
+    Imported from the neuroGLM toolbox. Makes non-linear raised cosine basis functions a la Pillow 2008
+     
+    :param num_bases:   int -- Number of basis functions 
+    :param endpoints:   list or array -- first and last temporal peaks to be covered in the basis 
+    :param b:           float -- nonlinear scaling parameter
+    
+    :returns (bases, centers, time_domain):
+                        bases -- actual functions to be used in projections
+                        centers -- indices of peaks in basis functinos
+                        time_domain -- array of times which correspond to the indices in the basis functions.
+     
+    '''
+    binsize=1
+    endpoints = np.asarray(endpoints)
+    nlin = lambda x: np.log(x+1e-20)
+    invnl = lambda x: np.exp(x)-1e-20
+
+    yrange = nlin(endpoints+b)
+    db = np.diff(yrange)/(num_bases-1)
+    ctrs = np.arange(yrange[0],yrange[1]+.1,db)
+    mxt = invnl(yrange[-1]+2*db)-b
+    iht = np.arange(0,mxt,binsize)
+    bases = []
+
+    def f_t(x,c,dc):
+        a1 = (x-c)*np.pi/dc/2
+        a1[a1>np.pi]=np.pi
+        a1[a1<-np.pi]=-np.pi
+        return (np.cos(a1)+1)/2
+
+    xx = matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
+    cc = matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
+
+    return(f_t(xx,cc,db),ctrs,iht)
+
+
+def apply_bases(X, bases, lag=0):
+    '''
+    Project a matrix X into a lower dimensional basis given by bases.
+    
+    :param X:       A matrix [time x dimensions] of features to project into bases 
+    :param bases:   basis functions as returned by make_bases
+    :param lag:     number of samples by which to lag the input [for example, if we don't want to use the current 
+                        observation to predict the current output, we can force a lag here] 
+    
+    :return X_out:  A matrix of [time x (dimensions * num_bases)] of the input mapped into the basis 
+                        
+    '''
+    if np.any(np.isnan(X)):
+        raise Warning('input contains NaNs. some timepoints will lose data')
+
+    X_out = np.zeros([X.shape[0],X.shape[1]*bases.shape[1]])
+
+    for ii in xrange(X.shape[1]):
+        for jj in xrange(bases.shape[1]):
+            temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
+            zero_pad = np.zeros(lag)
+            temp = np.concatenate([zero_pad, temp[:-lag]])
+            X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
+    return(X_out)
+
+
+def map_bases(weights,bases):
+    '''
+    takes the fitted weights from the GLM and maps them back into time space
+        columns of ww are the basis, rows are the inputs
+    
+    :param weights: weights as returned by statsmodels GLM 
+    :param bases:   basis functions as returned by make_bases 
+    
+    :return(filters, ww):   filters -- The weights represented in the time_domain, rather than the basis domain.
+                            ww      -- the weights reshaped into a matrix that can be multiplied by the basis functions.
+    '''
+
+    ww = weights.reshape([-1,bases[0].shape[1]])
+    filters = np.dot(bases[0],ww.T)
+
+    return filters,ww
+
 
 def make_tensor(timeseries, window_size=10,lag=0):
     '''
@@ -114,9 +195,25 @@ def add_spike_history(X, y, B=None):
     if B is None:
         B = make_bases(2, [1, 4])[0]
 
-    yy = apply_bases(y,B,delay=1)
+    yy = apply_bases(y, B, lag=1)
     XX = np.concatenate([X,yy],axis=1)
     return XX
+
+
+def split_pos_neg(var):
+    '''
+    Takes a matrix and doubles the number of dimensions by splitting the positive and negative values into separate dimensions
+    :param var:         A matrix [num_obs x num_dims] of input feature values.
+    :return var_out:    A matrix [num_obs x num_dims*2] with positive and negative values split.
+    
+    '''
+    var_out = np.zeros([var.shape[0],(var.shape[1])*2])
+    for ii in range(var.shape[1]):
+        idx_pos = var[: ,ii] > 0.
+        idx_neg = var[:, ii] < 0.
+        var_out[idx_pos, ii] = var[idx_pos,ii]
+        var_out[idx_neg, (ii+var.shape[1])] = var[idx_neg, ii]
+    return var_out
 
 
 def run_GLM(X,y,family=None,link=None):
@@ -247,14 +344,6 @@ def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.aran
     return rr
 
 
-def split_pos_neg(var):
-    var_out = np.zeros([var.shape[0],(var.shape[1])*2])
-    for ii in range(var.shape[1]):
-        idx_pos = var[: ,ii] > 0.
-        idx_neg = var[:, ii] < 0.
-        var_out[idx_pos, ii] = var[idx_pos,ii]
-        var_out[idx_neg, (ii+var.shape[1])] = var[idx_neg, ii]
-    return var_out
 
 if keras_tgl:
     def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):
@@ -311,58 +400,4 @@ if keras_tgl:
             hist=np.append(is_spike[np.newaxis,:],hist[:-1,:],axis=0)
             yhat[timestep,:]=is_spike
         return yhat
-
-def make_bases(num_bases,endpoints,b=1):
-    ''' ported from the neuroGLM toolbox. 
-    returns:
-        Bases,centers,and time vector    
-    '''
-    binsize=1
-    endpoints = np.asarray(endpoints)
-    nlin = lambda x: np.log(x+1e-20)
-    invnl = lambda x: np.exp(x)-1e-20
-
-    yrange = nlin(endpoints+b)
-    db = np.diff(yrange)/(num_bases-1)
-    ctrs = np.arange(yrange[0],yrange[1]+.1,db)
-    mxt = invnl(yrange[-1]+2*db)-b
-    iht = np.arange(0,mxt,binsize)
-    bases = []
-
-    def f_t(x,c,dc):
-        a1 = (x-c)*np.pi/dc/2
-        a1[a1>np.pi]=np.pi
-        a1[a1<-np.pi]=-np.pi
-        return (np.cos(a1)+1)/2
-
-    xx = matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
-    cc = matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
-
-    return(f_t(xx,cc,db),ctrs,iht)
-
-
-def apply_bases(X,bases,delay=0):
-    if np.any(np.isnan(X)):
-        raise Warning('input contains NaNs. some timepoints will lose data')
-
-    X_out = np.zeros([X.shape[0],X.shape[1]*bases.shape[1]])
-
-    for ii in xrange(X.shape[1]):
-        for jj in xrange(bases.shape[1]):
-            temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
-            zero_pad = np.zeros(delay)
-            temp = np.concatenate([zero_pad,temp[:-delay]])
-            X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
-    return(X_out)
-
-
-def map_bases(weights,bases):
-    '''takes the fitted weights from the GLM and maps them back into time space
-    columns of ww are the basis, rows are the inputs
-    '''
-
-    ww = weights.reshape([-1,bases[0].shape[1]])
-    filters = np.dot(bases[0],ww.T)
-
-    return filters,ww
 
