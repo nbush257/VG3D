@@ -8,7 +8,7 @@ import neo
 import elephant
 from scipy import corrcoef
 import quantities as pq
-from neo.io import PickleIO as PIO
+
 try:
     import cmt
     from cmt.models import STM,Bernoulli
@@ -37,27 +37,38 @@ def make_tensor(timeseries, window_size=10,lag=0):
     :param timeseries: variable on which to window
     :param window_size: number of samples for the window to look into the past
     :param lag: number of samples to lag the entries of the Q dimension
-    :return: X -- a tensor of N x Q x M tensor where N is the number of timesteps in the original timeseries, M is the number of variable dimensions, and Q is the window size
+    :return: X -- a tensor of N x Q x M tensor where N is the number of timesteps in the original timeseries, Q is the window size, and M is the number of variable dimensions,
                     the 0th slice of the Q dimension is the current-lag, the -1th slice is the most latent time.
     '''
     if type(timeseries) == neo.core.analogsignal.AnalogSignal:
         timeseries = timeseries.magnitude
+
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size+lag,timeseries.shape[0]-window_size):
         X[ii,:,:] = np.flipud(timeseries[ii-window_size+1-lag:ii+1-lag,:])
     return X
 
-def make_binned_tensor(signal,binned_train,window_size=10):
-    ''' gets a tensor to represent the inputs leading up to a bin of a spike train. 
-    Might be more general to use neo signals and trains, but is wayyy slow'''
+
+def make_binned_tensor(timeseries, binned_train, window_size=10, lag=0):
+    '''
+    Create a tensor which takes a window prior to the current bin and sets that to the third dimension.
+    
+    :param timeseries:      variable on which to window
+    :param binned_train:    an elephant binned spike train--gives us the indices for the bins
+    :param window_size:     The number of samples to look into the past
+    :param lag:             The number of samples prior to the current time to include in the tensor. Defaults to zero: the 0th element of the window is the current time
+    
+    :return X:              a tensor of N x Q x M tensor where N is the number of bins, Q is the window size, and M is the number of variable dimensions,
+                            the 0th slice of the Q dimension is  [bin_start_time-lag], the -1th slice is the most latent time[bin_start_time-lag-window_size].        
+    '''
 
     # Init the output tensor
-    X = np.empty((binned_train.num_bins,window_size,signal.shape[-1]))
+    X = np.empty((binned_train.num_bins, window_size, timeseries.shape[-1]))
     X[:] = np.nan
 
     # convert signal to array if needed
-    if type(signal)==neo.core.analogsignal.AnalogSignal:
-        signal =signal.as_array()
+    if type(timeseries)==neo.core.analogsignal.AnalogSignal:
+        timeseries =timeseries.magnitude
 
     # get indices of bin start time
     starts = binned_train.bin_edges.magnitude.astype('int')
@@ -66,18 +77,19 @@ def make_binned_tensor(signal,binned_train,window_size=10):
     for ii,start in enumerate(starts[:-1]):
         if (start-window_size)<0:
             continue
-        X[ii,:,:]=signal[start-window_size:start,:]
+        X[ii,:,:]= np.flipud(timeseries[start - window_size+1-lag:start+1-lag, :])
 
     return X
+
 
 def reshape_tensor(X):
     '''
     takes a 3D tensor and flattens it to a 2D array such that each observation in a window is now a column.
-    Orders columns such that the adjacent columns corrspond to the same variable at different points in the window
+    Orders columns such that the adjacent columns correspond to the same variable at different points in the window
     (0th column is oth variable at current time, 1st column is zeroth variable 1 sample into the past...)
 
-    :param X: input tensor
-    :return:
+    :param X:   input tensor
+    :return X2: 
     '''
 
     if X.ndim!=3:
@@ -89,12 +101,22 @@ def reshape_tensor(X):
     X2 = X2[:,np.argsort(pos)]
     return X2
 
-def add_spike_history(X,y):
-    B = make_bases(2, [1, 4])[0]
+
+def add_spike_history(X, y, B=None):
+    '''
+    Underdeveloped function which concatenates spike history to a design matrix X. The spike history is mapped to a set of basis functions.
+    :param X: A design matrix of [observations x dimensions]
+    :param y: A vector of spikes. If boolean dtype, map to int
+    :param B: [Optional] basis functions as returned by make_bases
+    
+    :return XX: A concatenated design matrix with the spike history as the last columns 
+    '''
+    if B is None:
+        B = make_bases(2, [1, 4])[0]
+
     yy = apply_bases(y,B,delay=1)
     XX = np.concatenate([X,yy],axis=1)
     return XX
-
 
 
 def run_GLM(X,y,family=None,link=None):
@@ -157,6 +179,27 @@ def run_GAM(X,y,n_splines=15,distr='binomial',link='logit'):
     yhat[idx] = gam.predict(X[idx,:])
 
     return yhat,gam
+
+
+def run_STM(X,y,num_components=3,num_features=20):
+    if X.shape[0]>X.shape[1]:
+        X = X.T
+
+    if y.ndim==1:
+        y = y[:,np.newaxis]
+
+    if y.shape[0]>y.shape[1]:
+        y = y.T
+
+    model = STM(X.shape[0], 0, num_components, num_features, LogisticFunction, Bernoulli)
+
+    model.train(X,y, parameters={
+        'verbosity':1,
+        'threshold':1e-6
+            }
+                )
+    yhat = model.predict(X).ravel()
+    return yhat, model
 
 
 def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
@@ -323,22 +366,3 @@ def map_bases(weights,bases):
 
     return filters,ww
 
-def run_STM(X,y,num_components=3,num_features=20):
-    if X.shape[0]>X.shape[1]:
-        X = X.T
-
-    if y.ndim==1:
-        y = y[:,np.newaxis]
-
-    if y.shape[0]>y.shape[1]:
-        y = y.T
-
-    model = STM(X.shape[0], 0, num_components, num_features, LogisticFunction, Bernoulli)
-
-    model.train(X,y, parameters={
-        'verbosity':1,
-        'threshold':1e-6
-            }
-                )
-    yhat = model.predict(X).ravel()
-    return yhat, model
