@@ -30,6 +30,8 @@ def convertC(C):
     cends = np.where(d == -1)[0]
     # return the Nx2 Matrix of onsets (inclusive) and offsets(exclusive)
     return np.vstack((cstarts, cends)).T
+
+
 def create_unit_chan(blk):
     chx = neo.core.ChannelIndex(index=np.array([0]),name='electrode_0')
 
