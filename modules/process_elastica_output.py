@@ -1,15 +1,11 @@
 import numpy as np
-import scipy.signal
-from sklearn import preprocessing,neighbors,ensemble,covariance
+from sklearn import preprocessing,covariance
 from scipy import signal,interpolate
-
-import pandas as pd
-
 import matplotlib.pyplot as plt
 
-
-# TODO: make sure the in-place operations are working correctly
 # TODO: Port filtering from MATLAB code to python??
+# TODO: Port neural alignment from MATLAB code to python?? Probably a different module.
+# TODO: Build input output code from the elastica data format.
 
 def cbool_to_cc(cbool):
     pad_cbool = np.concatenate([[[0]],cbool],axis=0)
@@ -37,7 +33,6 @@ def median_by_contact(var,cc):
     return np.array(y)
 
 
-
 def get_d(var):
     '''
     Perform diff on a matrix along the rows. That is, assume a matrix is [n_obs x n_features]
@@ -57,6 +52,7 @@ def get_d(var):
     d = np.diff(var,axis=0)
 
     return np.concatenate([zero_pad,d],axis=0)
+
 
 def E_operator(x):
     '''
@@ -78,6 +74,7 @@ def E_operator(x):
     E[1:-2] = t1[1:-2]-t2[1:-2]
     return E
 
+
 def energy_by_contact(var,cc):
     '''
     Applies the energy operator to single contact episodes. NOT CURRENTLY USED
@@ -94,6 +91,7 @@ def energy_by_contact(var,cc):
         E = E_operator(slice)
         E_out.append(np.sum(E**2))
     return(np.array(E_out))
+
 
 def impute_snippet(snippet,kind = 'cubic'):
     '''
@@ -115,7 +113,6 @@ def impute_snippet(snippet,kind = 'cubic'):
 
     f = interpolate.interp1d(x[np.isfinite(y)],y[np.isfinite(y)],kind='cubic')
     y[np.isnan(y)] = f(x[np.isnan(y)])
-
 
 
 def fill_nan_gaps(var, cbool, thresh=10):
@@ -215,43 +212,70 @@ def scale_by_contact(var,cc):
     return var_out
 
 
+def cleanup(var,cbool):
+    # either impute small nan gaps or remove contacts with more than 10 consecutive NaNs.
+    # Allows us to make all non-flagged var=0
+    var_imputed, use_flags = fill_nan_gaps(var, cbool, thresh=10)
+    var_imputed[use_flags == 0] = 0
+
+    # Perform a small medfilt to filter over single point outliers
+    var_filt = signal.medfilt(var_imputed, kernel_size=[3, 1])
+
+    # remove contacts where there are many bad points
+    remove_bad_contacts(var_filt, use_flags)
+
+    # Get CC for all the contact segments to be kept
+    cc = cbool_to_cc(use_flags)
+
+    # =========================== #
+    # =========================== #
+    # Find point outliers once the bad contact segments have been deleted
+    var_scaled = scale_by_contact(var_imputed, cc)
+    var_d = get_d(var_imputed)
+    var_d_scaled = scale_by_contact(var_d, cc)
+
+    X = np.concatenate([var_scaled, var_d_scaled], axis=1)
+    y = np.zeros(X.shape[0], dtype='int')
+
+    # Fit outlier detection
+    clf = covariance.EllipticEnvelope(contamination=.001)
+    idx = np.squeeze(use_flags == 1)
+    clf.fit(X[idx, :])
+
+    # Find outliers
+    y[idx] = clf.predict(X[idx, :])
+    y[y == 1] = 0
+    y[y == -1] = 1
+
+    # =========================== #
+    # =========================== #
+
+    # set outputs [use_flags, outliers]
+    outliers = y == 1
+
+    # var_out is used mostly to evaluate the quality of the outlier detection.
+    # We should evelntually use 'use_flags' and 'outliers' to alter all mechanics data uniformly.
+
+    var_out = var.copy()
+    var_out[use_flags == 0] = np.nan
+    var_out[outliers] = np.nan
+
+    # impute over the variable.
+    for start, stop in cc_use:
+        if stop - start > 10:
+            impute_snippet(var_out[start:stop])
+
+    var_out[use_flags == 0] = 0
+
+    plt.plot(var)
+    plt.plot(var_out)
+    plt.show()
+    return(use_flags,outliers)
 
 
 if __name__=='__main__':
     fid = np.load(r'C:\Users\guru\Desktop\temp\M_and_C_test.npz')
-    M = fid['M']
-    C = fid['C']
+    var = fid['M']
+    cbool = fid['C']
+    cleanup(var,cbool)
 
-    M2,use_flags = fill_nan_gaps(M,C) # either impute small nan gaps or remove the entire contact from consideration. Allows us to make all non-flaggd M= 0
-    M2[use_flags == 0] = 0
-    M_filt = signal.medfilt(M2,kernel_size=[3,1])
-    remove_bad_contacts(M_filt,use_flags)
-
-    cc = cbool_to_cc(use_flags)
-    M_scale = scale_by_contact(M2,cc)
-    Md = get_d(M2)
-    Md_scale = scale_by_contact(Md,cc)
-
-    X = np.concatenate([M_scale,Md_scale],axis=1)
-
-    y = np.zeros(X.shape[0],dtype='int')
-    # clf = neighbors.LocalOutlierFactor(contamination=0.05)
-    clf = covariance.EllipticEnvelope(contamination=.001)
-    # clf = ensemble.IsolationForest()
-    idx = np.squeeze(use_flags==1)
-    clf.fit(X[idx,:])
-    y[idx] = clf.predict(X[idx,:])
-
-    y[y==1]=0
-    y[y==-1]=1
-
-    use_flags[y==1]=0
-    M_out = M.copy()
-    M_out[use_flags==0] = np.nan
-
-    cc_use = cbool_to_cc(use_flags)
-    for start,stop in cc_use:
-        if stop-start>10:
-            impute_snippet(M_out[start:stop])
-
-    M_out[C==0]=0
