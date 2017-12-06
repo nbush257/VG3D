@@ -2,13 +2,14 @@ import numpy as np
 from sklearn import preprocessing,covariance
 from scipy import signal,interpolate
 import matplotlib.pyplot as plt
+from optparse import OptionParser
 import os
-import sys
 import scipy.io.matlab as sio
 
 # TODO: Port filtering from MATLAB code to python??
 # TODO: Port neural alignment from MATLAB code to python?? Probably a different module.
 # TODO: Build input output code from the elastica data format.
+# TODO: Make the contamination parameter easily editable after fitting the outlier detection (i.e., change the boundary of the decision function without recomputing')
 
 def cbool_to_cc(cbool):
     pad_cbool = np.concatenate([[[0]],cbool],axis=0)
@@ -223,7 +224,7 @@ def scale_by_contact(var,cc):
     return var_out
 
 
-def cleanup(var,cbool):
+def cleanup(var,cbool,outlier_thresh=0.001):
     '''
     Runs the primary algorithm to find outliers and remove bad contact segments
     
@@ -261,7 +262,7 @@ def cleanup(var,cbool):
     y = np.zeros(X.shape[0], dtype='int')
 
     # Fit outlier detection
-    clf = covariance.EllipticEnvelope(contamination=.001)
+    clf = covariance.EllipticEnvelope(contamination=outlier_thresh)
     idx = np.squeeze(use_flags == 1)
     clf.fit(X[idx, :])
 
@@ -296,13 +297,14 @@ def cleanup(var,cbool):
     return(use_flags,outliers)
 
 
-def main(fname,use_var='M'):
+def main(fname,use_var='M',outlier_thresh=0.001):
+    print('Using variable: {}\t Using outlier_thresh={}'.format(use_var,outlier_thresh))
     print('Loading {} ...'.format(os.path.basename(fname)))
     fid = sio.loadmat(fname)
     print('Loaded!')
     var = fid[use_var]
     cbool = fid['C']
-    use_flags,outliers = cleanup(var,cbool)
+    use_flags,outliers = cleanup(var,cbool,outlier_thresh=outlier_thresh)
 
     fname_out = os.path.splitext(fname)[0]+'_outliers'
     print('Saving to {}...'.format(fname_out))
@@ -312,6 +314,22 @@ def main(fname,use_var='M'):
     return 0
 
 if __name__=='__main__':
-    fname = sys.argv[1]
-    main(fname)
+    usage = "usage: %prog filename [options]"
+    parser = OptionParser(usage)
+    parser.add_option('-t', '--thresh',
+                      dest='outlier_thresh',
+                      default=0.001,
+                      type=float,
+                      help='Sensitivity to outliers to remove')
+    parser.add_option('-v', '--var',
+                      dest='use_var',
+                      default='M',
+                      type=str,
+                      help='Variable to be used as a signal for outlier detection. Must be a valid variable in the matlab data')
+
+    (options, args) = parser.parse_args()
+    if len(args)<1:
+        parser.error('Need to pass a filename fist')
+
+    main(args[0],options.use_var,options.outlier_thresh)
 
