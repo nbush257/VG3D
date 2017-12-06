@@ -2,6 +2,9 @@ import numpy as np
 from sklearn import preprocessing,covariance
 from scipy import signal,interpolate
 import matplotlib.pyplot as plt
+import os
+import sys
+import scipy.io.matlab as sio
 
 # TODO: Port filtering from MATLAB code to python??
 # TODO: Port neural alignment from MATLAB code to python?? Probably a different module.
@@ -213,6 +216,18 @@ def scale_by_contact(var,cc):
 
 
 def cleanup(var,cbool):
+    '''
+    Runs the primary algorithm to find outliers and remove bad contact segments
+    
+    :param var:     The variable to use as a signal for when the tracking is bad 
+    :param cbool:   The contact boolean
+    
+    :return use_flags:  A boolean mask inherited from cbool which is only 1 during good contacts (cbool includes all contacts)
+                            These should be set to zero
+    :return outliers:   A boolean mask indicating which frames are bad tracking outliers.
+                            These should be NaN'd and interpolated over
+    '''
+
     # either impute small nan gaps or remove contacts with more than 10 consecutive NaNs.
     # Allows us to make all non-flagged var=0
     var_imputed, use_flags = fill_nan_gaps(var, cbool, thresh=10)
@@ -273,9 +288,17 @@ def cleanup(var,cbool):
     return(use_flags,outliers)
 
 
-if __name__=='__main__':
-    fid = np.load(r'C:\Users\guru\Desktop\temp\M_and_C_test.npz')
-    var = fid['M']
+def main(fname,use_var='M'):
+    fid = sio.loadmat(fname)
+    var = fid[use_var]
     cbool = fid['C']
-    cleanup(var,cbool)
+    use_flags,outliers = cleanup(var,cbool)
+
+    fname_out = os.path.splitext(fname)[0]+'_outliers'
+    sio.savemat(fname_out,{'use_flags':use_flags,'outliers':outliers})
+
+
+if __name__=='__main__':
+    fname = sys.argv[1]
+    main(fname)
 
