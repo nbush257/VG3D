@@ -98,24 +98,31 @@ def energy_by_contact(var,cc):
 
 def impute_snippet(snippet,kind = 'cubic'):
     '''
-    Helper function to impute over nan gaps in a given snippet. Performs operation in place 
+    Helper function to impute over nan gaps in a given snippet.  
     Be careful--this will perform on all inputs, so be sure you have excluded segments you don't want to impute over by this point 
     
     :param snippet: A row or column vector of the signal to be imputed. 
     :param kind:    Passes to scipy.interpolate.interp1d kind
     
-    :return None:   Performs in-place 
+    :return:   The interpolated snippet 
     '''
 
     if snippet.ndim>1:
         if snippet.shape[1]>1:
             raise ValueError('Snippet must be a row vector or a column vector')
 
-    x = np.arange(len(snippet))
-    y = snippet.ravel()
+    # map snippet and pad with zeros on either side
+    zeropad_length=3
+    x = np.arange(-zeropad_length,len(snippet)+zeropad_length)
+    y = np.concatenate([np.zeros(zeropad_length),snippet.ravel(),np.zeros(zeropad_length)])
 
     f = interpolate.interp1d(x[np.isfinite(y)],y[np.isfinite(y)],kind='cubic')
     y[np.isnan(y)] = f(x[np.isnan(y)])
+
+    snippet_out = y[zeropad_length:len(snippet)+zeropad_length]
+    if snippet.ndim==2:
+        snippet_out =snippet_out[:,np.newaxis]
+    return snippet_out
 
 
 def fill_nan_gaps(var, cbool, thresh=10):
@@ -157,7 +164,8 @@ def fill_nan_gaps(var, cbool, thresh=10):
         if np.any(np.diff(gaps)>thresh):
             use_flag[start:stop]=0
         else:
-            impute_snippet(snippet)
+            snippet_out = impute_snippet(snippet)
+            var_out[start:stop] = snippet_out
     return var_out, use_flag
 
 
@@ -276,9 +284,9 @@ def cleanup(var,cbool):
     var_out[outliers] = np.nan
 
     # impute over the variable.
-    for start, stop in cc_use:
+    for start, stop in cc:
         if stop - start > 10:
-            impute_snippet(var_out[start:stop])
+            var_out[start:stop] = impute_snippet(var_out[start:stop])
 
     var_out[use_flags == 0] = 0
 
@@ -289,14 +297,19 @@ def cleanup(var,cbool):
 
 
 def main(fname,use_var='M'):
+    print('Loading {} ...'.format(os.path.basename(fname)))
     fid = sio.loadmat(fname)
+    print('Loaded!')
     var = fid[use_var]
     cbool = fid['C']
     use_flags,outliers = cleanup(var,cbool)
 
     fname_out = os.path.splitext(fname)[0]+'_outliers'
+    print('Saving to {}...'.format(fname_out))
     sio.savemat(fname_out,{'use_flags':use_flags,'outliers':outliers})
+    print('Saved')
 
+    return 0
 
 if __name__=='__main__':
     fname = sys.argv[1]
