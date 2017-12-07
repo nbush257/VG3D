@@ -97,7 +97,7 @@ def energy_by_contact(var,cc):
     return(np.array(E_out))
 
 
-def impute_snippet(snippet,kind = 'cubic'):
+def impute_snippet(snippet,kind = 'linear'):
     '''
     Helper function to impute over nan gaps in a given snippet.  
     Be careful--this will perform on all inputs, so be sure you have excluded segments you don't want to impute over by this point 
@@ -107,22 +107,19 @@ def impute_snippet(snippet,kind = 'cubic'):
     
     :return:   The interpolated snippet 
     '''
-
-    if snippet.ndim>1:
-        if snippet.shape[1]>1:
-            raise ValueError('Snippet must be a row vector or a column vector')
-
+    if snippet.ndim<1:
+        raise ValueError('snippet must be a 2D array')
     # map snippet and pad with zeros on either side
     zeropad_length=3
     x = np.arange(-zeropad_length,len(snippet)+zeropad_length)
-    y = np.concatenate([np.zeros(zeropad_length),snippet.ravel(),np.zeros(zeropad_length)])
+    y = np.concatenate([np.zeros([zeropad_length,snippet.shape[-1]]),snippet,np.zeros([zeropad_length,snippet.shape[-1]])])
+    for ii in xrange(y.shape[1]):
+        temp_y = y[:,ii].ravel()
+        f = interpolate.interp1d(x[np.isfinite(temp_y)],temp_y[np.isfinite(temp_y)],kind=kind)
+        y[np.isnan(temp_y),ii] = f(x[np.isnan(temp_y)])
 
-    f = interpolate.interp1d(x[np.isfinite(y)],y[np.isfinite(y)],kind='cubic')
-    y[np.isnan(y)] = f(x[np.isnan(y)])
+    snippet_out = y[zeropad_length:len(snippet)+zeropad_length,:]
 
-    snippet_out = y[zeropad_length:len(snippet)+zeropad_length]
-    if snippet.ndim==2:
-        snippet_out =snippet_out[:,np.newaxis]
     return snippet_out
 
 
@@ -160,7 +157,6 @@ def fill_nan_gaps(var, cbool, thresh=10):
             continue
 
         # calculate the length of the NaN gaps in this segment
-        # TODO: Boundary conditions on if the NaN gap is underthreshold but abutts the border of contact?
         gaps = cbool_to_cc(np.isnan(snippet))
         if np.any(np.diff(gaps)>thresh):
             use_flag[start:stop]=0
@@ -184,7 +180,9 @@ def remove_bad_contacts(var_in,cbool,thresh=100):
     """
     var = var_in.copy()
 
+
     cc = cbool_to_cc(cbool)
+    var = scale_by_contact(var, cc)
 
     d = get_d(var)
     d[np.isnan(d)]=0
@@ -217,14 +215,14 @@ def scale_by_contact(var,cc):
 
     for start,stop in cc:
         snippet = var_out[start:stop,:]
-        scaler = preprocessing.RobustScaler()
+        scaler = preprocessing.RobustScaler(with_centering=False)
         idx = np.isfinite(snippet).ravel() # omit nans
         if np.any(idx):
             snippet[idx] = scaler.fit_transform(snippet[idx])
     return var_out
 
 
-def cleanup(var,cbool,outlier_thresh=0.001):
+def cleanup(var,cbool,outlier_thresh=0.05):
     '''
     Runs the primary algorithm to find outliers and remove bad contact segments
     
@@ -245,8 +243,9 @@ def cleanup(var,cbool,outlier_thresh=0.001):
     # Perform a small medfilt to filter over single point outliers
     var_filt = signal.medfilt(var_imputed, kernel_size=[3, 1])
 
+
     # remove contacts where there are many bad points
-    remove_bad_contacts(var_filt, use_flags)
+    remove_bad_contacts(var_filt, use_flags,thresh=10)
 
     # Get CC for all the contact segments to be kept
     cc = cbool_to_cc(use_flags)
@@ -285,19 +284,23 @@ def cleanup(var,cbool,outlier_thresh=0.001):
     var_out[outliers] = np.nan
 
     # impute over the variable.
-    for start, stop in cc:
-        if stop - start > 10:
-            var_out[start:stop] = impute_snippet(var_out[start:stop])
-
+    # for start, stop in cc:
+    #     if stop - start > 10:
+    #
+    #         var_out[start:stop] = impute_snippet(var_out[start:stop])
+    var_out,use_flags = fill_nan_gaps(var_out,use_flags)
     var_out[use_flags == 0] = 0
+    var_out_filt = signal.medfilt(var_out, kernel_size=[3, 1])
+    var_out_filt = signal.savgol_filter(var_out_filt.ravel(),7,3)
+
 
     plt.plot(var)
-    plt.plot(var_out)
+    plt.plot(var_out_filt)
     plt.show()
     return(use_flags,outliers)
 
 
-def main(fname,use_var='M',outlier_thresh=0.001):
+def main(fname,use_var='M',outlier_thresh=0.1):
     print('Using variable: {}\t Using outlier_thresh={}'.format(use_var,outlier_thresh))
     print('Loading {} ...'.format(os.path.basename(fname)))
     fid = sio.loadmat(fname)
