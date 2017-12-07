@@ -12,7 +12,8 @@ import scipy.io.matlab as sio
 # TODO: Make the contamination parameter easily editable after fitting the outlier detection (i.e., change the boundary of the decision function without recomputing')
 
 def cbool_to_cc(cbool):
-    pad_cbool = np.concatenate([[[0]],cbool],axis=0)
+    cbool = cbool.astype('int').ravel()
+    pad_cbool = np.concatenate([[0],cbool],axis=0)
     d = np.diff(pad_cbool,axis=0)
     starts = np.where(d==1)[0]
     stops = np.where(d==-1)[0]
@@ -135,35 +136,37 @@ def fill_nan_gaps(var, cbool, thresh=10):
     :param thresh:  Maximum number of consecutive NaNs to impute over. If a NaN gap is found larger than thresh, the contact episode is flagged for non-use
     
     :return var_out:    The imputed version of the variable passed in
-    :return use_flag:   Indicates whether a frame is to be used (1) or not (0). Inherits from cbool
+    :return use_flags:   Indicates whether a frame is to be used (1) or not (0). Inherits from cbool
      
     '''
     # copy inputs to avoid overwriting
-    use_flag = cbool.copy()
+    use_flags = cbool.copy()
     var_out = var.copy()
-    if var_out.ndim>1:
-        if var_out.shape[1]>1:
-            raise ValueError('var must be single column')
+    if var_out.ndim<1:
+        raise ValueError('var must be 2D array')
 
-    cc = cbool_to_cc(use_flag)
 
+    cc = cbool_to_cc(use_flags)
 
     for start,stop in cc:
-        snippet = var_out[start:stop]
+        snippet = var_out[start:stop,:]
 
         # Remove a contact episode if it is all NaNs
         if np.all(np.isnan(snippet)):
-            use_flag[start:stop]=0
+            use_flags[start:stop]=0
             continue
 
         # calculate the length of the NaN gaps in this segment
-        gaps = cbool_to_cc(np.isnan(snippet))
-        if np.any(np.diff(gaps)>thresh):
-            use_flag[start:stop]=0
+        for ii in xrange(snippet.shape[1]):
+            gaps = cbool_to_cc(np.isnan(snippet[:,ii])[:,np.newaxis])
+
+            if np.any(np.diff(gaps)>thresh):
+                use_flags[start:stop]=0
+                break
         else:
             snippet_out = impute_snippet(snippet)
-            var_out[start:stop] = snippet_out
-    return var_out, use_flag
+            var_out[start:stop,:] = snippet_out
+    return var_out, use_flags.ravel().astype('bool')
 
 
 def remove_bad_contacts(var_in,cbool,thresh=100):
@@ -179,8 +182,7 @@ def remove_bad_contacts(var_in,cbool,thresh=100):
     :return None: Performs operation on cbool in place 
     """
     var = var_in.copy()
-
-
+    cbool = cbool.astype('bool').ravel()
     cc = cbool_to_cc(cbool)
     var = scale_by_contact(var, cc)
 
@@ -190,18 +192,17 @@ def remove_bad_contacts(var_in,cbool,thresh=100):
     # get an estimate of energy. Seems to work better thatn just normal energy, but that could be changed.
     E = []
     for start,stop in cc:
-        E.append(np.sum(d[start:stop] ** 2))
+        E.append(np.sum(d[start:stop,:] ** 2))
     E = np.asarray(E)
 
     # find and remove bad contact episodes where the sum(d**2) exceeds a threshold
     bad_idx = E>np.median(E)*thresh
     for ii,(start,stop) in enumerate(cc):
         if bad_idx[ii]:
-            cbool[start:stop]=0
+            cbool[start:stop]=False
 
 
 def scale_by_contact(var,cc):
-    # TODO: Test this with multi-dimensions of signal variable?
     '''
     Scale each contact episode individually. This is used to be able to perform outlier detection on the whole dataset
     
@@ -214,11 +215,12 @@ def scale_by_contact(var,cc):
     var_out = var.copy()
 
     for start,stop in cc:
-        snippet = var_out[start:stop,:]
-        scaler = preprocessing.RobustScaler(with_centering=False)
-        idx = np.isfinite(snippet).ravel() # omit nans
-        if np.any(idx):
-            snippet[idx] = scaler.fit_transform(snippet[idx])
+        for ii in xrange(var.shape[1]):
+            snippet = var_out[start:stop,ii]
+            scaler = preprocessing.RobustScaler(with_centering=False)
+            idx = np.isfinite(snippet).ravel() # omit nans
+            if np.any(idx):
+                snippet[idx] = scaler.fit_transform(snippet[idx].reshape(-1,1)).ravel()
     return var_out
 
 
@@ -238,7 +240,7 @@ def cleanup(var,cbool,outlier_thresh=0.05):
     # either impute small nan gaps or remove contacts with more than 10 consecutive NaNs.
     # Allows us to make all non-flagged var=0
     var_imputed, use_flags = fill_nan_gaps(var, cbool, thresh=10)
-    var_imputed[use_flags == 0] = 0
+    var_imputed[np.invert(use_flags),:] = 0
 
     # Perform a small medfilt to filter over single point outliers
     var_filt = signal.medfilt(var_imputed, kernel_size=[3, 1])
@@ -288,10 +290,11 @@ def cleanup(var,cbool,outlier_thresh=0.05):
     #     if stop - start > 10:
     #
     #         var_out[start:stop] = impute_snippet(var_out[start:stop])
-    var_out,use_flags = fill_nan_gaps(var_out,use_flags)
+    var_out,use_flags = fill_nan_gaps(var_out,use_flags,thresh=5)
     var_out[use_flags == 0] = 0
     var_out_filt = signal.medfilt(var_out, kernel_size=[3, 1])
-    var_out_filt = signal.savgol_filter(var_out_filt.ravel(),7,3)
+
+    var_out_filt = signal.savgol_filter(var_out_filt,7,3,axis=0)
 
 
     plt.plot(var)
