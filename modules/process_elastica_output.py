@@ -192,7 +192,7 @@ def remove_bad_contacts(var_in,cbool,thresh=100):
     # get an estimate of energy. Seems to work better thatn just normal energy, but that could be changed.
     E = []
     for start,stop in cc:
-        E.append(np.sum(d[start:stop,:] ** 2))
+        E.append(np.sum(d[start:stop,:] ** 2)/d.shape[0])
     E = np.asarray(E)
 
     # find and remove bad contact episodes where the sum(d**2) exceeds a threshold
@@ -202,7 +202,7 @@ def remove_bad_contacts(var_in,cbool,thresh=100):
             cbool[start:stop]=False
 
 
-def scale_by_contact(var,cc):
+def scale_by_contact(var,cc,with_centering=False):
     '''
     Scale each contact episode individually. This is used to be able to perform outlier detection on the whole dataset
     
@@ -217,7 +217,7 @@ def scale_by_contact(var,cc):
     for start,stop in cc:
         for ii in xrange(var.shape[1]):
             snippet = var_out[start:stop,ii]
-            scaler = preprocessing.RobustScaler(with_centering=False)
+            scaler = preprocessing.RobustScaler(with_centering=with_centering)
             idx = np.isfinite(snippet).ravel() # omit nans
             if np.any(idx):
                 snippet[idx] = scaler.fit_transform(snippet[idx].reshape(-1,1)).ravel()
@@ -255,7 +255,7 @@ def cleanup(var,cbool,outlier_thresh=0.05):
     # =========================== #
     # =========================== #
     # Find point outliers once the bad contact segments have been deleted
-    var_scaled = scale_by_contact(var_imputed, cc)
+    var_scaled = scale_by_contact(var_imputed, cc, True)
     var_d = get_d(var_imputed)
     var_d_scaled = scale_by_contact(var_d, cc)
 
@@ -303,7 +303,7 @@ def cleanup(var,cbool,outlier_thresh=0.05):
     return(use_flags,outliers)
 
 
-def main(fname,use_var='M',outlier_thresh=0.1):
+def main(fname,use_var='M',outlier_thresh=0.05):
     print('Using variable: {}\t Using outlier_thresh={}'.format(use_var,outlier_thresh))
     print('Loading {} ...'.format(os.path.basename(fname)))
     fid = sio.loadmat(fname)
@@ -324,7 +324,7 @@ if __name__=='__main__':
     parser = OptionParser(usage)
     parser.add_option('-t', '--thresh',
                       dest='outlier_thresh',
-                      default=0.001,
+                      default=0.05,
                       type=float,
                       help='Sensitivity to outliers to remove')
     parser.add_option('-v', '--var',
