@@ -10,7 +10,7 @@ outname = [fname_in(1:end-12) '1K.mat'];
 %% DO NOT EDIT BELOW THIS LINE IF YOU CHANGE PARAMETERS
 % ===================================================
 %% Load Data
-load(fname_in,'M','F','PHIE','TH','Rcp','THcp','PHIcp','ZETA','Zcp','spt','sr','frame*','C','PT','spikes');
+load(fname_in,'M','F','PHIE','TH','Rcp','THcp','PHIcp','ZETA','Zcp','spt','sr','frame*','C','PT','spikes','outliers','use_flags');
 %%
 vars.M = M;
 vars.F = F;
@@ -31,7 +31,9 @@ for ii = 1:length(varnames)
         'nan_gap',nan_gap,...
         'sgolay_span',sgolay_span,...
         'hampel_k',hampel_k,...
-        'mad_thresh',mad_thresh...
+        'mad_thresh',mad_thresh,...
+        'py_outlier_detect',true,...
+        'py_outliers',outliers...
     );
 end
 
@@ -52,7 +54,7 @@ C_raw=C;
 C = resamp(C,spt{1},sr,frametimes,new_sr);
 %% save the output
 sp = spt_upsamp;
-save(outname,'vars','rawvars','filtvars','rawfiltvars','sp','sr','C','C_raw','PT','spikes');
+save(outname,'vars','rawvars','filtvars','rawfiltvars','sp','sr','C','C_raw','PT','spikes','outliers','use_flags');
 
 
     
