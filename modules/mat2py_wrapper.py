@@ -82,7 +82,11 @@ def createSeg(fname):
     rawvars = dat['rawvars'][0, 0]
     PT = dat['PT'][0, 0]
     C = dat['C']
+    use_flags = dat['use_flags']
+
     cc = convertC(C)
+    use_cc = convertC(use_flags)
+
     num_contacts = cc.shape[0]
     trial_idx = int(PT['trial'][0][1:])
     # access the neural data
@@ -127,6 +131,8 @@ def createSeg(fname):
                 sig, units=U, sampling_rate=pq.kHz, name=name
             )
         )
+
+
     # add the spike trains to the segment
 
 
@@ -148,6 +154,13 @@ def createSeg(fname):
             name='contacts')
     )
 
+    seg.epochs.append(
+        neo.core.Epoch(
+            times=use_cc[:, 0] * ms,
+            durations=np.diff(use_cc, axis=1) * ms,
+            labels=None,
+            name='use_flags')
+    )
     return seg
 
 
