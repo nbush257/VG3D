@@ -8,6 +8,7 @@ import neo.io
 import glob
 import os
 import re
+import sys
 
 
 def convertC(C):
@@ -206,7 +207,7 @@ def get_list(p, fname_spec):
 
 
 if __name__ == '__main__':
-    p = r'D:\Users\nbush\Desktop\nix_test'
+    p = sys.argv[1]
     fname_spec = '*1K.mat'
     d_list = get_list(p, fname_spec)
     batch_convert(d_list, p)

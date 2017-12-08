@@ -42,7 +42,7 @@ def correlate_to_stim(sp_neo,var,kernel_sigmas,mode='g',plot_tgl=False):
         # get the appropriate kernel with corresponding sigma
         if mode=='b' or mode=='r':
             kernel = kernels.RectangularKernel(sigma=sigma * pq.ms)
-        elif mode='g':
+        elif mode=='g':
             kernel = kernels.GaussianKernel(sigma=sigma * pq.ms)
         else:
             raise ValueError('Kernel mode not defined')
@@ -77,7 +77,8 @@ def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
         pre *= pq.ms
     if type(post) != pq.quantity.Quantity:
         post *= pq.ms
-
+    if True:
+        raise Exception('This code is not returning trains correctly')
     # init units
     ISI_units = pq.ms
     FR_units = 1/pq.s
@@ -158,7 +159,7 @@ def get_binary_trains(trains,norm_length=True):
         else:
             if norm_length:
                 b_temp = elephant.conversion.binarize(train, sampling_rate=pq.kHz)
-                b[ii,:len(b_temp)]=b_temp
+                b[:len(b_temp),ii]=b_temp
             else:
                 b.append(elephant.conversion.binarize(train,sampling_rate=pq.kHz))
 

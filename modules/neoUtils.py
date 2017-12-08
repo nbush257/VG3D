@@ -11,6 +11,7 @@ import elephant
 from neo.io import PickleIO as PIO
 from sklearn.preprocessing import StandardScaler
 
+
 # import my functions
 proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
@@ -272,7 +273,7 @@ def get_MB_MD(data_in):
         M = get_var(blk,'M')
     elif type(data_in)==neo.core.analogsignal.AnalogSignal:
         dat = data_in.magnitude
-    elif type(data_in)==numpy.ndarray:
+    elif type(data_in)==np.ndarray:
         dat = data_in
 
     MD = np.arctan2(dat[:, 2], dat[:, 1])
@@ -313,7 +314,6 @@ def get_analog_contact_slices(var, contact, slice2array=True):
                         If a numpy array output, dims are: [time after contact onset, contact index, var dimension]
                             --Size of the first dimension is the length of the longest contact
     '''
-    print('Minmax only works for zero-centered data')
 
     # map analog signal to numpy array
     if type(var)==neo.core.analogsignal.AnalogSignal:
@@ -322,7 +322,7 @@ def get_analog_contact_slices(var, contact, slice2array=True):
     var_slice = []
 
     # if the contact input is a boolean numpy array:
-    if type(contact)==numpy.ndarray:
+    if type(contact)==np.ndarray:
         if not((contact.dtype=='bool') and (contact.ndim==1)):
             raise ValueError('If contact is an array, it must be a boolean vector')
 
