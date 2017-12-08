@@ -142,7 +142,7 @@ def get_binary_trains(trains,norm_length=True):
             duration.units = pq.ms
             durations[ii] = int(duration)
         max_duration = np.max(durations)+1
-        b = np.zeros([len(trains),max_duration],dtype='bool')
+        b = np.zeros([max_duration,len(trains)],dtype='bool')
 
     # loop over each train and convert to a boolean vector
     for ii,train in enumerate(trains):
@@ -152,7 +152,7 @@ def get_binary_trains(trains,norm_length=True):
             duration.units=pq.ms
             duration = int(duration)
             if norm_length:
-                b[ii,:duration] = np.zeros(duration,dtype='bool')
+                b[:duration,ii] = np.zeros(duration,dtype='bool')
             else:
                 b.append(np.zeros(duration,dtype='bool'))
         # calculate the binary spike train
