@@ -4,14 +4,11 @@ from neo.core import SpikeTrain
 from quantities import ms, s
 import neo
 import quantities as pq
-import elephant
-import sys
-from neo.io import NeoMatlabIO as MIO
-from neo.io import PickleIO as PIO
-from neo_utils import add_channel_indexes
+import neo.io
 import glob
 import os
 import re
+import sys
 
 
 def convertC(C):
@@ -36,6 +33,45 @@ def convertC(C):
     return np.vstack((cstarts, cends)).T
 
 
+def create_unit_chan(blk):
+    chx = neo.core.ChannelIndex(index=np.array([0]),name='electrode_0')
+
+    num_units = []
+    for seg in blk.segments:
+        num_units.append(len(seg.spiketrains))
+    num_units = max(num_units)
+    for ii in xrange(num_units):
+        unit = neo.core.Unit(name='cell_{}'.format(ii))
+        chx.units.append(unit)
+    for seg in blk.segments:
+        for ii,train in enumerate(seg.spiketrains):
+            chx.units[ii].spiketrains.append(train)
+
+    return chx
+
+
+def create_analog_chan(blk):
+    '''maps the mechanical and kinematic signals to a channel index.'''
+    varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
+    chx_list = []
+    for ii in range(len(varnames)):
+        chx = neo.core.ChannelIndex(np.array([0]),name=varnames[ii])
+        chx_list.append(chx)
+    for seg in blk.segments:
+        for chx,sig in zip(chx_list,seg.analogsignals):
+            chx.analogsignals.append(sig)
+    return chx_list
+
+
+
+def append_channel_indexes(blk):
+    chx_list = create_analog_chan(blk)
+    units = create_unit_chan(blk)
+    for chx in chx_list:
+        blk.channel_indexes.append(chx)
+    blk.channel_indexes.append(units)
+
+
 def createSeg(fname):
     # load the data
     dat = loadmat(fname)
@@ -46,26 +82,30 @@ def createSeg(fname):
     rawvars = dat['rawvars'][0, 0]
     PT = dat['PT'][0, 0]
     C = dat['C']
-    cc = convertC(C)
-    num_contacts = cc.shape[0]
+    use_flags = dat['use_flags']
 
+    cc = convertC(C)
+    use_cc = convertC(use_flags)
+
+    num_contacts = cc.shape[0]
+    trial_idx = int(PT['trial'][0][1:])
     # access the neural data
     sp = dat['sp'][0]
     spikes = dat['spikes'][0]
 
     # initialize the segment
-    seg = neo.core.Segment('name',file_origin=fname)
+    seg = neo.core.Segment(str(PT['id'][0]),file_origin=fname,index=trial_idx)
 
     seg.annotate(
-        ratnum      =   PT['ratnum'][0],
-        whisker     =   PT['whisker'][0],
-        trial       =   PT['trial'][0],
-        id          =   PT['id'][0],
-        frames      =   PT['Frames'][0],
-        TAG         =   PT['TAG'][0],
-        s           =   PT['s'][0],
-        rbase       =   PT['E3D_rbase'][0],
-        rtip        =   PT['E3D_rtip'][0],
+        ratnum      =   str(PT['ratnum'][0]),
+        whisker     =   str(PT['whisker'][0]),
+        trial       =   str(PT['trial'][0]),
+        id          =   str(PT['id'][0]),
+        frames      =   str(PT['Frames'][0]),
+        TAG         =   str(PT['TAG'][0]),
+        s           =   str(PT['s'][0]),
+        rbase       =   str(PT['E3D_rbase'][0]),
+        rtip        =   str(PT['E3D_rtip'][0]),
         trial_type  =   'deflection'
     )
 
@@ -73,16 +113,16 @@ def createSeg(fname):
         # get the metadata for the signal
         sig = filtvars[varname]
         if varname == 'M':
-            U = 'N*m'
+            U = pq.N*pq.m
             name = 'Moment'
         elif varname == 'F':
-            U = 'N'
+            U = pq.N
             name = 'Force'
         elif varname == 'Rcp':
-            U = 'm'
+            U = pq.m
             name = varname
         else:
-            U = 'deg'
+            U = pq.rad
             name = varname
 
         # append the signal to the segment
@@ -91,6 +131,8 @@ def createSeg(fname):
                 sig, units=U, sampling_rate=pq.kHz, name=name
             )
         )
+
+
     # add the spike trains to the segment
 
 
@@ -112,6 +154,13 @@ def createSeg(fname):
             name='contacts')
     )
 
+    seg.epochs.append(
+        neo.core.Epoch(
+            times=use_cc[:, 0] * ms,
+            durations=np.diff(use_cc, axis=1) * ms,
+            labels=None,
+            name='use_flags')
+    )
     return seg
 
 
@@ -121,33 +170,44 @@ def batch_convert(d_list, p):
         try:
             root_full = os.path.join(p, root)
             fname_M = root_full + '_NEO.mat'
-            fname_P = root_full + '_NEO.pkl'
+            fname_N = root_full + '_NEO.h5'
 
-            fid_M = MIO(fname_M)
-            fid_P = PIO(fname_P)
             files = glob.glob(root_full + '*1K.mat')
-            blk = neo.core.Block()
+
+            # get a list of segments
+            seg_list = []
             for filename in files:
                 print(filename)
-                seg = createSeg(filename)
-                if os.path.isfile(fname_P):
-                    blk = fid_P.read_block()
-                blk.annotate(
-                    ratnum=seg.annotations['ratnum'],
-                    whisker=seg.annotations['whisker'],
-                    id=seg.annotations['id'],
-                    s=seg.annotations['s'],
-                    rbase=seg.annotations['rbase'],
-                    rtip=seg.annotations['rtip'],
-                    trial_type=seg.annotations['trial_type']
-                )
-                blk.segments.append(seg)
-                add_channel_indexes(blk)
+                seg_list.append(createSeg(filename))
 
-                fid_P.write_block(blk)
-                fid_M.write_block(blk)
+            blk = neo.core.Block(name=seg_list[0].annotations['id'][:-3])
+            blk.annotate(
+                ratnum=seg_list[0].annotations['ratnum'],
+                whisker=seg_list[0].annotations['whisker'],
+                id=seg_list[0].annotations['id'],
+                s=seg_list[0].annotations['s'],
+                rbase=seg_list[0].annotations['rbase'],
+                rtip=seg_list[0].annotations['rtip'],
+                trial_type=seg_list[0].annotations['trial_type'],
+                date=re.search('(?<=_)[A-Z]{3}\d\d(?=_)', seg_list[0].annotations['TAG']).group()
+            )
+            for seg in seg_list:
+                blk.segments.append(seg)
+
+            # create chx
+            append_channel_indexes(blk)
+
+            # write NIX
+            fid_N = neo.io.NixIO(fname_N)
+            fid_N.write_block(blk)
+            fid_N.close()
+
+            #write matlab
+            fid_M = neo.io.NeoMatlabIO(fname_M)
+            fid_M.write_block(blk)
         except:
             print('problem with {}'.format(root))
+
 
 
 def get_list(p, fname_spec):
@@ -160,8 +220,8 @@ def get_list(p, fname_spec):
 
 
 if __name__ == '__main__':
-    p = r'K:\VG3D\_E3D_PROC\_vibration_trials'
-    fname_spec = '*1k.mat'
+    p = sys.argv[1]
+    fname_spec = '*1K.mat'
     d_list = get_list(p, fname_spec)
     batch_convert(d_list, p)
 
