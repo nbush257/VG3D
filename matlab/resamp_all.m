@@ -4,7 +4,7 @@ function resamp_all(fname_in)
 sgolay_span = 7;
 hampel_k = 5;
 new_sr = 1000; %in Hz
-nan_gap = 20; % in frames [333 ms for 300fps, 200ms for 500 fps
+nan_gap = 10; % in frames [333 ms for 300fps, 200ms for 500 fps
 mad_thresh = 10;
 outname = [fname_in(1:end-12) '1K.mat'];
 %% DO NOT EDIT BELOW THIS LINE IF YOU CHANGE PARAMETERS
@@ -49,9 +49,10 @@ end
 for ii = 1:length(spt)
     [~,~,spt_upsamp{ii}] = resamp(rawvars.M(:,1),spt{ii},sr,frametimes,new_sr);
 end
-% resample the contact var
+% resample the contact vars
 C_raw=C;
 C = resamp(C,spt{1},sr,frametimes,new_sr);
+use_flags = resamp(use_flags(:),spt{1},sr,frametimes,new_sr);
 %% save the output
 sp = spt_upsamp;
 save(outname,'vars','rawvars','filtvars','rawfiltvars','sp','sr','C','C_raw','PT','spikes','outliers','use_flags');
