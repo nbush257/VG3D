@@ -10,7 +10,7 @@ function [label_out,last_tracked] = manual_remove_bad_contacts(X,label_in,vararg
 %% input handling and window init
 if length(varargin)==2
     win = varargin{2};
-    starts = varargin{1}
+    starts = varargin{1};
 elseif length(varargin)==1
     starts = varargin{1};
     win=5000;
@@ -58,8 +58,7 @@ try
             cla
             x = [];
             but_press = [];
-            plot(X(starts:stops,:))
-            
+            plot(X(starts:stops,:),'linewidth',2);            
             % use temp var booleans for shading
             tempC = label_out==1;
             

@@ -1,5 +1,5 @@
 
-d = dir('*DATA*.mat');
+d = dir('*DATA*2017_11*B1*t03*.mat');
 for ii = 1:length(d)
     load(d(ii).name,'PT')
     disp(PT.TAG)
