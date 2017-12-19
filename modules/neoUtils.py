@@ -8,7 +8,7 @@ import quantities as pq
 import numpy as np
 import scipy
 import elephant
-from neo.io import NixIo as NIO
+from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
 
 
