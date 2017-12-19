@@ -206,17 +206,21 @@ def replace_NaNs(var, mode='zero',pad=20):
 
 
 
-def get_Cbool(blk):
+def get_Cbool(blk,use_bool=True):
     '''
     Given a block,get a boolean vector of contact for the concatenated data
     :param blk: neo block
+    :param use_bool: a boolean as to whether to use the original C vector of the curated use_flags vector.
     :return: Cbool - a boolean numpy vector of contact
     '''
     Cbool = np.array([],dtype='bool')
     # Get contact from all available segments and offset appropriately
     for seg in blk.segments:
         seg_bool = np.zeros(len(seg.analogsignals[0]),dtype='bool')
-        epochs = seg.epochs[0]
+        if use_bool:
+            epochs = seg.epochs[-1]
+        else:
+            epochs = seg.epochs[0]
 
         # Set the samples during contact to True
         for start,dur in zip(epochs,epochs.durations):
@@ -248,7 +252,7 @@ def get_deriv(var,smooth=False):
     if smooth:
         var = savgol_filter(var,window_length=21)
 
-    return(np.gradient(var)[0])
+    return(np.gradient(var)[0],axis=0)
 
 def epoch_to_cc(epoch):
     ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
