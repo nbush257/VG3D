@@ -252,7 +252,7 @@ def get_deriv(var,smooth=False):
     if smooth:
         var = savgol_filter(var,window_length=21)
 
-    return(np.gradient(var)[0],axis=0)
+    return(np.gradient(var,axis=0)[0])
 
 def epoch_to_cc(epoch):
     ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
