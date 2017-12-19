@@ -8,7 +8,7 @@ import quantities as pq
 import numpy as np
 import scipy
 import elephant
-from neo.io import PickleIO as PIO
+from neo.io import NixIo as NIO
 from sklearn.preprocessing import StandardScaler
 
 
@@ -17,14 +17,14 @@ proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
 sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
 
-def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.pkl',fullname=False):
+def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=False):
     '''loads in a NEO block from a pickle file. Calling without arguments pulls in a default file'''
     box_path = os.environ['BOX_PATH']
-    dat_path = os.path.join(box_path,r'__VG3D\deflection_trials\data')
+    dat_path = os.path.join(box_path,r'__VG3D\_deflection_trials\_NEO')
     if not fullname:
-        fid = PIO(os.path.join(dat_path,f))
+        fid = NIO(os.path.join(dat_path,f))
     else:
-        fid = PIO(f)
+        fid = NIO(f)
 
     return fid.read_block()
 
