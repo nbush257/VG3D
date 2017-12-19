@@ -17,13 +17,14 @@ plt.rcParams['ytick.labelsize'] = 10
 plt.rcParams['font.sans-serif'] = 'Arial'
 dpi_res = 300
 
-def mymz_space(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
+def mymz_space(blk,unit_num,save_tgl=False,p_save=None,im_ext='png',dpi_res=300):
 
     root = neoUtils.get_root(blk,unit_num)
-    M = neoUtils.get_var(blk)
     Cbool = neoUtils.get_Cbool(blk)
-    r,b = neoUtils.get_rate_b(blk,unit_num,sigma=2*pq.ms)
-    response, var1_edges,var2_edges = varTuning.joint_response_hist(M.magnitude[:,1]*1e6,M.magnitude[:,2]*1e6,r,bins = 50,min_obs=2)
+    M = neoUtils.get_var(blk).magnitude[Cbool,:]
+    r,b = neoUtils.get_rate_b(blk,unit_num,sigma=5*pq.ms)
+    r = r[Cbool]
+    response, var1_edges,var2_edges = varTuning.joint_response_hist(M[:,1]*1e6,M[:,2]*1e6,r,bins = 50,min_obs=2)
     ax = varTuning.plot_joint_response(response,var1_edges,var2_edges,contour=True)
 
     ax.patch.set_color([0.2,0.2,0.2])
@@ -32,8 +33,11 @@ def mymz_space(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
     plt.draw()
     plt.tight_layout()
     if save_tgl:
-        plt.savefig('./figs/{}_mymz.{}'.format(root,im_ext),dpi=dpi_res)
-        plt.close('all')
+        if p_save is None:
+            raise ValueError("figure save location is required")
+        else:
+            plt.savefig(os.path.join(p_save,'{}_mymz.{}'.format(root,im_ext)),dpi=dpi_res)
+            plt.close('all')
 
 
 def MB_curve(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
@@ -55,20 +59,21 @@ def MB_curve(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
         plt.close('all')
 
 
-def phase_plots(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
+def phase_plots(blk,unit_num,save_tgl=False,p_save=None,im_ext='png',dpi_res=300):
     ''' Plot Phase planes for My and Mz'''
     root = neoUtils.get_root(blk, unit_num)
-    M = neoUtils.get_var(blk)
-    r,b = neoUtils.get_rate_b(blk,unit_num,sigma=2*pq.ms)
-    Mdot = mechanics.get_deriv(M.magnitude)
+    Cbool = neoUtils.get_Cbool(blk)
+    M = neoUtils.get_var(blk).magnitude
+    r,b = neoUtils.get_rate_b(blk,unit_num,sigma=5*pq.ms)
+    r = r[Cbool]
+    Mdot = mechanics.get_deriv(M)[Cbool,:]
+    M = M[Cbool,:]
 
-    My_response,My_edges,Mydot_edges = varTuning.joint_response_hist(M.magnitude[:, 1]*1e6, Mdot[:, 1]*1e6, r, 100,min_obs=5)
+    My_response,My_edges,Mydot_edges = varTuning.joint_response_hist(M[:, 1]*1e6, Mdot[:, 1]*1e6, r, 100,min_obs=5)
     axy = varTuning.plot_joint_response(My_response,My_edges,Mydot_edges,contour=True)
 
-    Mz_response,Mz_edges,Mzdot_edges = varTuning.joint_response_hist(M.magnitude[:, 2]*1e6, Mdot[:, 2]*1e6, r, 100,min_obs=5)
+    Mz_response,Mz_edges,Mzdot_edges = varTuning.joint_response_hist(M[:, 2]*1e6, Mdot[:, 2]*1e6, r, 100,min_obs=5)
     axz = varTuning.plot_joint_response(Mz_response,Mz_edges,Mzdot_edges,contour=True)
-
-
 
     axy.set_title('M$_y$ Phase Plane')
     axz.set_title('M$_z$ Phase Plane')
@@ -88,13 +93,19 @@ def phase_plots(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
     axy.axis('normal')
     plt.tight_layout()
     if save_tgl:
-        plt.savefig('./figs/{}_My_phaseplane.{}'.format(root,im_ext),dpi=dpi_res)
+        if p_save is None:
+            raise ValueError("figure save location is required")
+        else:
+            plt.savefig(os.path.join(p_save,'{}_My_phaseplane.{}'.format(root,im_ext)),dpi=dpi_res)
 
     plt.sca(axz)
     axz.axis('normal')
     plt.tight_layout()
     if save_tgl:
-        plt.savefig('./figs/{}_Mz_phaseplane.{}'.format(root,im_ext),dpi=dpi_res)
+        if p_save is None:
+            raise ValueError("figure save location is required")
+        else:
+            plt.savefig(os.path.join(p_save,'{}_Mz_phaseplane.{}'.format(root,im_ext)),dpi=dpi_res)
         plt.close('all')
 
 
@@ -360,6 +371,16 @@ def plot_all_geo_hists(f=None, im_ext='png',save_tgl=True):
             plt.savefig(os.path.join(p_save, '{}_geo_var_response.{}'.format(ID[ii], im_ext)), dpi=300)
             plt.close()
 
+
+def plot_joint_spaces(p_load,p_save):
+    for f in glob.glob(os.path.join(p_load,'rat*.h5')):
+        print(os.path.basename(f))
+        blk = neoUtils.get_blk(f)
+        for unit in blk.channel_indexes[-1].units:
+            unit_num = int(unit.name[-1])
+            mymz_space(blk, unit_num, p_save=p_save, save_tgl=True, im_ext='png', dpi_res=300)
+            phase_plots(blk, unit_num, p_save=p_save, save_tgl=True, im_ext='png', dpi_res=300)
+
 if __name__=='__main__':
     p_load = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO'
     p_save = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results'
@@ -367,3 +388,4 @@ if __name__=='__main__':
     calc_world_geom_hist(p_load,p_save)
     plot_all_geo_hists(save_tgl=True)
     plot_all_mech_hists(save_tgl=True)
+    plot_joint_spaces(p_load,p_save)
