@@ -16,18 +16,50 @@ plt.rcParams['xtick.labelsize'] = 10
 plt.rcParams['ytick.labelsize'] = 10
 plt.rcParams['font.sans-serif'] = 'Arial'
 dpi_res = 300
+def nl(x,k_scale=80):
+    k = 1/np.percentile(x,k_scale)
+    z = 2/(1+np.exp(-k*x)) - 1
+    invnl = lambda y: -1/k*(np.log(1-y)-np.log(1+y))
+    return z,invnl
 
-def mymz_space(blk,unit_num,save_tgl=False,p_save=None,im_ext='png',dpi_res=300):
+
+
+def get_bins(x,nbins):
+    bin_counts = len(x)/nbins
+
+
+def mymz_space(blk,unit_num,bin_stretch=True,save_tgl=False,p_save=None,im_ext='png',dpi_res=300):
 
     root = neoUtils.get_root(blk,unit_num)
     Cbool = neoUtils.get_Cbool(blk)
     M = neoUtils.get_var(blk).magnitude[Cbool,:]
     r,b = neoUtils.get_rate_b(blk,unit_num,sigma=5*pq.ms)
     r = r[Cbool]
-    response, var1_edges,var2_edges = varTuning.joint_response_hist(M[:,1]*1e6,M[:,2]*1e6,r,bins = 50,min_obs=2)
-    ax = varTuning.plot_joint_response(response,var1_edges,var2_edges,contour=True)
+    idx = np.all(np.isfinite(M),axis=1)
+    if bin_stretch:
+        MY, logit_y = nl(M[idx, 1],80)
+        MZ, logit_z = nl(M[idx, 2],80)
+    else:
+        MY = M[idx,1]*1e-6
+        MZ = M[idx,2]*1e-6
+    r=r[idx]
 
-    ax.patch.set_color([0.2,0.2,0.2])
+    response, var1_edges,var2_edges = varTuning.joint_response_hist(MY,MZ,r,bins = 25,min_obs=15)
+    if bin_stretch:
+        var1_edges = logit_y(var1_edges)
+        var2_edges = logit_z(var2_edges)
+    else:
+        pass
+    ax = varTuning.plot_joint_response(response,var1_edges,var2_edges,contour=False)
+    ax.axvline(color='k',linewidth=1)
+    ax.axhline(color='k',linewidth=1)
+    ax.patch.set_color([0.6,0.6,0.6])
+
+    mask = response.mask.__invert__()
+    if not mask.all():
+        ax.set_ylim(var2_edges[np.where(mask)[0].min()], var2_edges[np.where(mask)[0].max()])
+        ax.set_xlim(var1_edges[np.where(mask)[1].min()], var1_edges[np.where(mask)[1].max()])
+
     ax.set_xlabel('M$_y$ ($\mu$N-m)')
     ax.set_ylabel('M$_z$ ($\mu$N-m)')
     plt.draw()
@@ -59,7 +91,7 @@ def MB_curve(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
         plt.close('all')
 
 
-def phase_plots(blk,unit_num,save_tgl=False,p_save=None,im_ext='png',dpi_res=300):
+def phase_plots(blk,unit_num,save_tgl=False,bin_stretch=True,p_save=None,im_ext='png',dpi_res=300):
     ''' Plot Phase planes for My and Mz'''
     root = neoUtils.get_root(blk, unit_num)
     Cbool = neoUtils.get_Cbool(blk)
@@ -69,12 +101,48 @@ def phase_plots(blk,unit_num,save_tgl=False,p_save=None,im_ext='png',dpi_res=300
     Mdot = mechanics.get_deriv(M)[Cbool,:]
     M = M[Cbool,:]
 
-    My_response,My_edges,Mydot_edges = varTuning.joint_response_hist(M[:, 1]*1e6, Mdot[:, 1]*1e6, r, 100,min_obs=5)
-    axy = varTuning.plot_joint_response(My_response,My_edges,Mydot_edges,contour=True)
+    idx = np.logical_and(np.all(np.isfinite(M), axis=1),np.all(np.isfinite(Mdot), axis=1))
+    if bin_stretch:
+        MY, logit_y = nl(M[idx, 1], 80)
+        MZ, logit_z = nl(M[idx, 2], 80)
+        MY_dot, logit_ydot = nl(Mdot[idx, 1], 90)
+        MZ_dot, logit_zdot = nl(Mdot[idx, 2], 90)
 
-    Mz_response,Mz_edges,Mzdot_edges = varTuning.joint_response_hist(M[:, 2]*1e6, Mdot[:, 2]*1e6, r, 100,min_obs=5)
-    axz = varTuning.plot_joint_response(Mz_response,Mz_edges,Mzdot_edges,contour=True)
+    else:
+        MY = M[idx, 1] * 1e-6
+        MZ = M[idx, 2] * 1e-6
+        MY_dot = Mdot[idx, 1] * 1e-6
+        MZ_dot = Mdot[idx, 2] * 1e-6
+    r = r[idx]
 
+
+    My_response,My_edges,Mydot_edges = varTuning.joint_response_hist(MY, MY_dot, r, 20,min_obs=15)
+    Mz_response,Mz_edges,Mzdot_edges = varTuning.joint_response_hist(MZ, MZ_dot, r, 20,min_obs=15)
+
+
+    if bin_stretch:
+        My_edges = logit_y(My_edges)
+        Mz_edges = logit_z(Mz_edges)
+        Mydot_edges = logit_ydot(Mydot_edges)
+        Mzdot_edges = logit_zdot(Mzdot_edges)
+    else:
+        pass
+
+    axy = varTuning.plot_joint_response(My_response,My_edges,Mydot_edges,contour=False)
+    axz = varTuning.plot_joint_response(Mz_response,Mz_edges,Mzdot_edges,contour=False)
+
+    # Set bounds
+    y_mask = My_response.mask.__invert__()
+    if not y_mask.all():
+        axy.set_ylim(Mydot_edges[np.where(y_mask)[0].min()], Mydot_edges[np.where(y_mask)[0].max()])
+        axy.set_xlim(My_edges[np.where(y_mask)[1].min()], My_edges[np.where(y_mask)[1].max()])
+
+    z_mask = Mz_response.mask.__invert__()
+    if not z_mask.all():
+        axz.set_ylim(Mzdot_edges[np.where(z_mask)[0].min()], Mzdot_edges[np.where(z_mask)[0].max()])
+        axz.set_xlim(Mz_edges[np.where(z_mask)[1].min()], Mz_edges[np.where(z_mask)[1].max()])
+
+    # other annotations
     axy.set_title('M$_y$ Phase Plane')
     axz.set_title('M$_z$ Phase Plane')
 
@@ -85,12 +153,17 @@ def phase_plots(blk,unit_num,save_tgl=False,p_save=None,im_ext='png',dpi_res=300
     axz.set_ylabel('M$_\dot{z}$ ($\mu$N-m/ms)')
 
     axy.grid('off')
-    axy.set_facecolor([0.2, 0.2, 0.2])
+    axy.set_facecolor([0.6, 0.6, 0.6])
+    axy.axvline(color='k',linewidth=1)
+    axy.axhline(color='k',linewidth=1)
+
     axz.grid('off')
-    axz.set_facecolor([0.2, 0.2, 0.2])
+    axz.set_facecolor([0.6, 0.6, 0.6])
+    axz.axvline(color='k', linewidth=1)
+    axz.axhline(color='k', linewidth=1)
+
 
     plt.sca(axy)
-    axy.axis('normal')
     plt.tight_layout()
     if save_tgl:
         if p_save is None:
@@ -99,7 +172,6 @@ def phase_plots(blk,unit_num,save_tgl=False,p_save=None,im_ext='png',dpi_res=300
             plt.savefig(os.path.join(p_save,'{}_My_phaseplane.{}'.format(root,im_ext)),dpi=dpi_res)
 
     plt.sca(axz)
-    axz.axis('normal')
     plt.tight_layout()
     if save_tgl:
         if p_save is None:
