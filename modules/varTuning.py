@@ -150,12 +150,12 @@ def joint_response_hist(var1, var2, sp, bins=None, min_obs=5):
     '''
     # handle bins -- could probably be cleaned up NEB
     if type(bins)==int:
-        nbins = bins
-        bins=None
+        bins = [bins,bins]
     elif type(bins)==list:
         pass
     else:
-        nbins = 50
+        bins = [50,50]
+
     if type(var1)==neo.core.analogsignal.AnalogSignal:
         var1 = var1.magnitude.ravel()
     if type(var2)==neo.core.analogsignal.AnalogSignal:
@@ -176,20 +176,20 @@ def joint_response_hist(var1, var2, sp, bins=None, min_obs=5):
     not_nan = np.where(not_nan_mask)[0]
 
     # handle bins -- NEB may want to make this more flexible/clean.
-    if bins == None:
-        bins = []
-        max_var1 = np.nanmax(var1)
-        min_var1 = np.nanmin(var1)
-        step = round(max_var1 / nbins, abs(np.floor(math.log10(max_var1)).astype('int64')) + 2)
-        bins.append(np.arange(min_var1, max_var1, step))
-        # bins.append(np.arange(min_var1,max_var1,bin_size))
-
-        max_var2 = np.nanmax(var2)
-        min_var2 = np.nanmin(var2)
-
-        step = round(max_var2 / nbins, abs(np.floor(math.log10(max_var2)).astype('int64')) + 2)
-        bins.append(np.arange(min_var2, max_var2, step))
-        # bins.append(np.arange(min_var2, max_var2, bin_size))
+    # if bins == None:
+    #     bins = []
+    #     max_var1 = np.nanmax(var1)
+    #     min_var1 = np.nanmin(var1)
+    #     step = round(max_var1 / nbins, abs(np.floor(math.log10(max_var1)).astype('int64')) + 2)
+    #     bins.append(np.arange(min_var1, max_var1, step))
+    #     # bins.append(np.arange(min_var1,max_var1,bin_size))
+    #
+    #     max_var2 = np.nanmax(var2)
+    #     min_var2 = np.nanmin(var2)
+    #
+    #     step = round(max_var2 / nbins, abs(np.floor(math.log10(max_var2)).astype('int64')) + 2)
+    #     bins.append(np.arange(min_var2, max_var2, step))
+    #     # bins.append(np.arange(min_var2, max_var2, bin_size))
 
 
     prior,var1_edges,var2_edges= np.histogram2d(var1[not_nan_mask],var2[not_nan_mask],bins=bins)
