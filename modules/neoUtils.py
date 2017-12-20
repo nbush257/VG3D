@@ -96,7 +96,7 @@ def concatenate_sp(blk):
     return sp
 
 
-def concatenate_epochs(blk):
+def concatenate_epochs(blk,epoch_idx=1):
     '''
     takes a block which may have multiple segments and returns a single Epoch which has the contact epochs concatenated and properly time aligned
     :param blk: a neo block
@@ -106,7 +106,7 @@ def concatenate_epochs(blk):
     durations = np.empty([0])
     t_start = 0*pq.ms
     for seg in blk.segments:
-        epoch = seg.epochs[0]
+        epoch = seg.epochs[epoch_idx]
         starts = np.append(starts,epoch.times+t_start,axis=0)
         durations = np.append(durations,epoch.durations.ravel())
         t_start+=seg.t_stop
