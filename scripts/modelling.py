@@ -1,5 +1,6 @@
 from neo.io import PickleIO
 from neo.io import NixIO
+import neoUtils
 import os
 import sys
 VG3D_modules = os.path.join(os.path.abspath(os.path.join(os.getcwd(),os.pardir)),'modules')
@@ -40,8 +41,12 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     Scales, but does not center the output
     '''
     X = []
+    if type(window)==pq.quantity.Quantity:
+        window = int(window)
 
-    Cbool = get_Cbool(blk)
+    if type(binsize)==pq.quantity.Quantity:
+        binsize = int(binsize)
+    Cbool = neoUtils.get_Cbool(blk)
 
     # ================================ #
     # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
