@@ -35,16 +35,18 @@ def mymz_space(blk,unit_num,bin_stretch=True,save_tgl=False,p_save=None,im_ext='
     M = neoUtils.get_var(blk).magnitude[Cbool,:]
     r,b = neoUtils.get_rate_b(blk,unit_num,sigma=5*pq.ms)
     r = r[Cbool]
+    b=b[Cbool]
     idx = np.all(np.isfinite(M),axis=1)
     if bin_stretch:
-        MY, logit_y = nl(M[idx, 1],80)
-        MZ, logit_z = nl(M[idx, 2],80)
+        MY, logit_y = nl(M[idx, 1],90)
+        MZ, logit_z = nl(M[idx, 2],90)
     else:
         MY = M[idx,1]*1e-6
         MZ = M[idx,2]*1e-6
     r=r[idx]
+    b=b[idx]
 
-    response, var1_edges,var2_edges = varTuning.joint_response_hist(MY,MZ,r,bins = 25,min_obs=15)
+    response, var1_edges,var2_edges = varTuning.joint_response_hist(MY,MZ,r,bins = 100,min_obs=15)
     if bin_stretch:
         var1_edges = logit_y(var1_edges)
         var2_edges = logit_z(var2_edges)
@@ -98,15 +100,16 @@ def phase_plots(blk,unit_num,save_tgl=False,bin_stretch=True,p_save=None,im_ext=
     M = neoUtils.get_var(blk).magnitude
     r,b = neoUtils.get_rate_b(blk,unit_num,sigma=5*pq.ms)
     r = r[Cbool]
+    b=b[Cbool]
     Mdot = mechanics.get_deriv(M)[Cbool,:]
     M = M[Cbool,:]
 
     idx = np.logical_and(np.all(np.isfinite(M), axis=1),np.all(np.isfinite(Mdot), axis=1))
     if bin_stretch:
-        MY, logit_y = nl(M[idx, 1], 80)
-        MZ, logit_z = nl(M[idx, 2], 80)
-        MY_dot, logit_ydot = nl(Mdot[idx, 1], 90)
-        MZ_dot, logit_zdot = nl(Mdot[idx, 2], 90)
+        MY, logit_y = nl(M[idx, 1], 90)
+        MZ, logit_z = nl(M[idx, 2], 90)
+        MY_dot, logit_ydot = nl(Mdot[idx, 1], 95)
+        MZ_dot, logit_zdot = nl(Mdot[idx, 2], 95)
 
     else:
         MY = M[idx, 1] * 1e-6
@@ -114,10 +117,11 @@ def phase_plots(blk,unit_num,save_tgl=False,bin_stretch=True,p_save=None,im_ext=
         MY_dot = Mdot[idx, 1] * 1e-6
         MZ_dot = Mdot[idx, 2] * 1e-6
     r = r[idx]
+    b=b[idx]
 
 
-    My_response,My_edges,Mydot_edges = varTuning.joint_response_hist(MY, MY_dot, r, 20,min_obs=15)
-    Mz_response,Mz_edges,Mzdot_edges = varTuning.joint_response_hist(MZ, MZ_dot, r, 20,min_obs=15)
+    My_response,My_edges,Mydot_edges = varTuning.joint_response_hist(MY, MY_dot, r, [100,30],min_obs=15)
+    Mz_response,Mz_edges,Mzdot_edges = varTuning.joint_response_hist(MZ, MZ_dot, r, [100,30],min_obs=15)
 
 
     if bin_stretch:
@@ -450,12 +454,16 @@ def plot_joint_spaces(p_load,p_save):
         blk = neoUtils.get_blk(f)
         for unit in blk.channel_indexes[-1].units:
             unit_num = int(unit.name[-1])
-            mymz_space(blk, unit_num, p_save=p_save, save_tgl=True, im_ext='png', dpi_res=300)
-            phase_plots(blk, unit_num, p_save=p_save, save_tgl=True, im_ext='png', dpi_res=300)
+            try:
+                mymz_space(blk, unit_num, p_save=p_save, save_tgl=True, im_ext='png', dpi_res=300)
+                phase_plots(blk, unit_num, p_save=p_save, save_tgl=True, im_ext='png', dpi_res=300)
+            except:
+                print('File {} did not create jointplots'.format(neoUtils.get_root(blk,unit_num)))
+                pass
 
 if __name__=='__main__':
-    p_load = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO'
-    p_save = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results'
+    p_load = os.path.join(os.environ['BOX_SYNC'],r'\__VG3D\_deflection_trials\_NEO')
+    p_save = os.path.join(os.environ['BOX_SYNC'],r'\__VG3D\_deflection_trials\_NEO\results')
     calc_all_mech_hists(p_load,p_save)
     calc_world_geom_hist(p_load,p_save)
     plot_all_geo_hists(save_tgl=True)
