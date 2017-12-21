@@ -10,6 +10,7 @@ import scipy
 import elephant
 from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
+import sklearn
 
 
 # import my functions
@@ -301,7 +302,7 @@ def applyPCA(var,Cbool):
     var = replace_NaNs(var,'interp')
     scaler=StandardScaler(with_mean=False)
     var = scaler.fit_transform(var)
-    pca = PCA()
+    pca = sklearn.decomposition.PCA()
 
     PC = pca.fit_transform(var)
     return(PC,pca.explained_variance_)
