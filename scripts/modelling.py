@@ -1,4 +1,5 @@
-from neo.io import PickleIO as PIO
+from neo.io import PickleIO
+from neo.io import NixIO
 import os
 import sys
 VG3D_modules = os.path.join(os.path.abspath(os.path.join(os.getcwd(),os.pardir)),'modules')
@@ -211,7 +212,7 @@ def main():
     print(os.path.basename(fname))
 
     # read data in
-    fid = PIO(fname)
+    fid = neo.io.NixIO(fname)
     blk = fid.read_block()
 
     # set binsize to a quantity
