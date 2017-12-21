@@ -294,7 +294,7 @@ def applyPCA(var,Cbool):
     Useful as convenience function which takes care of contact masking and interpolating NaNs.
     :param var: either analog signal or numpy array of signal to apply PCA to
     :param Cbool: boolean contact
-    :return: principle components skelarn object, explained variance
+    :return: transformed inputs, pca object
     '''
     if type(var) == neo.core.analogsignal.AnalogSignal:
         var = var.magnitude
@@ -305,7 +305,7 @@ def applyPCA(var,Cbool):
     pca = sklearn.decomposition.PCA()
 
     PC = pca.fit_transform(var)
-    return(PC,pca.explained_variance_)
+    return(PC,pca)
 
 
 def get_analog_contact_slices(var, contact, slice2array=True):

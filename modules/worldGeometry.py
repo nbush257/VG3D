@@ -7,7 +7,8 @@ def get_delta_angle(blk):
     '''
     This function returns the changes in world angle with respect to the first frame of contact.
     This should give us an estimate of how much the whisker is rotating in the follicle
-    :return:
+    :param blk: a neo block
+    :return th_contact, phie_contacts : a [t x n] matrix where t is the number of time samples in the longest contact and n is the number of contacts
     '''
     PHIE = neoUtils.get_var(blk,'PHIE')
     TH = neoUtils.get_var(blk, 'TH')
@@ -17,7 +18,7 @@ def get_delta_angle(blk):
 
     phie_contacts -= phie_contacts[0, :]
     th_contacts -= th_contacts[0, :]
-    return th_contact,phie_contacts
+    return th_contacts,phie_contacts
 
 def get_max_angular_displacement(th_contacts,phie_contacts):
     d = np.sqrt(phie_contacts**2+th_contacts**2)
