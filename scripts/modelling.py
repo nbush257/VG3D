@@ -69,19 +69,15 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
          Xdot = get_deriv(X)
          X = np.append(X, Xdot, axis=1)
 
-    # ================================ #
-    # APPLY WINDOW
-    # ================================ #
-
-    X = make_tensor(X, window)
-    X = reshape_tensor(X)
 
      # ================================ #
-     # APPLY BASES FUNCTIONS
+     # APPLY BASES FUNCTIONS OR WINDOWING
      # ================================ #
     if bases is not None:
         X = apply_bases(X,bases)
-
+    else:
+        X = make_tensor(X, window)
+        X = reshape_tensor(X)
     # ================================ #
     # SCALE
     # ================================ #
@@ -234,7 +230,7 @@ def main():
     if pillow_tgl:
         B = make_bases(5,[0,15],2)
         bases=B[0]
-        X_pillow = create_design_matrix(blk, varlist, deriv_tgl=deriv_tgl, bases=bases)
+        X_pillow = create_design_matrix(blk, varlist, deriv_tgl=options.deriv_tgl, bases=bases)
     else:
         B=None
         bases = None

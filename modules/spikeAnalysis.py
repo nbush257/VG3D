@@ -265,7 +265,8 @@ def get_STC(signal,train,window):
 
     return STA
 
-
+def binary_to_neo_train(y):
+    return(neo.SpikeTrain(np.where(y)[0],t_stop=len(y),units=pq.ms))
 
 
 
