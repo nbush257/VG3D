@@ -3,6 +3,7 @@ from sklearn import preprocessing,covariance
 from scipy import signal,interpolate
 import matplotlib.pyplot as plt
 from optparse import OptionParser
+import glob
 import os
 import scipy.io.matlab as sio
 
@@ -224,7 +225,7 @@ def scale_by_contact(var,cc,with_centering=False):
     return var_out
 
 
-def cleanup(var,cbool,outlier_thresh=0.05):
+def cleanup(var,cbool,outlier_thresh=0.05,plot_tgl=True):
     '''
     Runs the primary algorithm to find outliers and remove bad contact segments
     
@@ -264,7 +265,14 @@ def cleanup(var,cbool,outlier_thresh=0.05):
 
     # Fit outlier detection
     clf = covariance.EllipticEnvelope(contamination=outlier_thresh)
-    idx = np.squeeze(use_flags == 1)
+    idx = np.logical_and(np.squeeze(use_flags == 1),np.all(np.isfinite(X),axis=1))
+
+
+    # catch corner case where there is no good data?
+    if X[idx,:].shape[0]==0:
+        print('All NAN dataset found')
+        return 1,1
+
     clf.fit(X[idx, :])
 
     # Find outliers
@@ -296,23 +304,29 @@ def cleanup(var,cbool,outlier_thresh=0.05):
 
     var_out_filt = signal.savgol_filter(var_out_filt,7,3,axis=0)
 
-
-    plt.plot(var)
-    plt.plot(var_out_filt)
-    plt.show()
+    if plot_tgl:
+        plt.plot(var)
+        plt.plot(var_out_filt)
+        plt.show()
     return(use_flags,outliers)
 
 
-def main(fname,use_var='M',outlier_thresh=0.05):
+def main(fname,use_var='M',outlier_thresh=0.05,plot_tgl=True):
+    fname_out = os.path.splitext(fname)[0] + '_outliers'
+    if os.path.isfile(fname_out+'.mat'):
+        print('File already completed. Delete outlier file if you want to recompute')
+        return 0
+
     print('Using variable: {}\t Using outlier_thresh={}'.format(use_var,outlier_thresh))
     print('Loading {} ...'.format(os.path.basename(fname)))
     fid = sio.loadmat(fname)
     print('Loaded!')
     var = fid[use_var]
     cbool = fid['C']
-    use_flags,outliers = cleanup(var,cbool,outlier_thresh=outlier_thresh)
+    use_flags,outliers = cleanup(var,cbool,outlier_thresh=outlier_thresh,plot_tgl=plot_tgl)
+    if type(use_flags)==int and use_flags == 1:
+        return 1
 
-    fname_out = os.path.splitext(fname)[0]+'_outliers'
     print('Saving to {}...'.format(fname_out))
     sio.savemat(fname_out,{'use_flags':use_flags,'outliers':outliers})
     print('Saved')
@@ -333,9 +347,20 @@ if __name__=='__main__':
                       type=str,
                       help='Variable to be used as a signal for outlier detection. Must be a valid variable in the matlab data')
 
+    parser.add_option('-p',
+                      dest='run_path',
+                      default=False,
+                      action='store_true',
+                      help='flag to run everything in the given path. treats the first argument as the given path')
+
     (options, args) = parser.parse_args()
     if len(args)<1:
-        parser.error('Need to pass a filename fist')
+        parser.error('Need to pass a filename or wildcard to filenames first')
+    if options.run_path:
+        for fname in glob.glob(args[0]):
+            print('=' * 30)
+            main(fname,options.use_var,options.outlier_thresh,plot_tgl=False)
+    else:
+        main(args[0], options.use_var, options.outlier_thresh, plot_tgl=True)
 
-    main(args[0],options.use_var,options.outlier_thresh)
 

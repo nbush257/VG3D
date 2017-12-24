@@ -90,7 +90,7 @@ def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
 
     # loop over each segment
     for train,seg in zip(unit.spiketrains,blk.segments):
-        epoch = seg.epochs[0]
+        epoch = seg.epochs[-1]
         # initialize the mean firing rates to zero
         seg_fr = np.zeros([len(epoch), 1], dtype='f8')*FR_units
         # loop over each contact epoch

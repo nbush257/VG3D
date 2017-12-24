@@ -8,8 +8,9 @@ import quantities as pq
 import numpy as np
 import scipy
 import elephant
-from neo.io import PickleIO as PIO
+from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
+import sklearn
 
 
 # import my functions
@@ -17,14 +18,14 @@ proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
 sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
 
-def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.pkl',fullname=False):
+def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=False):
     '''loads in a NEO block from a pickle file. Calling without arguments pulls in a default file'''
     box_path = os.environ['BOX_PATH']
-    dat_path = os.path.join(box_path,r'__VG3D\deflection_trials\data')
+    dat_path = os.path.join(box_path,r'__VG3D\_deflection_trials\_NEO')
     if not fullname:
-        fid = PIO(os.path.join(dat_path,f))
+        fid = NIO(os.path.join(dat_path,f))
     else:
-        fid = PIO(f)
+        fid = NIO(f)
 
     return fid.read_block()
 
@@ -96,7 +97,7 @@ def concatenate_sp(blk):
     return sp
 
 
-def concatenate_epochs(blk):
+def concatenate_epochs(blk,epoch_idx=1):
     '''
     takes a block which may have multiple segments and returns a single Epoch which has the contact epochs concatenated and properly time aligned
     :param blk: a neo block
@@ -106,7 +107,7 @@ def concatenate_epochs(blk):
     durations = np.empty([0])
     t_start = 0*pq.ms
     for seg in blk.segments:
-        epoch = seg.epochs[0]
+        epoch = seg.epochs[epoch_idx]
         starts = np.append(starts,epoch.times+t_start,axis=0)
         durations = np.append(durations,epoch.durations.ravel())
         t_start+=seg.t_stop
@@ -206,17 +207,21 @@ def replace_NaNs(var, mode='zero',pad=20):
 
 
 
-def get_Cbool(blk):
+def get_Cbool(blk,use_bool=True):
     '''
     Given a block,get a boolean vector of contact for the concatenated data
     :param blk: neo block
+    :param use_bool: a boolean as to whether to use the original C vector of the curated use_flags vector.
     :return: Cbool - a boolean numpy vector of contact
     '''
     Cbool = np.array([],dtype='bool')
     # Get contact from all available segments and offset appropriately
     for seg in blk.segments:
         seg_bool = np.zeros(len(seg.analogsignals[0]),dtype='bool')
-        epochs = seg.epochs[0]
+        if use_bool:
+            epochs = seg.epochs[-1]
+        else:
+            epochs = seg.epochs[0]
 
         # Set the samples during contact to True
         for start,dur in zip(epochs,epochs.durations):
@@ -248,7 +253,7 @@ def get_deriv(var,smooth=False):
     if smooth:
         var = savgol_filter(var,window_length=21)
 
-    return(np.gradient(var)[0])
+    return(np.gradient(var,axis=0)[0])
 
 def epoch_to_cc(epoch):
     ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
@@ -289,7 +294,7 @@ def applyPCA(var,Cbool):
     Useful as convenience function which takes care of contact masking and interpolating NaNs.
     :param var: either analog signal or numpy array of signal to apply PCA to
     :param Cbool: boolean contact
-    :return: principle components skelarn object, explained variance
+    :return: transformed inputs, pca object
     '''
     if type(var) == neo.core.analogsignal.AnalogSignal:
         var = var.magnitude
@@ -297,10 +302,10 @@ def applyPCA(var,Cbool):
     var = replace_NaNs(var,'interp')
     scaler=StandardScaler(with_mean=False)
     var = scaler.fit_transform(var)
-    pca = PCA()
+    pca = sklearn.decomposition.PCA()
 
     PC = pca.fit_transform(var)
-    return(PC,pca.explained_variance_)
+    return(PC,pca)
 
 
 def get_analog_contact_slices(var, contact, slice2array=True):

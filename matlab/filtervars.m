@@ -37,6 +37,7 @@ if vv.py_outlier_detect
     if isempty(vv.py_outliers)
         error('no outliers passed from python')
         var(outliers,:) = nan; 
+    end
 end
 
 %%

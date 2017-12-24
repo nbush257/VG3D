@@ -10,7 +10,7 @@ function [label_out,last_tracked] = manual_remove_bad_contacts(X,label_in,vararg
 %% input handling and window init
 if length(varargin)==2
     win = varargin{2};
-    starts = varargin{1}
+    starts = varargin{1};
 elseif length(varargin)==1
     starts = varargin{1};
     win=5000;
@@ -26,6 +26,8 @@ if isempty(label_in)
     label_in = false(size(X,1),1);
 end
 label_out = label_in;
+[~,ccstarts,ccends] = convertContact(label_in);
+
 %% init ui key mappings
 add_to_contact = uint8(['a']);
 remove_from_contact = uint8(['s']);
@@ -33,13 +35,21 @@ uncertain = uint8(['d']);
 skip = uint8(['q']); % Need to depricate
 %% init figure
 close all
-f = figure('units','normalized','outerposition',[0 0 1 1]);
+f = figure('units','normalized','outerposition',[0 .5 1 .4]);
 mTextBox = uicontrol('style','text');
 set(mTextBox,'units','normalized','Position',[.01 .5 .1 .1]);
 mTextBox.BackgroundColor = 'w';
 mTextBox.HorizontalAlignment = 'left';
 s_legend = sprintf('Space = advance with labelling\na = contact\ns = not contact\nd = label as unknown\nleft click to remove');
 set(mTextBox,'String',s_legend);
+%% Get lims
+ftemp = figure();
+plot(X)
+title('click the upper and lower poinds of where to plot')
+[~,yy] = ginput(2);
+close(ftemp)
+yy = sort(yy);
+
 
 %% Start UI tracking
 try
@@ -49,7 +59,10 @@ try
             stops = length(label_in);
         end
         window_c = label_out(starts:stops)==1;
-        [~,cstarts,cends] = convertContact(window_c);
+        cstarts = ccstarts-starts+1;
+        cends = ccends-starts+1;
+        
+%         [~,cstarts,cends] = convertContact(window_c);
         
         last_tracked = starts-1;
         x = 0;
@@ -58,8 +71,10 @@ try
             cla
             x = [];
             but_press = [];
-            plot(X(starts:stops,:))
-            
+            plot(1:win,X(starts:stops,:),'linewidth',1);     
+%             ylim([min(nanmin(X)) max(nanmax(X))]);
+            ylim([yy(1),yy(2)])
+            xlim([0,win])
             % use temp var booleans for shading
             tempC = label_out==1;
             
