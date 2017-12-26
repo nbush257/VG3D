@@ -351,7 +351,7 @@ if __name__=='__main__':
                       dest='run_path',
                       default=False,
                       action='store_true',
-                      help='flag to run everything in the given path. treats the first argument as the given path')
+                      help='flag to run everything in the given path. treats the first argument as the given path. Path must be a double quoted string')
 
     (options, args) = parser.parse_args()
     if len(args)<1:
@@ -359,7 +359,11 @@ if __name__=='__main__':
     if options.run_path:
         for fname in glob.glob(args[0]):
             print('=' * 30)
-            main(fname,options.use_var,options.outlier_thresh,plot_tgl=False)
+            try:
+                main(fname,options.use_var,options.outlier_thresh,plot_tgl=False)
+            except:
+                print('File failed to compute outliers')
+                pass
     else:
         main(args[0], options.use_var, options.outlier_thresh, plot_tgl=True)
 
