@@ -1,4 +1,5 @@
 d = dir('*PROC.mat')
+mkdir 'not_matched'
 for ii = 1 :length(d)
     token = regexp(d(ii).name,'^rat\d{4}_\d{2}_[A-Z]{3}\d\d_VG_[A-Z]\d_t\d\d','match');token = token{1};
     disp(token)
