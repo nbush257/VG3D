@@ -49,12 +49,15 @@ def get_rate_b(blk,unit_num,sigma=10*pq.ms):
 def get_var(blk,varname='M',join=True,keep_neo=True):
     ''' use this utility to access an analog variable from all segments in a block easily
     If you choose to join the segments, returns a list of '''
-    varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
-    idx = varnames.index(varname)
+
     split_points = []
     var = []
     # Create a list of the analog signals for each segment
     for seg in blk.segments:
+        names = [str(x.name) for x in seg.analogsignals]
+        names =[w.replace('Moment', 'M') for w in names]
+        names = [w.replace('Force', 'F') for w in names]
+        idx = names.index(varname)
         if keep_neo:
             var.append(seg.analogsignals[idx])
         else:
