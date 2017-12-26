@@ -53,6 +53,7 @@ def create_unit_chan(blk):
 def create_analog_chan(blk):
     '''maps the mechanical and kinematic signals to a channel index.'''
     varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
+    varnames = ['M','FX','FY','TH','CP','CPm']
     chx_list = []
     for ii in range(len(varnames)):
         chx = neo.core.ChannelIndex(np.array([0]),name=varnames[ii])
@@ -104,8 +105,8 @@ def createSeg(fname):
         frames      =   str(PT['Frames'][0]),
         TAG         =   str(PT['TAG'][0]),
         s           =   str(PT['s'][0]),
-        rbase       =   str(PT['E3D_rbase'][0]),
-        rtip        =   str(PT['E3D_rtip'][0]),
+        rbase       =   str(PT['E2D_rbase'][0]),
+        rtip        =   str(PT['E2D_rtip'][0]),
         trial_type  =   'deflection'
     )
 
@@ -114,11 +115,11 @@ def createSeg(fname):
         sig = filtvars[varname]
         if varname == 'M':
             U = pq.N*pq.m
-            name = 'Moment'
-        elif varname == 'F':
+            name = varname
+        elif varname == 'FX' or varname == 'FY'or varname == 'F':
             U = pq.N
-            name = 'Force'
-        elif varname == 'Rcp':
+            name = varname
+        elif varname == 'Rcp' or varname == 'CP' or varname == 'CPm':
             U = pq.m
             name = varname
         else:
@@ -164,13 +165,13 @@ def createSeg(fname):
     return seg
 
 
-def batch_convert(d_list, p):
+def batch_convert(d_list, p, suffix='NEO'):
     d_list = list(d_list)
     for root in d_list:
         try:
             root_full = os.path.join(p, root)
-            fname_M = root_full + '_NEO.mat'
-            fname_N = root_full + '_NEO.h5'
+            fname_M = root_full + '_{}.mat'.format(suffix)
+            fname_N = root_full + '_{}.h5'.format(suffix)
 
             files = glob.glob(root_full + '*1K.mat')
 
@@ -221,9 +222,15 @@ def get_list(p, fname_spec):
 
 if __name__ == '__main__':
     p = sys.argv[1]
+    if len(sys.argv)==3:
+        suffix = sys.argv[2]
+    else:
+        suffix = 'NEO'
+    print('Using Suffix {}'.format(suffix))
+
     fname_spec = '*1K.mat'
     d_list = get_list(p, fname_spec)
-    batch_convert(d_list, p)
+    batch_convert(d_list, p,suffix=suffix)
 
 
 
