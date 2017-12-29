@@ -2,6 +2,7 @@ import neo
 import neoUtils
 import sys
 import os
+import numpy as np
 
 def get_delta_angle(blk):
     '''
@@ -12,7 +13,7 @@ def get_delta_angle(blk):
     '''
     PHIE = neoUtils.get_var(blk,'PHIE')
     TH = neoUtils.get_var(blk, 'TH')
-    use_flags = neoUtils.concatenate_epochs(blk,epoch_idx=1)
+    use_flags = neoUtils.concatenate_epochs(blk,epoch_idx=-1)
     phie_contacts =  neoUtils.get_analog_contact_slices(PHIE,use_flags).squeeze()
     th_contacts = neoUtils.get_analog_contact_slices(TH, use_flags).squeeze()
 
@@ -33,6 +34,12 @@ def get_max_angular_displacement(th_contacts,phie_contacts):
     phi_max = np.array(phi_max)
     th_max = np.array(th_max)
 
-    md = np.arctan2(phi_max,th_max)
-    return max_d,md
+    # md = np.arctan2(phi_max,th_max)
+    return th_max,phi_max
+
+def get_r_contact(blk):
+    r = neoUtils.get_var(blk,'Rcp')
+    use_flags = neoUtils.concatenate_epochs(blk, epoch_idx=-1)
+    r_contacts =  neoUtils.get_analog_contact_slices(r,use_flags).squeeze()
+    return(np.nanmean(r_contacts,axis=0))
 
