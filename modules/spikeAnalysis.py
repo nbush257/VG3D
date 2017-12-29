@@ -77,8 +77,7 @@ def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
         pre *= pq.ms
     if type(post) != pq.quantity.Quantity:
         post *= pq.ms
-    if True:
-        raise Exception('This code is not returning trains correctly')
+
     # init units
     ISI_units = pq.ms
     FR_units = 1/pq.s
