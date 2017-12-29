@@ -221,9 +221,12 @@ def get_list(p, fname_spec):
 
 if __name__ == '__main__':
     p = sys.argv[1]
+    if len(sys.argv)==3:
+        suffix = sys.argv[2]
+    else:
+        suffix = 'NEO'
+    print('Using Suffix {}'.format(suffix))
+
     fname_spec = '*1K.mat'
     d_list = get_list(p, fname_spec)
-    batch_convert(d_list, p)
-
-
-
+    batch_convert(d_list, p,suffix=suffix)
