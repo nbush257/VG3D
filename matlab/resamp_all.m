@@ -12,8 +12,11 @@ outname = [fname_in(1:end-12) '1K.mat'];
 %% Load Data
 load(fname_in,'M','F','PHIE','TH','Rcp','THcp','PHIcp','ZETA','Zcp','spt','sr','frame*','C','PT','spikes','outliers','use_flags');
 %%
-outliers = false(size(C));
-use_flags = C;
+if ~exist('outliers')
+    outliers = false(size(C));
+    use_flags = C;
+end
+
 vars.M = M;
 vars.F = F;
 vars.TH = TH;
@@ -32,9 +35,8 @@ for ii = 1:length(varnames)
     filtvars.(varnames{ii}) = filtervars(vars.(varnames{ii}),...
         'nan_gap',nan_gap,...
         'sgolay_tgl',false,...
-        'hampel_tgl',false,...
         'mad_thresh',mad_thresh,...
-        'py_outlier_detect',false,...
+        'py_outlier_detect',false...
     );
 end
 
