@@ -114,11 +114,11 @@ def createSeg(fname):
         sig = filtvars[varname]
         if varname == 'M':
             U = pq.N*pq.m
-            name = 'Moment'
-        elif varname == 'F':
+            name = varname
+        elif varname == 'FX' or varname == 'FY'or varname == 'F':
             U = pq.N
-            name = 'Force'
-        elif varname == 'Rcp':
+            name = varname
+        elif varname == 'Rcp' or varname == 'CP' or varname == 'CPm':
             U = pq.m
             name = varname
         else:
@@ -164,13 +164,13 @@ def createSeg(fname):
     return seg
 
 
-def batch_convert(d_list, p):
+def batch_convert(d_list, p, suffix='NEO'):
     d_list = list(d_list)
     for root in d_list:
         try:
             root_full = os.path.join(p, root)
-            fname_M = root_full + '_NEO.mat'
-            fname_N = root_full + '_NEO.h5'
+            fname_M = root_full + '_{}.mat'.format(suffix)
+            fname_N = root_full + '_{}.h5'.format(suffix)
 
             files = glob.glob(root_full + '*1K.mat')
 
@@ -230,3 +230,6 @@ if __name__ == '__main__':
     fname_spec = '*1K.mat'
     d_list = get_list(p, fname_spec)
     batch_convert(d_list, p,suffix=suffix)
+
+
+
