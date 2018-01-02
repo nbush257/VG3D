@@ -56,8 +56,9 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
         var = get_var(blk,varname, keep_neo=False)[0]
         if varname in ['M','F']:
             var[np.invert(Cbool),:]=0
-            var = replace_NaNs(var,'pchip')
-            var = replace_NaNs(var,'interp')
+
+        var = replace_NaNs(var,'pchip')
+        var = replace_NaNs(var,'interp')
 
         X.append(var)
     X = np.concatenate(X, axis=1)

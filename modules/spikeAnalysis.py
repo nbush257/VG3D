@@ -4,6 +4,7 @@ import elephant
 from elephant import kernels
 from elephant.conversion import *
 import quantities as pq
+import neoUtils
 
 
 def get_autocorr(sp_neo):
@@ -77,8 +78,7 @@ def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
         pre *= pq.ms
     if type(post) != pq.quantity.Quantity:
         post *= pq.ms
-    if True:
-        raise Exception('This code is not returning trains correctly')
+
     # init units
     ISI_units = pq.ms
     FR_units = 1/pq.s
@@ -267,6 +267,29 @@ def get_STC(signal,train,window):
 
 def binary_to_neo_train(y):
     return(neo.SpikeTrain(np.where(y)[0],t_stop=len(y),units=pq.ms))
+
+
+def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
+    '''
+    Finds contacts which ellicited the desired number of spikes. Useful if trying to look at RA onset.
+    :param blk:
+    :param unit_num:
+    :param num_spikes:
+    :param varname:
+    :return: var_sliced, c_idx (an index of which contacts have the desired numer of spikes)
+    '''
+    use_flag = neoUtils.concatenate_epochs(blk,-1)
+    unit = blk.channel_indexes[-1].units[unit_num]
+    trains = get_contact_sliced_trains(blk,unit)[-1]
+    c_idx=[]
+    for ii,train in enumerate(trains):
+        if len(train)==num_spikes:
+            c_idx.append(ii)
+    var = neoUtils.get_var(blk,varname)
+    var_sliced = neoUtils.get_analog_contact_slices(var, use_flag)
+    return(var_sliced[:,c_idx,:],c_idx)
+
+>>>>>>> 3b11c5f4af99f36a81ddccb8ca00e3e426f3bf60
 
 
 

@@ -1,8 +1,10 @@
 d = dir('*PROC.mat')
+mkdir 'not_matched'
+p_neural = 'E:\VG3D\neural\sorted\';
 for ii = 1 :length(d)
     token = regexp(d(ii).name,'^rat\d{4}_\d{2}_[A-Z]{3}\d\d_VG_[A-Z]\d_t\d\d','match');token = token{1};
     disp(token)
-    neural_filename = [token '_sorted.mat'];
+    neural_filename = [p_neural token '_sorted.mat'];
     if ~exist(neural_filename,'file')
         warning('%s does not match',token)
         continue
@@ -19,6 +21,6 @@ for ii = 1 :length(d)
         movefile(d(ii).name,'./not_matched')
     end
     
-    clearvars -except d ii
+    clearvars -except d ii p_neural
     
 end
