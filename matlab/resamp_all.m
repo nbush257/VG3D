@@ -21,6 +21,7 @@ vars.Rcp = Rcp;
 vars.THcp = THcp;
 vars.PHIcp = PHIcp;
 vars.Zcp = Zcp;
+vars.S = S_app;
 varnames = fieldnames(vars);
 
 %% get filt vars
