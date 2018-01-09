@@ -5,6 +5,8 @@ import os
 import numpy as np
 from sklearn import mixture
 from sklearn import decomposition
+import scipy
+
 def get_delta_angle(blk):
     '''
     This function returns the changes in world angle with respect to the first frame of contact.
@@ -65,6 +67,11 @@ def reduce_deflection(blk,num_pts,buffer=5):
         X[ii,:] = np.concatenate([th_pts,ph_pts])
     return(X)
 
+def norm_angles(th_max,ph_max):
+    X = np.concatenate([th_max[:, np.newaxis], ph_max[:, np.newaxis]], axis=1)
+    X_norm = np.linalg.norm(X,axis=1)
+    return(th_max/X_norm,ph_max/X_norm)
+
 def get_contact_direction(blk,plot_tgl=True):
     '''
     
@@ -75,45 +82,45 @@ def get_contact_direction(blk,plot_tgl=True):
     th_contacts,ph_contacts = get_delta_angle(blk)
     th_contacts -= th_contacts[0, :]
     ph_contacts -= ph_contacts[0, :]
-    th_med = np.nanmedian(th_contacts,axis=0)
-    ph_med = np.nanmedian(ph_contacts, axis=0)
-
-    th_mean = np.nanmean(th_contacts, axis=0)
-    ph_mean = np.nanmean(ph_contacts, axis=0)
 
     th_max,ph_max = get_max_angular_displacement(th_contacts,ph_contacts)
+    th_norm,ph_norm = norm_angles(th_max,ph_max)
 
-    d1 = np.arctan2(np.deg2rad(ph_max),np.deg2rad(th_max))[:,np.newaxis]
-    d2 = np.arctan2(np.deg2rad(ph_mean), np.deg2rad(th_mean))[:, np.newaxis]
-    d3 = np.arctan2(np.deg2rad(ph_med), np.deg2rad(th_med))[:, np.newaxis]
+    d = np.arctan2(np.deg2rad(ph_max),np.deg2rad(th_max))[:,np.newaxis]
+    X = np.concatenate([th_norm[:,np.newaxis],ph_norm[:,np.newaxis]],axis=1)
+    t = np.arange(d.shape[0])[:,np.newaxis]/float(d.shape[0])
+    # X = np.concatenate([X,t],axis=1)
 
-    X = np.concatenate([d1,d2,d3],axis=1)
-    X = np.unwrap(X,axis=0,discont = np.pi*1.2)
-
-
-    X = np.concatenate([X,np.arange(d.shape[0])[:,np.newaxis]],axis=1)
     clf = mixture.GaussianMixture(n_components=8,n_init=100)
-
     clf.fit(X)
     idx = clf.predict(X)
 
-
-    # get teh angles
+    # get the median angles and sort with the first direction stimulated as zero
     med_angle = []
     for ii in xrange(8):
         med_angle.append(np.nanmedian(d[idx==ii]))
     med_angle = np.array(med_angle)
 
-    first_angle = np.nanmean(d[:10])
+    new_idx = np.argsort(med_angle)
+    new_idx = [np.where(x==new_idx)[0][0] for x in idx]
 
+    first_idx = scipy.stats.mode(new_idx[:40]).mode
+    new_idx-=first_idx
+    new_idx[new_idx<0]+=8
+
+    med_angle = []
+    for ii in xrange(8):
+        med_angle.append(np.nanmedian(d[new_idx==ii]))
+    med_angle = np.array(med_angle)
 
     if plot_tgl:
-        cc = sns.color_palette("Set2", 8)
+        cc = sns.color_palette("husl", 8)
         for ii in xrange(X.shape[0]):
-            plt.plot(th_contacts[:,ii],ph_contacts[:,ii],'.-',color=cc[idx[ii]],alpha=0.3)
+            plt.plot(th_contacts[:,ii],ph_contacts[:,ii],'.-',color=cc[new_idx[ii]],alpha=0.3)
         for ii in xrange(8):
             plt.plot(np.cos(med_angle[ii]),np.sin(med_angle[ii]),'o',markersize=10,color=cc[ii],markeredgecolor='k',markeredgewidth=1)
 
-    return(idx)
+
+    return(new_idx,med_angle)
 
 
