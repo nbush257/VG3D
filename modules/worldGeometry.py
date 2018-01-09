@@ -19,7 +19,20 @@ def get_delta_angle(blk):
     phie_contacts =  neoUtils.get_analog_contact_slices(PHIE,use_flags).squeeze()
     th_contacts = neoUtils.get_analog_contact_slices(TH, use_flags).squeeze()
 
-    return th_contacts,phie_contacts
+    d = np.sqrt(phie_contacts ** 2 + th_contacts ** 2)
+    use = np.invert(np.all(np.isnan(d), axis=0)) # remove all nan slices
+    return(th_contacts[:,use],phie_contacts[:,use])
+
+def center_angles(th_contacts,ph_contacts):
+    for th,ph in zip(th_contacts,ph_contacts):
+        first_index = np.min((
+            np.where(np.isfinite(th))[0][0],
+            np.where(np.isfinite(ph))[0][0])
+        )
+
+        th-=th[first_index]
+        ph-=ph[first_index]
+
 
 
 def get_max_angular_displacement(th_contacts,phie_contacts):
@@ -121,8 +134,7 @@ def get_contact_direction(blk,plot_tgl=True):
     '''
     # get contact angles and zero them to the start of contact
     th_contacts,ph_contacts = get_delta_angle(blk)
-    th_contacts -= th_contacts[0, :]
-    ph_contacts -= ph_contacts[0, :]
+    center_angles(th_contacts,ph_contacts)
 
     # get normalized angles
     th_max,ph_max = get_max_angular_displacement(th_contacts,ph_contacts)
@@ -131,7 +143,7 @@ def get_contact_direction(blk,plot_tgl=True):
     # group angles into a design matrix and get the direction of the deflection [-pi:pi]
     d = np.arctan2(np.deg2rad(ph_max),np.deg2rad(th_max))[:,np.newaxis]
     X = np.concatenate([th_norm[:,np.newaxis],ph_norm[:,np.newaxis]],axis=1)
-
+    X = neoUtils.replace_NaNs(X,mode='interp')
     # Cluster the groups
     clf = mixture.GaussianMixture(n_components=8,n_init=100)
     clf.fit(X)

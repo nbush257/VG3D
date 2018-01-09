@@ -6,8 +6,9 @@ import spikeAnalysis
 import worldGeometry
 import numpy as np
 import matplotlib.gridspec as gridspec
-
+import quantities as pq
 sns.set()
+
 def plot3():
     f = plt.figure()
     return(f.add_subplot(111,projection='3d'))
@@ -25,6 +26,8 @@ def plot_spike_trains_by_direction(blk,unit_num=0):
 
     cc = sns.color_palette("husl", 8)
     f = plt.figure(tight_layout=True)
+    f.set_dpi(300)
+    f.set_size_inches(9,9)
     gs = gridspec.GridSpec(3, 3)
     ax = plt.subplot(gs[1:-1,1:-1])
     to_rotate = -med_angle[0]
@@ -78,5 +81,7 @@ def plot_spike_trains_by_direction(blk,unit_num=0):
                 )
 
 
-    f.set_size_inches(9,9)
+
     f.suptitle(neoUtils.get_root(blk,unit_num))
+
+
