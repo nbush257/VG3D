@@ -25,7 +25,7 @@ def plot_spike_trains_by_direction(blk,unit_num=0):
 
     cc = sns.color_palette("husl", 8)
     f = plt.figure(tight_layout=True)
-    gs = gridspec.GridSpec(5, 5)
+    gs = gridspec.GridSpec(3, 3)
     ax = plt.subplot(gs[1:-1,1:-1])
     to_rotate = -med_angle[0]
     R = np.array([[np.cos(to_rotate),-np.sin(to_rotate)],
@@ -41,14 +41,14 @@ def plot_spike_trains_by_direction(blk,unit_num=0):
     ax.set_xlabel(r'$\theta$ (deg)')
     ax.set_ylabel(r'$\phi$ (deg)')
 
-    axis_coords = [[2, 4],
-                   [0, 4],
+    axis_coords = [[1, 2],
                    [0, 2],
+                   [0, 1],
                    [0, 0],
+                   [1, 0],
                    [2, 0],
-                   [4, 0],
-                   [4, 2],
-                   [4,4]]
+                   [2, 1],
+                   [2,2]]
 
     time_lim = np.percentile(durations,90) # drop the tenth percentile of durations
 
@@ -76,6 +76,7 @@ def plot_spike_trains_by_direction(blk,unit_num=0):
                 alpha=1,
                 color=cc[dir]
                 )
+
 
     f.set_size_inches(9,9)
     f.suptitle(neoUtils.get_root(blk,unit_num))
