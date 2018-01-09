@@ -289,9 +289,3 @@ def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
     var_sliced = neoUtils.get_analog_contact_slices(var, use_flag)
     return(var_sliced[:,c_idx,:],c_idx)
 
->>>>>>> 3b11c5f4af99f36a81ddccb8ca00e3e426f3bf60
-
-
-
-
-

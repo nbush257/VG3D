@@ -4,14 +4,18 @@ import sys
 import os
 import numpy as np
 from sklearn import mixture
-from sklearn import decomposition
 import scipy
+import seaborn as sns
+import quantities as pq
+import matplotlib.pyplot as plt
+
 
 def get_delta_angle(blk):
     '''
     This function returns the changes in world angle with respect to the first frame of contact.
     This should give us an estimate of how much the whisker is rotating in the follicle
     :param blk: a neo block
+    
     :return th_contact, phie_contacts : a [t x n] matrix where t is the number of time samples in the longest contact and n is the number of contacts
     '''
     PHIE = neoUtils.get_var(blk,'PHIE')
@@ -20,31 +24,33 @@ def get_delta_angle(blk):
     phie_contacts =  neoUtils.get_analog_contact_slices(PHIE,use_flags).squeeze()
     th_contacts = neoUtils.get_analog_contact_slices(TH, use_flags).squeeze()
 
-    # phie_contacts -= phie_contacts[0, :]
-    # th_contacts -= th_contacts[0, :]
     return th_contacts,phie_contacts
 
 def get_max_angular_displacement(th_contacts,phie_contacts):
+    '''
+    Finds the point of maximal displacement in the theta-phi space and returns the 
+    value of theta and phi for that point, for all contacts.
+    
+    :param th_contacts:     a 1D numpy vector of theta values 
+    :param phie_contacts:   a 1D numpy vector of Phi values
+    
+    :return th_max,phi_max: 1D vectors of the values of Theta and Phi and maximal angular displacement
+    '''
+
+    # get maximal displacement and index when that occurs
     d = np.sqrt(phie_contacts**2+th_contacts**2)
-    max_d = np.nanmax(d,axis=0)
     idx = np.nanargmax(d,axis=0)
 
-    phi_max = []
-    th_max = []
-    for ii in xrange(phie_contacts.shape[1]):
-        phi_max.append(phie_contacts[idx[ii],ii])
-        th_max.append(th_contacts[idx[ii], ii])
+    # Loop through each contact to extract the point of maximal displacement
+    phi_max = [phie_contacts[x, contact_idx] for contact_idx, x in enumerate(idx)]
+    th_max = [th_contacts[x, contact_idx] for contact_idx, x in enumerate(idx)]
+
+    # cast to numpy array
     phi_max = np.array(phi_max)
     th_max = np.array(th_max)
 
-    # md = np.arctan2(phi_max,th_max)
     return th_max,phi_max
 
-def get_r_contact(blk):
-    r = neoUtils.get_var(blk,'Rcp')
-    use_flags = neoUtils.concatenate_epochs(blk, epoch_idx=-1)
-    r_contacts =  neoUtils.get_analog_contact_slices(r,use_flags).squeeze()
-    return(np.nanmean(r_contacts,axis=0))
 
 def reduce_deflection(blk,num_pts,buffer=5):
     th_contacts,ph_contacts = get_delta_angle(blk)
@@ -73,6 +79,7 @@ def norm_angles(th_max,ph_max):
     return(th_max/X_norm,ph_max/X_norm)
 
 def get_contact_direction(blk,plot_tgl=True):
+    # TODO: make this a constant 2pi/8 regions centered around the first contact?
     '''
     
     :param blk: 
