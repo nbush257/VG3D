@@ -116,6 +116,7 @@ def get_contact_direction(blk,plot_tgl=True):
                      Index for every contact as to which group 
                      that contact belongs. Index 0 is the first direction, 
                      index 1 is the next clockwise group, etc...
+                    med_angle: median angle in the theta/phi centered space
     
     '''
     # get contact angles and zero them to the start of contact
@@ -164,6 +165,6 @@ def get_contact_direction(blk,plot_tgl=True):
         for ii in xrange(8):
             plt.plot(np.cos(med_angle[ii]),np.sin(med_angle[ii]),'o',markersize=10,color=cc[ii],markeredgecolor='k',markeredgewidth=1)
 
-    return(new_idx)
+    return(new_idx,med_angle)
 
 
