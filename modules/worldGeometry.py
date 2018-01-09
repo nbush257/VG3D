@@ -1,14 +1,9 @@
-import neo
 import neoUtils
-import sys
-import os
 import numpy as np
 from sklearn import mixture
 import scipy
 import seaborn as sns
-import quantities as pq
 import matplotlib.pyplot as plt
-
 
 def get_delta_angle(blk):
     '''
@@ -25,6 +20,7 @@ def get_delta_angle(blk):
     th_contacts = neoUtils.get_analog_contact_slices(TH, use_flags).squeeze()
 
     return th_contacts,phie_contacts
+
 
 def get_max_angular_displacement(th_contacts,phie_contacts):
     '''
@@ -53,6 +49,19 @@ def get_max_angular_displacement(th_contacts,phie_contacts):
 
 
 def reduce_deflection(blk,num_pts,buffer=5):
+    '''
+    Grabs a subset of theta/phi points from a deflection.
+    Probably not useful. Defaults to error
+    
+    :param blk: 
+    :param num_pts: 
+    :param buffer: 
+    :return: 
+    '''
+
+    if True:
+        raise Exception('This function is not finished, and is likely not useful. NEB 20180109')
+
     th_contacts,ph_contacts = get_delta_angle(blk)
     th_contacts -= th_contacts[0,:]
     ph_contacts -= ph_contacts[0, :]
@@ -73,31 +82,56 @@ def reduce_deflection(blk,num_pts,buffer=5):
         X[ii,:] = np.concatenate([th_pts,ph_pts])
     return(X)
 
+
 def norm_angles(th_max,ph_max):
+    '''
+    Map the theta and phi vectors to the unit circle. This is useful in the classifier.
+    
+    :param th_max:      The values of theta at maximal deflection for each contact
+    :param ph_max:      The values of phi at maximal deflection for each contact
+    
+    :return th_norm,ph_norm: Normalized values of theta and phi such that theta/phi lie on the unit circle 
+    '''
+
     X = np.concatenate([th_max[:, np.newaxis], ph_max[:, np.newaxis]], axis=1)
     X_norm = np.linalg.norm(X,axis=1)
     return(th_max/X_norm,ph_max/X_norm)
 
+
 def get_contact_direction(blk,plot_tgl=True):
-    # TODO: make this a constant 2pi/8 regions centered around the first contact?
     '''
+    Classifies all the contacts into one of 8 directions.
     
-    :param blk: 
-    :param plot_tgl: 
-    :return: 
+    Orders the groups such that the first contacts are at ~0 radians, and the direction indicies
+    increase as the direction increases from 0 to 2Pi 
+    
+    Note - the groups roughly increase by 45 degrees, but not explicitly so
+    
+    :param blk:         A neo block
+    
+    :param plot_tgl:    A switch as to whether you want to plot the deflections and their groups for inspection.
+                        Default = True
+                        
+    :return idx:   idx: 
+                     Index for every contact as to which group 
+                     that contact belongs. Index 0 is the first direction, 
+                     index 1 is the next clockwise group, etc...
+    
     '''
+    # get contact angles and zero them to the start of contact
     th_contacts,ph_contacts = get_delta_angle(blk)
     th_contacts -= th_contacts[0, :]
     ph_contacts -= ph_contacts[0, :]
 
+    # get normalized angles
     th_max,ph_max = get_max_angular_displacement(th_contacts,ph_contacts)
     th_norm,ph_norm = norm_angles(th_max,ph_max)
 
+    # group angles into a design matrix and get the direction of the deflection [-pi:pi]
     d = np.arctan2(np.deg2rad(ph_max),np.deg2rad(th_max))[:,np.newaxis]
     X = np.concatenate([th_norm[:,np.newaxis],ph_norm[:,np.newaxis]],axis=1)
-    t = np.arange(d.shape[0])[:,np.newaxis]/float(d.shape[0])
-    # X = np.concatenate([X,t],axis=1)
 
+    # Cluster the groups
     clf = mixture.GaussianMixture(n_components=8,n_init=100)
     clf.fit(X)
     idx = clf.predict(X)
@@ -108,6 +142,7 @@ def get_contact_direction(blk,plot_tgl=True):
         med_angle.append(np.nanmedian(d[idx==ii]))
     med_angle = np.array(med_angle)
 
+    # sort the group indices such that the first deflection angle is 0, and they increase from there
     new_idx = np.argsort(med_angle)
     new_idx = [np.where(x==new_idx)[0][0] for x in idx]
 
@@ -115,11 +150,13 @@ def get_contact_direction(blk,plot_tgl=True):
     new_idx-=first_idx
     new_idx[new_idx<0]+=8
 
+    # get the new median angles (in the centered theta/phi space)
     med_angle = []
     for ii in xrange(8):
         med_angle.append(np.nanmedian(d[new_idx==ii]))
     med_angle = np.array(med_angle)
 
+    # plotting
     if plot_tgl:
         cc = sns.color_palette("husl", 8)
         for ii in xrange(X.shape[0]):
@@ -127,7 +164,6 @@ def get_contact_direction(blk,plot_tgl=True):
         for ii in xrange(8):
             plt.plot(np.cos(med_angle[ii]),np.sin(med_angle[ii]),'o',markersize=10,color=cc[ii],markeredgecolor='k',markeredgewidth=1)
 
-
-    return(new_idx,med_angle)
+    return(new_idx)
 
 
