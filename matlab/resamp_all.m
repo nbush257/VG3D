@@ -10,7 +10,7 @@ outname = [fname_in(1:end-12) '1K.mat'];
 %% DO NOT EDIT BELOW THIS LINE IF YOU CHANGE PARAMETERS
 % ===================================================
 %% Load Data
-load(fname_in,'M','F','PHIE','TH','Rcp','THcp','PHIcp','ZETA','Zcp','spt','sr','frame*','C','PT','spikes','outliers','use_flags');
+load(fname_in,'M','F','S_app','PHIE','TH','Rcp','THcp','PHIcp','ZETA','Zcp','spt','sr','frame*','C','PT','spikes','outliers','use_flags');
 %%
 vars.M = M;
 vars.F = F;
@@ -21,6 +21,7 @@ vars.Rcp = Rcp;
 vars.THcp = THcp;
 vars.PHIcp = PHIcp;
 vars.Zcp = Zcp;
+vars.S = S_app;
 varnames = fieldnames(vars);
 
 %% get filt vars

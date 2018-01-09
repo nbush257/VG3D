@@ -118,7 +118,7 @@ def createSeg(fname):
         elif varname == 'FX' or varname == 'FY'or varname == 'F':
             U = pq.N
             name = varname
-        elif varname == 'Rcp' or varname == 'CP' or varname == 'CPm':
+        elif varname == 'Rcp' or varname == 'CP' or varname == 'CPm' or varname == 'S_app':
             U = pq.m
             name = varname
         else:
