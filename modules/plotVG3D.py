@@ -11,17 +11,26 @@ sns.set()
 
 def plot3():
     f = plt.figure()
-    return(f.add_subplot(111,projection='3d'))
+    return(Axes3D(f))
 def polar():
     f = plt.figure()
     return(f.add_subplot(111,projection='polar'))
 
-def plot_spike_trains_by_direction(blk,unit_num=0):
+def plot_spike_trains_by_direction(blk,unit_num=0,norm_dur=False):
+    # TODO: Normalize time dimension
+    # if True:
+    #     raise Exception('Need to normalize by time')
     unit = blk.channel_indexes[-1].units[unit_num]
     _,_,trains = spikeAnalysis.get_contact_sliced_trains(blk,unit)
-    b,durations = spikeAnalysis.get_binary_trains(trains)
+    if norm_dur:
+        b = spikeAnalysis.get_binary_trains(trains,False)
+    else:
+        b,durations = spikeAnalysis.get_binary_trains(trains)
 
     idx,med_angle = worldGeometry.get_contact_direction(blk,plot_tgl=False)
+    if idx is -1:
+        return(-1)
+
     th_contacts,ph_contacts = worldGeometry.get_delta_angle(blk)
 
     cc = sns.color_palette("husl", 8)
@@ -58,10 +67,22 @@ def plot_spike_trains_by_direction(blk,unit_num=0):
     PSTH=[]
     t_edges = []
     max_fr = []
+    b_times = []
     for dir in np.arange(np.max(idx) + 1):
-        b_times = np.where(b[:, idx == dir])[1] * pq.ms
-        PSTH_temp, t_edges_temp = np.histogram(b_times, bins=np.arange(0, 500, float(pq.ms)))
-        PSTH_temp = PSTH_temp.astype('f8') / len(durations) / pq.ms * 1000.
+        if norm_dur:
+            for ii,contact in enumerate(b):
+                if idx[ii]==dir:
+                    spt = np.where(contact)[0].astype('f8')/len(contact)
+                    b_times.append(spt)
+
+            b_times = np.concatenate(b_times)
+            PSTH_temp, t_edges_temp = np.histogram(b_times, bins=np.arange(0, 1,.01))
+
+        else:
+            b_times = np.where(b[:, idx == dir])[1] * pq.ms
+            PSTH_temp, t_edges_temp = np.histogram(b_times, bins=np.arange(0, 500, float(pq.ms)))
+            PSTH_temp = PSTH_temp.astype('f8') / len(durations) / pq.ms * 1000.
+
         max_fr.append(np.max(PSTH_temp))
         PSTH.append(PSTH_temp)
         t_edges.append(t_edges_temp)
@@ -83,5 +104,6 @@ def plot_spike_trains_by_direction(blk,unit_num=0):
 
 
     f.suptitle(neoUtils.get_root(blk,unit_num))
+    return(0)
 
 
