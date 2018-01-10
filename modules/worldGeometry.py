@@ -115,7 +115,41 @@ def norm_angles(th_max,ph_max):
     return(th_max/X_norm,ph_max/X_norm)
 
 
-def get_radial_distance_group(blk):
+def get_radial_distance_group(blk,plot_tgl=False):
+    S = neoUtils.get_var(blk,'S')
+    use_flags = neoUtils.concatenate_epochs(blk,-1)
+    S_contacts = neoUtils.get_analog_contact_slices(S,use_flags)
+    S_med = np.nanmedian(S_contacts,axis=0)[:,np.newaxis]
+
+    clf3 = mixture.GaussianMixture(n_components=3,n_init=100)
+    clf2 = mixture.GaussianMixture(n_components=2,n_init=100)
+    clf3.fit(S_med)
+    clf2.fit(S_med)
+    if clf2.aic(S_med)<clf3.aic(S_med):
+        n_clusts=2
+        idx = clf2.predict(S_med)
+    else:
+        n_clusts=3
+        idx = clf3.predict(S_med)
+
+    S_clusts = []
+    for ii in xrange(n_clusts):
+        S_clusts.append(np.nanmedian(S_med[idx==ii]))
+    ordering = np.argsort(S_clusts)
+    idx = np.array([np.where(x == ordering)[0][0] for x in idx])
+    S_clusts.sort()
+    if plot_tgl:
+        cc = sns.color_palette("Blues", n_clusts+3)
+        for ii in xrange(n_clusts):
+            sns.distplot(S_med[idx==ii],color = cc[ii+3])
+        ax = plt.gca()
+        ax.set_ylabel('Number of contacts')
+        ax.set_xlabel('Arclength at contact (m)')
+        ax.grid('off', axis='x')
+        ax.set_title('{}'.format(neoUtils.get_root(blk,0)))
+
+    return(idx)
+
 
 def get_contact_direction(blk,plot_tgl=True):
     '''
