@@ -4,6 +4,8 @@ from sklearn import mixture
 import scipy
 import seaborn as sns
 import matplotlib.pyplot as plt
+import sklearn
+
 
 def get_delta_angle(blk):
     '''
@@ -25,6 +27,9 @@ def get_delta_angle(blk):
 
 def center_angles(th_contacts,ph_contacts):
     for th,ph in zip(th_contacts,ph_contacts):
+        if np.all(np.isnan(th)) or np.all(np.isnan(ph)):
+            continue
+
         first_index = np.min((
             np.where(np.isfinite(th))[0][0],
             np.where(np.isfinite(ph))[0][0])
@@ -61,23 +66,22 @@ def get_max_angular_displacement(th_contacts,phie_contacts):
     return th_max,phi_max
 
 
-def reduce_deflection(blk,num_pts,buffer=5):
+def reduce_deflection(blk, num_pts):
     '''
     Grabs a subset of theta/phi points from a deflection.
     Probably not useful. Defaults to error
     
     :param blk: 
     :param num_pts: 
-    :param buffer: 
+    :param pad: 
     :return: 
     '''
 
-    if True:
-        raise Exception('This function is not finished, and is likely not useful. NEB 20180109')
+    # if True:
+    #     raise Exception('This function is not finished, and is likely not useful. NEB 20180109')
 
     th_contacts,ph_contacts = get_delta_angle(blk)
-    th_contacts -= th_contacts[0,:]
-    ph_contacts -= ph_contacts[0, :]
+    center_angles(th_contacts,ph_contacts)
 
     X = np.empty([th_contacts.shape[1],num_pts*2])
     for ii in xrange(ph_contacts.shape[-1]):
@@ -87,10 +91,10 @@ def reduce_deflection(blk,num_pts,buffer=5):
         th = th[np.isfinite(th)]
         ph = ph[np.isfinite(ph)]
 
-        th_pts = th[np.linspace(0,len(th)-1,num_pts+buffer).astype('int')]
-        ph_pts = ph[np.linspace(0, len(ph)-1, num_pts+buffer).astype('int')]
-        th_pts = th_pts[buffer/2:-buffer/2]
-        ph_pts = ph_pts[buffer/2:-buffer/2]
+        th_pts = th[np.linspace(0, len(th) - 1, num_pts ).astype('int')]
+        ph_pts = ph[np.linspace(0, len(ph) - 1, num_pts ).astype('int')]
+        # th_pts = th_pts[pad / 2:-pad / 2]
+        # ph_pts = ph_pts[pad / 2:-pad / 2]
 
         X[ii,:] = np.concatenate([th_pts,ph_pts])
     return(X)
@@ -110,6 +114,8 @@ def norm_angles(th_max,ph_max):
     X_norm = np.linalg.norm(X,axis=1)
     return(th_max/X_norm,ph_max/X_norm)
 
+
+def get_radial_distance_group(blk):
 
 def get_contact_direction(blk,plot_tgl=True):
     '''
@@ -132,27 +138,44 @@ def get_contact_direction(blk,plot_tgl=True):
                     med_angle: median angle in the theta/phi centered space
     
     '''
+    # init output index vector
+    use_flags = neoUtils.concatenate_epochs(blk, epoch_idx=-1)
+    n_contacts = len(use_flags)
+    if n_contacts<50:
+        return(-1,-1)
+    direction_index = np.empty(n_contacts,dtype='int');
+    direction_index[:] = np.nan
+
     # get contact angles and zero them to the start of contact
     th_contacts,ph_contacts = get_delta_angle(blk)
     center_angles(th_contacts,ph_contacts)
 
-    # get normalized angles
+    # get max angles
     th_max,ph_max = get_max_angular_displacement(th_contacts,ph_contacts)
-    th_norm,ph_norm = norm_angles(th_max,ph_max)
+
+    # get PCA decomp
+    X = reduce_deflection(blk,10)
+    pca = sklearn.decomposition.PCA()
+    Y = pca.fit_transform(X)
+    Y1,Y2 = norm_angles(Y[:,0],Y[:,1])
+    Y = np.concatenate([Y1[:,np.newaxis],Y2[:,np.newaxis]],axis=1)
 
     # group angles into a design matrix and get the direction of the deflection [-pi:pi]
-    d = np.arctan2(np.deg2rad(ph_max),np.deg2rad(th_max))[:,np.newaxis]
-    X = np.concatenate([th_norm[:,np.newaxis],ph_norm[:,np.newaxis]],axis=1)
-    X = neoUtils.replace_NaNs(X,mode='interp')
+    projection_angle = np.arctan2(np.deg2rad(ph_max),np.deg2rad(th_max))[:,np.newaxis]
+
+    good_contacts = np.all(np.isfinite(Y), axis=1)
+    Y = Y[good_contacts,:] # remove nan groups
+    projection_angle = projection_angle[good_contacts].ravel()
+
     # Cluster the groups
     clf = mixture.GaussianMixture(n_components=8,n_init=100)
-    clf.fit(X)
-    idx = clf.predict(X)
+    clf.fit(Y)
+    idx = clf.predict(Y)
 
     # get the median angles and sort with the first direction stimulated as zero
     med_angle = []
     for ii in xrange(8):
-        med_angle.append(np.nanmedian(d[idx==ii]))
+        med_angle.append(np.nanmedian(projection_angle[idx==ii]))
     med_angle = np.array(med_angle)
 
     # sort the group indices such that the first deflection angle is 0, and they increase from there
@@ -166,7 +189,7 @@ def get_contact_direction(blk,plot_tgl=True):
     # get the new median angles (in the centered theta/phi space)
     med_angle = []
     for ii in xrange(8):
-        med_angle.append(np.nanmedian(d[new_idx==ii]))
+        med_angle.append(np.nanmedian(projection_angle[new_idx==ii]))
     med_angle = np.array(med_angle)
 
     # plotting
@@ -177,6 +200,8 @@ def get_contact_direction(blk,plot_tgl=True):
         for ii in xrange(8):
             plt.plot(np.cos(med_angle[ii]),np.sin(med_angle[ii]),'o',markersize=10,color=cc[ii],markeredgecolor='k',markeredgewidth=1)
 
-    return(new_idx,med_angle)
+    # map the used indexes to the output so that we dont misalign contacts with their group index
+    direction_index[good_contacts]=new_idx
+    return(direction_index,med_angle)
 
 
