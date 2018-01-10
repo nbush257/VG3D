@@ -268,6 +268,22 @@ def get_STC(signal,train,window):
 def binary_to_neo_train(y):
     return(neo.SpikeTrain(np.where(y)[0],t_stop=len(y),units=pq.ms))
 
+def trains2times(trains,concat_tgl=False):
+    '''
+    given a  list of neo spike trains, returns a list of spiketimes. Can concatenate if desired
+    :param trains: a list of neo spiketrains 
+    :return spt: either a list of spiketimes for each contact, or a list of all the spike times
+    '''
+    spt = []
+    for train in trains:
+        spt.append(train.times.as_quantity()-train.t_start)
+    u = spt[0].units
+    if concat_tgl:
+        spt = np.concatenate(spt)*u
+        spt.sort()
+        return(spt)
+    else:
+        return(spt)
 
 def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
     '''
@@ -289,3 +305,14 @@ def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
     var_sliced = neoUtils.get_analog_contact_slices(var, use_flag)
     return(var_sliced[:,c_idx,:],c_idx)
 
+
+def get_time_stretched_PSTH(trains,nbins=100):
+    spt = []
+    n_contacts = float(len(trains))
+    for train in trains:
+        times = trains2times([train])[0]
+        times /= train.duration
+        spt.append(times.magnitude)
+    spt = np.concatenate(spt)
+    rate, t_edges = np.histogram(spt, bins=np.arange(0, 1, 1./nbins))
+    return(t_edges,rate/n_contacts,1./nbins)
