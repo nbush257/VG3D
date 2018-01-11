@@ -358,20 +358,27 @@ def get_analog_contact_slices(var, contact, slice2array=True):
     return var_out.squeeze()
 
 
-def get_mean_var_contact(blk, varname='Rcp'):
+def get_mean_var_contact(blk, input=None, varname='Rcp'):
     '''
     Get the mean value of a variable for each contact where use_flags is the contact indicator
 
-    :param blk:         a neo block
+    :param input:         a neo block,neo analog signal, python quantity, or numpy array 
     :param varname:     variable name in the neo block. Default = 'Rcp'
 
     :return var_mean:   a [num_contacts x num_dims] quantities matrix of the mean variable value for each contact
     '''
+    if input is None:
+        var = get_var(blk, varname)
+        unit = var.units
+    elif type(input) is pq.quantity.Quantity or type(input) is neo.core.analogsignal.AnalogSignal:
+        var = input
+        unit = var.units
+    elif type(input) is np.ndarray:
+        var=input
+        unit = pq.dimensionless
 
-    var = neoUtils.get_var(blk, varname)
-    unit = var.units
-    use_flags = neoUtils.concatenate_epochs(blk, epoch_idx=-1)
-    var_contacts = neoUtils.get_analog_contact_slices(var, use_flags).squeeze()
+    use_flags = concatenate_epochs(blk, epoch_idx=-1)
+    var_contacts = get_analog_contact_slices(var, use_flags).squeeze()
     var_contacts = np.nanmean(var_contacts * unit, axis=0)
 
     if var_contacts.ndim == 1:
