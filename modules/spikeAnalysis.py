@@ -66,7 +66,7 @@ def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
     post is the number of milliseconds after contact to grab
 
     :param blk:     a neo block of the data to slice
-    :param unit:    a neo unit which carries the desired neuron's spiketrains
+    :param unit:    an integer of the unit index, or a neo unit which carries the desired neuron's spiketrains
     :param pre:     the time prior to the contact onset estimate to include in the contact slice
     :param post:    the time after the contact offset estimate to include in the contact slice
 
@@ -78,6 +78,9 @@ def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
         pre *= pq.ms
     if type(post) != pq.quantity.Quantity:
         post *= pq.ms
+
+    if type(unit) is int:
+        unit = blk.channel_indexes[-1].units[unit]
 
     # init units
     ISI_units = pq.ms
@@ -320,3 +323,8 @@ def get_time_stretched_PSTH(trains,nbins=100):
     spt = np.concatenate(spt)
     rate, t_edges = np.histogram(spt, bins=np.arange(0, 1, 1./nbins))
     return(t_edges,rate/n_contacts,1./nbins)
+
+
+def first_spike_latency(trains):
+    latency = [x[0].magnitude - x.t_start.magnitude for x in trains if len(x) > 0 else np.nan]
+    return(np.array(latency))
