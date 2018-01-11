@@ -237,6 +237,7 @@ def get_raster(blk,unit):
             count+=1
     ax.set_ylim(0,count)
 
+
 def get_STC(signal,train,window):
     '''
     Compute the Spike Triggered Covariance for a set of signals.
@@ -265,8 +266,10 @@ def get_STC(signal,train,window):
 
     return STA
 
+
 def binary_to_neo_train(y):
     return(neo.SpikeTrain(np.where(y)[0],t_stop=len(y),units=pq.ms))
+
 
 def trains2times(trains,concat_tgl=False):
     '''
@@ -284,6 +287,7 @@ def trains2times(trains,concat_tgl=False):
         return(spt)
     else:
         return(spt)
+
 
 def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
     '''

@@ -6,7 +6,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import sklearn
 
-
 def get_delta_angle(blk):
     '''
     This function returns the changes in world angle with respect to the first frame of contact.
@@ -25,6 +24,7 @@ def get_delta_angle(blk):
     use = np.invert(np.all(np.isnan(d), axis=0)) # remove all nan slices
     return(th_contacts[:,use],phie_contacts[:,use])
 
+
 def center_angles(th_contacts,ph_contacts):
     for th,ph in zip(th_contacts,ph_contacts):
         if np.all(np.isnan(th)) or np.all(np.isnan(ph)):
@@ -37,7 +37,6 @@ def center_angles(th_contacts,ph_contacts):
 
         th-=th[first_index]
         ph-=ph[first_index]
-
 
 
 def get_max_angular_displacement(th_contacts,phie_contacts):
@@ -138,6 +137,8 @@ def get_radial_distance_group(blk,plot_tgl=False):
     ordering = np.argsort(S_clusts)
     idx = np.array([np.where(x == ordering)[0][0] for x in idx])
     S_clusts.sort()
+    if np.any(np.isnan(S_clusts)):
+        return(-1)
     if plot_tgl:
         cc = sns.color_palette("Blues", n_clusts+3)
         for ii in xrange(n_clusts):
@@ -237,5 +238,4 @@ def get_contact_direction(blk,plot_tgl=True):
     # map the used indexes to the output so that we dont misalign contacts with their group index
     direction_index[good_contacts]=new_idx
     return(direction_index,med_angle)
-
 
