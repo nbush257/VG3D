@@ -12,7 +12,6 @@ from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
 import sklearn
 
-
 # import my functions
 proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
@@ -28,6 +27,7 @@ def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=False):
         fid = NIO(f)
 
     return fid.read_block()
+
 
 def get_rate_b(blk,unit_num,sigma=10*pq.ms):
     '''
@@ -149,7 +149,7 @@ def nan_bounds(var):
     return np.where(d==1)[0],np.where(d==-1)[0]
 
 
-def replace_NaNs(var, mode='zero',pad=20):
+def replace_NaNs(var, mode='interp',pad=20):
     '''
     takes a Vector, array, or neo Analog signal and replaces the NaNs with desired values
     :param var: numpy array or neo analog signal to replace NaNs
@@ -209,7 +209,6 @@ def replace_NaNs(var, mode='zero',pad=20):
         return(data)
 
 
-
 def get_Cbool(blk,use_bool=True):
     '''
     Given a block,get a boolean vector of contact for the concatenated data
@@ -258,6 +257,7 @@ def get_deriv(var,smooth=False):
 
     return(np.gradient(var,axis=0)[0])
 
+
 def epoch_to_cc(epoch):
     ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
     has contact onset in the first column and contact offset in the second.'''
@@ -267,6 +267,7 @@ def epoch_to_cc(epoch):
 
     print('cc is in {}'.format(epoch.units))
     return cc.astype('int64')
+
 
 def get_MB_MD(data_in):
     '''
@@ -290,6 +291,7 @@ def get_MB_MD(data_in):
         MD = neo.core.AnalogSignal(MD, units=pq.radians, sampling_rate=pq.kHz)
         MB = neo.core.AnalogSignal(MB, units=pq.N*pq.m, sampling_rate=pq.kHz)
     return (MB, MD)
+
 
 def applyPCA(var,Cbool):
     '''
