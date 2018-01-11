@@ -385,3 +385,38 @@ def get_mean_var_contact(blk, input=None, varname='Rcp'):
         var_contacts = var_contacts[:, np.newaxis]
 
     return (var_contacts)
+
+
+def get_contact_apex_idx(blk):
+    '''
+    Use the contact point to estimate the Apex of contact
+    :param blk: 
+    :return: 
+    '''
+    if True:
+        raise Exception('Not Finished')
+    def center_CP(CP_contacts):
+        for ii in xrange(CP_contacts.shape[1]):
+            contact = CP_contacts[:,ii,:]
+            first_index = np.where(np.all(np.isfinite(contact),axis=1))[0][0]
+            contact -= contact[first_index,:]
+
+    CP = get_var(blk,'CP')
+    use_flags= concatenate_epochs(blk,-1)
+    CP_contacts = get_analog_contact_slices(CP,use_flags)
+    center_CP(CP_contacts)
+    D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
+
+    apex_idx = np.nanargmax(D,axis=0)
+    return(apex_idx)
+
+
+def get_value_at_idx(var,idx):
+    '''
+    use this to extract the value of a variable at a given index if you have a list or array of indices
+    This is useful for getting a point in from every contact but that point may be different in each contact
+    :param var: 
+    :param idx: 
+    :return: The value of a variable at the given index 
+    '''
+    return([var[x,ii] for ii,x in enumerate(idx)])
