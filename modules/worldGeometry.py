@@ -5,6 +5,7 @@ import scipy
 import seaborn as sns
 import matplotlib.pyplot as plt
 import sklearn
+import quantities as pq
 
 def get_delta_angle(blk):
     '''
@@ -51,7 +52,7 @@ def get_max_angular_displacement(th_contacts,phie_contacts):
     '''
 
     # get maximal displacement and index when that occurs
-    d = np.sqrt(phie_contacts**2+th_contacts**2)
+    d = np.hypot(phie_contacts,th_contacts)
     idx = np.nanargmax(d,axis=0)
 
     # Loop through each contact to extract the point of maximal displacement
@@ -63,40 +64,6 @@ def get_max_angular_displacement(th_contacts,phie_contacts):
     th_max = np.array(th_max)
 
     return th_max,phi_max
-
-
-def reduce_deflection(blk, num_pts):
-    '''
-    Grabs a subset of theta/phi points from a deflection.
-    Probably not useful. Defaults to error
-    
-    :param blk: 
-    :param num_pts: 
-    :param pad: 
-    :return: 
-    '''
-
-    # if True:
-    #     raise Exception('This function is not finished, and is likely not useful. NEB 20180109')
-
-    th_contacts,ph_contacts = get_delta_angle(blk)
-    center_angles(th_contacts,ph_contacts)
-
-    X = np.empty([th_contacts.shape[1],num_pts*2])
-    for ii in xrange(ph_contacts.shape[-1]):
-        th = th_contacts[:, ii]
-        ph = ph_contacts[:, ii]
-
-        th = th[np.isfinite(th)]
-        ph = ph[np.isfinite(ph)]
-
-        th_pts = th[np.linspace(0, len(th) - 1, num_pts ).astype('int')]
-        ph_pts = ph[np.linspace(0, len(ph) - 1, num_pts ).astype('int')]
-        # th_pts = th_pts[pad / 2:-pad / 2]
-        # ph_pts = ph_pts[pad / 2:-pad / 2]
-
-        X[ii,:] = np.concatenate([th_pts,ph_pts])
-    return(X)
 
 
 def norm_angles(th_max,ph_max):
@@ -173,6 +140,38 @@ def get_contact_direction(blk,plot_tgl=True):
                     med_angle: median angle in the theta/phi centered space
     
     '''
+    def reduce_deflection(blk, num_pts):
+        '''
+        Grabs a subset of theta/phi points from a deflection.
+        Probably not useful. Defaults to error
+
+        :param blk: 
+        :param num_pts: 
+        :param pad: 
+        :return: 
+        '''
+
+        # if True:
+        #     raise Exception('This function is not finished, and is likely not useful. NEB 20180109')
+
+        th_contacts, ph_contacts = get_delta_angle(blk)
+        center_angles(th_contacts, ph_contacts)
+
+        X = np.empty([th_contacts.shape[1], num_pts * 2])
+        for ii in xrange(ph_contacts.shape[-1]):
+            th = th_contacts[:, ii]
+            ph = ph_contacts[:, ii]
+
+            th = th[np.isfinite(th)]
+            ph = ph[np.isfinite(ph)]
+
+            th_pts = th[np.linspace(0, len(th) - 1, num_pts).astype('int')]
+            ph_pts = ph[np.linspace(0, len(ph) - 1, num_pts).astype('int')]
+            # th_pts = th_pts[pad / 2:-pad / 2]
+            # ph_pts = ph_pts[pad / 2:-pad / 2]
+
+            X[ii, :] = np.concatenate([th_pts, ph_pts])
+        return (X)
     # init output index vector
     use_flags = neoUtils.concatenate_epochs(blk, epoch_idx=-1)
     n_contacts = len(use_flags)
@@ -239,3 +238,66 @@ def get_contact_direction(blk,plot_tgl=True):
     direction_index[good_contacts]=new_idx
     return(direction_index,med_angle)
 
+
+def get_onset_velocity(blk,plot_tgl=False):
+    '''
+    Get the onset and offset velocities for each deflection 
+    with respect to the angular motion of the base (TH,PHIE)
+    
+    :param blk: 
+    :param plot_tgl: 
+    :return: 
+    '''
+    use_flags = neoUtils.concatenate_epochs(blk, -1)
+    durations = use_flags.durations
+
+    th, ph = worldGeometry.get_delta_angle(blk)
+    center_angles(th,ph)
+    th_max,ph_max = get_max_angular_displacement(th,ph)
+
+    # distance from initial point at all times
+    D = np.hypot(th, ph)*pq.rad
+
+    # time of max displacement
+    idx = np.nanargmax(D, axis=0)*pq.ms
+
+    # max distance from initial point
+    D_max = np.hypot(th_max, ph_max)*pq.deg
+
+    V_onset = D_max / idx * pq.ms
+    V_offset = D_max / (durations-idx) * pq.ms
+
+    if plot_tgl:
+
+        time_lim = np.percentile(durations, 90)
+        cmap = sns.cubehelix_palette(as_cmap=True,dark=0.1,light=0.8)
+        color_to_plot = (V_onset/np.nanmax(V_onset[np.isfinite(V_onset)])).magnitude
+        color_to_plot[np.isinf(color_to_plot)]=0
+        f = plt.figure()
+        for ii in xrange(th.shape[-1]):
+            # Plot Theta
+            ax = f.add_subplot(311)
+            plt.plot(th[:,ii],color=cmap(color_to_plot[ii]),alpha=.2)
+            ax.set_title(r'$\theta$')
+            ax.set_ylabel('Degrees')
+            ax.set_xlim(0,time_lim)
+
+            # Plot Phi
+            ax = f.add_subplot(312)
+            plt.plot(ph[:, ii], color=cmap(color_to_plot[ii]), alpha=.2)
+            ax.set_title(r'$\phi$')
+            ax.set_ylabel('Degrees')
+            ax.set_xlim(0, time_lim)
+
+            # Plot sqrt(th**2+phi**2)
+            ax = f.add_subplot(313)
+            plt.plot(D[:, ii], color=cmap(color_to_plot[ii]), alpha=.2)
+            ax.set_title(r'angular displacement')
+            ax.set_xlabel('time (ms)')
+            ax.set_ylabel('Degrees')
+            ax.set_xlim(0, time_lim)
+
+        f.suptitle('{}'.format(neoUtils.get_root(blk,0)))
+        f.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    return(V_onset,V_offset)
