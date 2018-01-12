@@ -5,8 +5,7 @@ import os
 import sys
 VG3D_modules = os.path.join(os.path.abspath(os.path.join(os.getcwd(),os.pardir)),'modules')
 sys.path.append(VG3D_modules)
-from neo_utils import *
-from mechanics import *
+from neoUtils import *
 from GLM import *
 import numpy as np
 import matplotlib.pyplot as plt
@@ -34,7 +33,7 @@ def bin_design_matrix(X,binsize):
 
 
 def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=None):
-    ''' 
+    '''
     Takes a list of variables and turns it into a matrix.
     Sets the non-contact mechanics to zero, but keeps all the kinematics as NaN
     You can append the derivative or apply the pillow bases, or both.
@@ -259,7 +258,7 @@ def main():
         # ===================================== #
         sp = concatenate_sp(blk)[unit.name]
         b = elephant.conversion.BinnedSpikeTrain(sp,binsize=binsize)
-        Cbool=get_Cbool(blk)
+        Cbool=get_Cbool(blk,-1)
 
         spike_isbool=binsize==pq.ms
         if spike_isbool:

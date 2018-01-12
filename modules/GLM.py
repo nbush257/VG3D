@@ -293,7 +293,7 @@ def run_STM(X,y,num_components=3,num_features=20):
 
     model.train(X,y, parameters={
         'verbosity':1,
-        'threshold':1e-6
+        'threshold':1e-7
             }
                 )
     yhat = model.predict(X).ravel()
