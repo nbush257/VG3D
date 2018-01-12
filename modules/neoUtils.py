@@ -11,7 +11,7 @@ import elephant
 from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
 import sklearn
-
+import statsmodels.nonparametric.smoothers_lowess as sls
 # import my functions
 proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
@@ -245,17 +245,16 @@ def get_root(blk,cell_no):
     return(blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no))
 
 
-def get_deriv(var,smooth=False):
+def get_deriv(var,sgolay_tgl=True,window=31):
     ''' returns the temporal derivative of a numpy array with time along the 0th axis'''
     if var.ndim==1:
         var = var[:,np.newaxis]
     if var.shape[1]>var.shape[0]:
         raise Warning('Matrix was wider than it is tall, are variables in the columns?')
-    # assumes a matrix or vector where the columns are variables
-    if smooth:
-        var = savgol_filter(var,window_length=21)
+    if sgolay_tgl:
+        var = scipy.signal.savgol_filter(var, 31, 3, axis=0)
 
-    return(np.gradient(var,axis=0)[0])
+    return(np.gradient(var,axis=0))
 
 
 def epoch_to_cc(epoch):
@@ -267,6 +266,18 @@ def epoch_to_cc(epoch):
 
     print('cc is in {}'.format(epoch.units))
     return cc.astype('int64')
+
+
+def Cbool_to_cc(Cbool):
+    '''
+    Helper function to turn a binary contact boolean into indexes of starts and stops
+    :param Cbool: 
+    :return cc: First column is start indices, second column is stop indices     
+    '''
+    Cbool = np.concatenate([[False],Cbool,[False]]).astype('int')
+    starts = np.where(np.diff(Cbool) == 1)[0]
+    stops = np.where(np.diff(Cbool) == -1)[0]
+    return starts,stops
 
 
 def get_MB_MD(data_in):
@@ -420,3 +431,28 @@ def get_value_at_idx(var,idx):
     :return: The value of a variable at the given index 
     '''
     return([var[x,ii] for ii,x in enumerate(idx)])
+
+
+def smooth_var_lowess(sig,window=50):
+    '''
+    Perform Lowess smoothing on a time series. This smoothing is very good because it 
+    does not have any issues with nan discontinuities
+    
+    :param sig: a numpy matrix of [n_samples x n_dim], or a neo analog signal or a quantity 
+    :param window: a smoothing paramter. number of smaples to cinsider during the rewighting
+    
+    :return out: a matrix like that of the input. Does not reconvert into the input type yet. 
+    '''
+    if ((type(sig) is neo.core.analogsignal.AnalogSignal) or
+        (type(sig) is pq.quantity.Quantity)):
+        sig = sig.magnitude
+
+    out = np.empty_like(sig)
+    out[:] = np.nan
+    frac=float(window)/sig.shape[0]
+    for ii in xrange(sig.shape[1]):
+        endog = sig[:,ii]
+        fitted = sls.lowess(endog,np.arange(len(endog)),is_sorted=True,frac=frac,delta=5)
+        out[fitted[:,0].astype('int'),ii] = fitted[:,1]
+
+
