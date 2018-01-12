@@ -8,6 +8,7 @@ import neo
 import elephant
 from scipy import corrcoef
 import quantities as pq
+import progressbar
 
 try:
     import cmt
@@ -89,7 +90,7 @@ def apply_bases(X, bases, lag=0):
         for jj in xrange(bases.shape[1]):
             temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
             zero_pad = np.zeros(lag)
-            temp = np.concatenate([zero_pad, temp[:-lag]])
+            temp = np.concatenate([zero_pad, temp[:-lag-1]])
             X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
     return(X_out)
 
@@ -401,3 +402,22 @@ if keras_tgl:
             yhat[timestep,:]=is_spike
         return yhat
 
+def sim(yhat, y,num_sims=100,lim=500):
+    ISI = np.diff(np.where(y)[0])
+    prob,time=np.histogram(ISI[ISI<lim],lim,density=True)
+    cum_prob = np.cumsum(prob)
+    cum_prob[cum_prob>1]=1
+    h = np.ones(num_sims,dtype='int')*lim-1
+    sim_out=[]
+    bar = progressbar.ProgressBar(max_value=len(yhat))
+    for ii,p in enumerate(yhat):
+        if ii%10000==0:
+            bar.update(ii)
+        p = np.repeat(p,num_sims)*cum_prob[h]
+        sim_temp = np.random.binomial(1,p)
+        h+=1
+        h[sim_temp.astype('bool')] = 0
+        h[h>=lim]=lim-1
+        sim_out.append(sim_temp)
+    sim_out = np.array(sim_out)
+    return sim_out

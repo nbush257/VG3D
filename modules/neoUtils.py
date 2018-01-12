@@ -12,7 +12,6 @@ from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
 import sklearn
 
-
 # import my functions
 proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
@@ -28,6 +27,7 @@ def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=False):
         fid = NIO(f)
 
     return fid.read_block()
+
 
 def get_rate_b(blk,unit_num,sigma=10*pq.ms):
     '''
@@ -49,12 +49,15 @@ def get_rate_b(blk,unit_num,sigma=10*pq.ms):
 def get_var(blk,varname='M',join=True,keep_neo=True):
     ''' use this utility to access an analog variable from all segments in a block easily
     If you choose to join the segments, returns a list of '''
-    varnames = ['M','F','TH','PHIE','ZETA','Rcp','THcp','PHIcp','Zcp']
-    idx = varnames.index(varname)
+
     split_points = []
     var = []
     # Create a list of the analog signals for each segment
     for seg in blk.segments:
+        names = [str(x.name) for x in seg.analogsignals]
+        names =[w.replace('Moment', 'M') for w in names]
+        names = [w.replace('Force', 'F') for w in names]
+        idx = names.index(varname)
         if keep_neo:
             var.append(seg.analogsignals[idx])
         else:
@@ -146,7 +149,7 @@ def nan_bounds(var):
     return np.where(d==1)[0],np.where(d==-1)[0]
 
 
-def replace_NaNs(var, mode='zero',pad=20):
+def replace_NaNs(var, mode='interp',pad=20):
     '''
     takes a Vector, array, or neo Analog signal and replaces the NaNs with desired values
     :param var: numpy array or neo analog signal to replace NaNs
@@ -206,7 +209,6 @@ def replace_NaNs(var, mode='zero',pad=20):
         return(data)
 
 
-
 def get_Cbool(blk,use_bool=True):
     '''
     Given a block,get a boolean vector of contact for the concatenated data
@@ -255,6 +257,7 @@ def get_deriv(var,smooth=False):
 
     return(np.gradient(var,axis=0)[0])
 
+
 def epoch_to_cc(epoch):
     ''' take a NEO epoch representing contacts and turn it into an Nx2 matrix which
     has contact onset in the first column and contact offset in the second.'''
@@ -264,6 +267,7 @@ def epoch_to_cc(epoch):
 
     print('cc is in {}'.format(epoch.units))
     return cc.astype('int64')
+
 
 def get_MB_MD(data_in):
     '''
@@ -287,6 +291,7 @@ def get_MB_MD(data_in):
         MD = neo.core.AnalogSignal(MD, units=pq.radians, sampling_rate=pq.kHz)
         MB = neo.core.AnalogSignal(MB, units=pq.N*pq.m, sampling_rate=pq.kHz)
     return (MB, MD)
+
 
 def applyPCA(var,Cbool):
     '''
@@ -350,4 +355,68 @@ def get_analog_contact_slices(var, contact, slice2array=True):
     else:
         var_out = var_slice
 
-    return var_out
+    return var_out.squeeze()
+
+
+def get_mean_var_contact(blk, input=None, varname='Rcp'):
+    '''
+    Get the mean value of a variable for each contact where use_flags is the contact indicator
+
+    :param input:         a neo block,neo analog signal, python quantity, or numpy array 
+    :param varname:     variable name in the neo block. Default = 'Rcp'
+
+    :return var_mean:   a [num_contacts x num_dims] quantities matrix of the mean variable value for each contact
+    '''
+    if input is None:
+        var = get_var(blk, varname)
+        unit = var.units
+    elif type(input) is pq.quantity.Quantity or type(input) is neo.core.analogsignal.AnalogSignal:
+        var = input
+        unit = var.units
+    elif type(input) is np.ndarray:
+        var=input
+        unit = pq.dimensionless
+
+    use_flags = concatenate_epochs(blk, epoch_idx=-1)
+    var_contacts = get_analog_contact_slices(var, use_flags).squeeze()
+    var_contacts = np.nanmean(var_contacts * unit, axis=0)
+
+    if var_contacts.ndim == 1:
+        var_contacts = var_contacts[:, np.newaxis]
+
+    return (var_contacts)
+
+
+def get_contact_apex_idx(blk):
+    '''
+    Use the contact point to estimate the Apex of contact
+    :param blk: 
+    :return: 
+    '''
+    if True:
+        raise Exception('Not Finished')
+    def center_CP(CP_contacts):
+        for ii in xrange(CP_contacts.shape[1]):
+            contact = CP_contacts[:,ii,:]
+            first_index = np.where(np.all(np.isfinite(contact),axis=1))[0][0]
+            contact -= contact[first_index,:]
+
+    CP = get_var(blk,'CP')
+    use_flags= concatenate_epochs(blk,-1)
+    CP_contacts = get_analog_contact_slices(CP,use_flags)
+    center_CP(CP_contacts)
+    D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
+
+    apex_idx = np.nanargmax(D,axis=0)
+    return(apex_idx)
+
+
+def get_value_at_idx(var,idx):
+    '''
+    use this to extract the value of a variable at a given index if you have a list or array of indices
+    This is useful for getting a point in from every contact but that point may be different in each contact
+    :param var: 
+    :param idx: 
+    :return: The value of a variable at the given index 
+    '''
+    return([var[x,ii] for ii,x in enumerate(idx)])

@@ -4,6 +4,7 @@ import elephant
 from elephant import kernels
 from elephant.conversion import *
 import quantities as pq
+import neoUtils
 
 
 def get_autocorr(sp_neo):
@@ -65,7 +66,7 @@ def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
     post is the number of milliseconds after contact to grab
 
     :param blk:     a neo block of the data to slice
-    :param unit:    a neo unit which carries the desired neuron's spiketrains
+    :param unit:    an integer of the unit index, or a neo unit which carries the desired neuron's spiketrains
     :param pre:     the time prior to the contact onset estimate to include in the contact slice
     :param post:    the time after the contact offset estimate to include in the contact slice
 
@@ -77,8 +78,10 @@ def get_contact_sliced_trains(blk,unit,pre=0.,post=0.):
         pre *= pq.ms
     if type(post) != pq.quantity.Quantity:
         post *= pq.ms
-    if True:
-        raise Exception('This code is not returning trains correctly')
+
+    if type(unit) is int:
+        unit = blk.channel_indexes[-1].units[unit]
+
     # init units
     ISI_units = pq.ms
     FR_units = 1/pq.s
@@ -237,6 +240,7 @@ def get_raster(blk,unit):
             count+=1
     ax.set_ylim(0,count)
 
+
 def get_STC(signal,train,window):
     '''
     Compute the Spike Triggered Covariance for a set of signals.
@@ -266,8 +270,61 @@ def get_STC(signal,train,window):
     return STA
 
 
+def binary_to_neo_train(y):
+    return(neo.SpikeTrain(np.where(y)[0],t_stop=len(y),units=pq.ms))
 
 
+def trains2times(trains,concat_tgl=False):
+    '''
+    given a  list of neo spike trains, returns a list of spiketimes. Can concatenate if desired
+    :param trains: a list of neo spiketrains 
+    :return spt: either a list of spiketimes for each contact, or a list of all the spike times
+    '''
+    spt = []
+    for train in trains:
+        spt.append(train.times.as_quantity()-train.t_start)
+    u = spt[0].units
+    if concat_tgl:
+        spt = np.concatenate(spt)*u
+        spt.sort()
+        return(spt)
+    else:
+        return(spt)
 
 
+def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
+    '''
+    Finds contacts which ellicited the desired number of spikes. Useful if trying to look at RA onset.
+    :param blk:
+    :param unit_num:
+    :param num_spikes:
+    :param varname:
+    :return: var_sliced, c_idx (an index of which contacts have the desired numer of spikes)
+    '''
+    use_flag = neoUtils.concatenate_epochs(blk,-1)
+    unit = blk.channel_indexes[-1].units[unit_num]
+    trains = get_contact_sliced_trains(blk,unit)[-1]
+    c_idx=[]
+    for ii,train in enumerate(trains):
+        if len(train)==num_spikes:
+            c_idx.append(ii)
+    var = neoUtils.get_var(blk,varname)
+    var_sliced = neoUtils.get_analog_contact_slices(var, use_flag)
+    return(var_sliced[:,c_idx,:],c_idx)
 
+
+def get_time_stretched_PSTH(trains,nbins=100):
+    spt = []
+    n_contacts = float(len(trains))
+    for train in trains:
+        times = trains2times([train])[0]
+        times /= train.duration
+        spt.append(times.magnitude)
+    spt = np.concatenate(spt)
+    rate, t_edges = np.histogram(spt, bins=np.arange(0, 1, 1./nbins))
+    return(t_edges,rate/n_contacts,1./nbins)
+
+
+def first_spike_latency(trains):
+    latency = [x[0].magnitude - x.t_start.magnitude if len(x) > 0 else np.nan for x in trains]
+    return(np.array(latency))

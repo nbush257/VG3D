@@ -1,5 +1,6 @@
 from neo.io import PickleIO
 from neo.io import NixIO
+import neoUtils
 import os
 import sys
 VG3D_modules = os.path.join(os.path.abspath(os.path.join(os.getcwd(),os.pardir)),'modules')
@@ -40,8 +41,12 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     Scales, but does not center the output
     '''
     X = []
+    if type(window)==pq.quantity.Quantity:
+        window = int(window)
 
-    Cbool = get_Cbool(blk)
+    if type(binsize)==pq.quantity.Quantity:
+        binsize = int(binsize)
+    Cbool = neoUtils.get_Cbool(blk)
 
     # ================================ #
     # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
@@ -51,8 +56,9 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
         var = get_var(blk,varname, keep_neo=False)[0]
         if varname in ['M','F']:
             var[np.invert(Cbool),:]=0
-            var = replace_NaNs(var,'pchip')
-            var = replace_NaNs(var,'interp')
+
+        var = replace_NaNs(var,'pchip')
+        var = replace_NaNs(var,'interp')
 
         X.append(var)
     X = np.concatenate(X, axis=1)
@@ -64,19 +70,15 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
          Xdot = get_deriv(X)
          X = np.append(X, Xdot, axis=1)
 
-    # ================================ #
-    # APPLY WINDOW
-    # ================================ #
-
-    X = make_tensor(X, window)
-    X = reshape_tensor(X)
 
      # ================================ #
-     # APPLY BASES FUNCTIONS
+     # APPLY BASES FUNCTIONS OR WINDOWING
      # ================================ #
     if bases is not None:
         X = apply_bases(X,bases)
-
+    else:
+        X = make_tensor(X, window)
+        X = reshape_tensor(X)
     # ================================ #
     # SCALE
     # ================================ #
@@ -229,7 +231,7 @@ def main():
     if pillow_tgl:
         B = make_bases(5,[0,15],2)
         bases=B[0]
-        X_pillow = create_design_matrix(blk, varlist, deriv_tgl=deriv_tgl, bases=bases)
+        X_pillow = create_design_matrix(blk, varlist, deriv_tgl=options.deriv_tgl, bases=bases)
     else:
         B=None
         bases = None
