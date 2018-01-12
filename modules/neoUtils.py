@@ -245,14 +245,14 @@ def get_root(blk,cell_no):
     return(blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no))
 
 
-def get_deriv(var,sgolay_tgl=True,window=31):
+def get_deriv(var,sgolay_tgl=False,window=11):
     ''' returns the temporal derivative of a numpy array with time along the 0th axis'''
     if var.ndim==1:
         var = var[:,np.newaxis]
     if var.shape[1]>var.shape[0]:
         raise Warning('Matrix was wider than it is tall, are variables in the columns?')
     if sgolay_tgl:
-        var = scipy.signal.savgol_filter(var, 31, 3, axis=0)
+        var = scipy.signal.savgol_filter(var, window, 1, axis=0)
 
     return(np.gradient(var,axis=0))
 
@@ -452,7 +452,7 @@ def smooth_var_lowess(sig,window=50):
     frac=float(window)/sig.shape[0]
     for ii in xrange(sig.shape[1]):
         endog = sig[:,ii]
-        fitted = sls.lowess(endog,np.arange(len(endog)),is_sorted=True,frac=frac,delta=5)
+        fitted = sls.lowess(endog,np.arange(len(endog)),is_sorted=True,frac=frac,delta=2)
         out[fitted[:,0].astype('int'),ii] = fitted[:,1]
-
+    return out
 

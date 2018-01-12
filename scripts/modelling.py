@@ -5,8 +5,8 @@ import os
 import sys
 VG3D_modules = os.path.join(os.path.abspath(os.path.join(os.getcwd(),os.pardir)),'modules')
 sys.path.append(VG3D_modules)
-from neoUtils import *
-from GLM import *
+import neoUtils
+import GLM
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -23,7 +23,7 @@ sns.set()
 
 def init_model_params():
     sigma_vals = np.arange(2, 200, 4)*pq.ms
-    B = make_bases(5, [0, 15], b=2)
+    B = GLM.make_bases(5, [0, 15], b=2)
     winsize = int(B[0].shape[0])
     return sigma_vals,B,winsize
 
@@ -45,19 +45,19 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
 
     if type(binsize)==pq.quantity.Quantity:
         binsize = int(binsize)
-    Cbool = neoUtils.get_Cbool(blk)
+    Cbool = neoUtils.get_Cbool(blk,-1)
 
     # ================================ #
     # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
     # ================================ #
 
     for varname in varlist:
-        var = get_var(blk,varname, keep_neo=False)[0]
+        var = neoUtils.get_var(blk,varname, keep_neo=False)[0]
         if varname in ['M','F']:
             var[np.invert(Cbool),:]=0
 
-        var = replace_NaNs(var,'pchip')
-        var = replace_NaNs(var,'interp')
+        var = neoUtils.replace_NaNs(var,'pchip')
+        var = neoUtils.replace_NaNs(var,'interp')
 
         X.append(var)
     X = np.concatenate(X, axis=1)
@@ -66,7 +66,7 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     # CALCULATE DERIVATIVE
     # ================================ #
     if deriv_tgl:
-         Xdot = get_deriv(X)
+         Xdot = neoUtils.get_deriv(X)
          X = np.append(X, Xdot, axis=1)
 
 
@@ -74,10 +74,10 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
      # APPLY BASES FUNCTIONS OR WINDOWING
      # ================================ #
     if bases is not None:
-        X = apply_bases(X,bases)
+        X = GLM.apply_bases(X,bases)
     else:
-        X = make_tensor(X, window)
-        X = reshape_tensor(X)
+        X = GLM.make_tensor(X, window)
+        X = GLM.reshape_tensor(X)
     # ================================ #
     # SCALE
     # ================================ #
@@ -228,7 +228,7 @@ def main():
 
     # calculate pillow bases if desired.
     if pillow_tgl:
-        B = make_bases(5,[0,15],2)
+        B = GLM.make_bases(5,[0,15],2)
         bases=B[0]
         X_pillow = create_design_matrix(blk, varlist, deriv_tgl=options.deriv_tgl, bases=bases)
     else:
