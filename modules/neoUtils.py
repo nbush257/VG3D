@@ -456,3 +456,13 @@ def smooth_var_lowess(sig,window=50):
         out[fitted[:,0].astype('int'),ii] = fitted[:,1]
     return out
 
+def center_var(var):
+    ''' performs inplace centering to contact onset'''
+    for var_slice in var:
+        if np.all(np.isnan(var_slice)):
+            continue
+
+        first_index = np.min(
+            np.where(np.isfinite(var_slice))[0][0])
+        var_slice-=var_slice[first_index]
+
