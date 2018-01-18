@@ -79,7 +79,7 @@ def angular_response_hist(angular_var, sp, use_flags, nbins=100,min_obs=5):
     if type(nbins)==int:
         bins = np.linspace(-np.pi,np.pi,nbins+1,endpoint=True)
     # not nan is a list of finite sample indices, rather than a boolean mask. This is used in computing the posterior
-    not_nan = np.where(np.logical_and(np.isfinite(angular_var),use_flags)[0]
+    not_nan = np.where(np.logical_and(np.isfinite(angular_var),use_flags))[0]
     prior,prior_edges = np.histogram(angular_var[not_nan], bins=bins)
     prior[prior < min_obs] = 0
     # allows the function to take a spike train or a continuous rate to get the posterior
