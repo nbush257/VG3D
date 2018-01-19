@@ -28,25 +28,24 @@ def get_bins(x,nbins):
     bin_counts = len(x)/nbins
 
 
-def mymz_space(blk,unit_num,bin_stretch=True,save_tgl=False,p_save=None,im_ext='png',dpi_res=300):
+def mymz_space(blk,unit_num,bin_stretch=False,save_tgl=False,p_save=None,im_ext='png',dpi_res=300):
 
     root = neoUtils.get_root(blk,unit_num)
-    Cbool = neoUtils.get_Cbool(blk)
+    use_flags = neoUtils.get_Cbool(blk)
     M = neoUtils.get_var(blk).magnitude[Cbool,:]
-    r,b = neoUtils.get_rate_b(blk,unit_num,sigma=5*pq.ms)
-    r = r[Cbool]
-    b=b[Cbool]
+    sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
     idx = np.all(np.isfinite(M),axis=1)
     if bin_stretch:
-        MY, logit_y = nl(M[idx, 1],90)
-        MZ, logit_z = nl(M[idx, 2],90)
+        MY = np.empty(M.shape[0])
+        MZ = np.empty(M.shape[0])
+        MY[idx], logit_y = nl(M[idx, 1],90)
+        MZ[idx], logit_z = nl(M[idx, 2],90)
     else:
-        MY = M[idx,1]*1e-6
-        MZ = M[idx,2]*1e-6
-    r=r[idx]
-    b=b[idx]
+        MY = M[:,1]*1e-6
+        MZ = M[:,2]*1e-6
 
-    response, var1_edges,var2_edges = varTuning.joint_response_hist(MY,MZ,r,bins = 100,min_obs=15)
+
+    response, var1_edges,var2_edges = varTuning.joint_response_hist(MY,MZ,sp,use_flags,bins = 100,min_obs=15)
     if bin_stretch:
         var1_edges = logit_y(var1_edges)
         var2_edges = logit_z(var2_edges)
@@ -77,11 +76,11 @@ def mymz_space(blk,unit_num,bin_stretch=True,save_tgl=False,p_save=None,im_ext='
 def MB_curve(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
     root = neoUtils.get_root(blk, unit_num)
     M = neoUtils.get_var(blk)
-    Cbool = neoUtils.get_Cbool(blk)
+    use_flags = neoUtils.get_Cbool(blk)
     MB = mechanics.get_MB_MD(M)[0].magnitude.ravel()
-    MB[np.invert(Cbool)]=0
-    r, b = neoUtils.get_rate_b(blk, unit_num, sigma=2 * pq.ms)
-    MB_bayes,edges = varTuning.stim_response_hist(MB*1e6,r,nbins=100,min_obs=5)
+    MB[np.invert(use_flags)]=0
+    sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
+    MB_bayes,edges = varTuning.stim_response_hist(MB*1e6,sp,use_flags,nbins=100,min_obs=5)
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(edges[:-1],MB_bayes,'o',color='k')
@@ -93,35 +92,30 @@ def MB_curve(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
         plt.close('all')
 
 
-def phase_plots(blk,unit_num,save_tgl=False,bin_stretch=True,p_save=None,im_ext='png',dpi_res=300):
+def phase_plots(blk,unit_num,use_flags,save_tgl=False,bin_stretch=False,p_save=None,im_ext='png',dpi_res=300):
     ''' Plot Phase planes for My and Mz'''
     root = neoUtils.get_root(blk, unit_num)
-    Cbool = neoUtils.get_Cbool(blk)
     M = neoUtils.get_var(blk).magnitude
-    r,b = neoUtils.get_rate_b(blk,unit_num,sigma=5*pq.ms)
-    r = r[Cbool]
-    b=b[Cbool]
-    Mdot = mechanics.get_deriv(M)[Cbool,:]
-    M = M[Cbool,:]
+    sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
+    use_flags = neoUtils.get_Cbool(blk)
+    Mdot = mechanics.get_deriv(M)
 
-    idx = np.logical_and(np.all(np.isfinite(M), axis=1),np.all(np.isfinite(Mdot), axis=1))
+
     if bin_stretch:
+        raise Exception('Not finished with use_flags')
         MY, logit_y = nl(M[idx, 1], 90)
         MZ, logit_z = nl(M[idx, 2], 90)
         MY_dot, logit_ydot = nl(Mdot[idx, 1], 95)
         MZ_dot, logit_zdot = nl(Mdot[idx, 2], 95)
 
     else:
-        MY = M[idx, 1] * 1e-6
-        MZ = M[idx, 2] * 1e-6
-        MY_dot = Mdot[idx, 1] * 1e-6
-        MZ_dot = Mdot[idx, 2] * 1e-6
-    r = r[idx]
-    b=b[idx]
+        MY = M[:, 1] * 1e-6
+        MZ = M[:, 2] * 1e-6
+        MY_dot = Mdot[:, 1] * 1e-6
+        MZ_dot = Mdot[:, 2] * 1e-6
 
-
-    My_response,My_edges,Mydot_edges = varTuning.joint_response_hist(MY, MY_dot, r, [100,30],min_obs=15)
-    Mz_response,Mz_edges,Mzdot_edges = varTuning.joint_response_hist(MZ, MZ_dot, r, [100,30],min_obs=15)
+    My_response,My_edges,Mydot_edges = varTuning.joint_response_hist(MY, MY_dot, sp, use_flags, [100,30],min_obs=15)
+    Mz_response,Mz_edges,Mzdot_edges = varTuning.joint_response_hist(MZ, MZ_dot, sp, use_flags, [100,30],min_obs=15)
 
 
     if bin_stretch:
@@ -189,11 +183,12 @@ def FX_plots(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
     root = neoUtils.get_root(blk, unit_num)
     F = neoUtils.get_var(blk,'F')
     Fx = F.magnitude[:,0]
-    Cbool = neoUtils.get_Cbool(blk)
+    use_flags = neoUtils.get_Cbool(blk)
+    sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
 
-    Fx[np.invert(Cbool)] = 0
-    r, b = neoUtils.get_rate_b(blk, unit_num, sigma=2 * pq.ms)
-    Fx_bayes, edges = varTuning.stim_response_hist(Fx * 1e6, b, nbins=50, min_obs=5)
+    Fx[np.invert(use_flags)] = 0
+
+    Fx_bayes, edges = varTuning.stim_response_hist(Fx * 1e6, sp, use_flags, nbins=50, min_obs=5)
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.plot(edges[:-1], Fx_bayes*1000, 'o', color='k')
@@ -205,7 +200,7 @@ def FX_plots(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
         plt.close('all')
 
 
-def calc_all_mech_hists(p_load,p_save):
+def calc_all_mech_hists(p_load,p_save,n_bins=100):
     all_F_edges = []
     all_M_edges = []
     all_F_bayes = []
@@ -223,26 +218,25 @@ def calc_all_mech_hists(p_load,p_save):
         for unit in blk.channel_indexes[-1].units:
             unit_num = int(unit.name[-1])
             r, b = neoUtils.get_rate_b(blk, unit_num, sigma=5 * pq.ms)
+            sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
+
             root = neoUtils.get_root(blk,unit_num)
-            M = neoUtils.get_var(blk).magnitude[Cbool,:]
-            F = neoUtils.get_var(blk,'F').magnitude[Cbool,:]
-
-            r = r[Cbool]
-
+            M = neoUtils.get_var(blk).magnitude
+            F = neoUtils.get_var(blk,'F').magnitude
 
             MB, MD = neoUtils.get_MB_MD(M)
-            M_bayes = np.empty([50,3])
-            F_bayes = np.empty([50, 3])
+            M_bayes = np.empty([n_bins,3])
+            F_bayes = np.empty([n_bins, 3])
 
-            M_edges = np.empty([51, 3])
-            F_edges = np.empty([51, 3])
+            M_edges = np.empty([n_bins+1, 3])
+            F_edges = np.empty([n_bins+1, 3])
 
             for ii in range(3):
-                F_bayes[:, ii], F_edges[:, ii] = varTuning.stim_response_hist(F[:, ii] * 1e6, r, nbins=50, min_obs=5)
-                M_bayes[:, ii], M_edges[:, ii] = varTuning.stim_response_hist(M[:, ii] * 1e6, r, nbins=50, min_obs=5)
+                F_bayes[:, ii], F_edges[:, ii] = varTuning.stim_response_hist(F[:, ii] * 1e6, sp, Cbool, nbins=n_bins, min_obs=5)
+                M_bayes[:, ii], M_edges[:, ii] = varTuning.stim_response_hist(M[:, ii] * 1e6, sp, Cbool, nbins=n_bins, min_obs=5)
 
-            MB_bayes, MB_edges = varTuning.stim_response_hist(MB.squeeze() * 1e6, r, nbins=50, min_obs=5)
-            MD_bayes, MD_edges,_,_ = varTuning.angular_response_hist(MD.squeeze(), r, nbins=50)
+            MB_bayes, MB_edges = varTuning.stim_response_hist(MB.squeeze() * 1e6, sp, Cbool, nbins=n_bins, min_obs=5)
+            MD_bayes, MD_edges,_,_ = varTuning.angular_response_hist(MD.squeeze(), sp, Cbool, nbins=n_bins)
 
             plt.close('all')
 
@@ -270,7 +264,7 @@ def calc_all_mech_hists(p_load,p_save):
              )
 
 
-def calc_world_geom_hist(p_load,p_save):
+def calc_world_geom_hist(p_load,p_save,n_bins=100):
     ID = []
     all_R_bayes = []
     all_TH_bayes = []
@@ -291,20 +285,20 @@ def calc_world_geom_hist(p_load,p_save):
         for unit in blk.channel_indexes[-1].units:
             unit_num = int(unit.name[-1])
             r, b = neoUtils.get_rate_b(blk, unit_num, sigma=5 * pq.ms)
+            sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
             root = neoUtils.get_root(blk,unit_num)
             ID.append(root)
 
-            R = neoUtils.get_var(blk,'Rcp').magnitude[Cbool]
-            TH = neoUtils.get_var(blk,'TH').magnitude[Cbool]
-            PHIE = neoUtils.get_var(blk, 'PHIE').magnitude[Cbool]
-            ZETA = neoUtils.get_var(blk, 'ZETA').magnitude[Cbool]
+            R = neoUtils.get_var(blk,'Rcp').magnitude
+            TH = neoUtils.get_var(blk,'TH').magnitude
+            PHIE = neoUtils.get_var(blk, 'PHIE').magnitude
+            ZETA = neoUtils.get_var(blk, 'ZETA').magnitude
 
-            r = r[Cbool]
 
-            R_bayes, R_edges = varTuning.stim_response_hist(R.ravel(), r, nbins=50, min_obs=5)
-            TH_bayes, TH_edges = varTuning.stim_response_hist(TH.ravel(), r, nbins=50, min_obs=5)
-            PHIE_bayes, PHIE_edges = varTuning.stim_response_hist(PHIE.ravel(), r, nbins=50,min_obs=5)
-            ZETA_bayes, ZETA_edges = varTuning.stim_response_hist(ZETA.ravel(), r, nbins=50,min_obs=5)
+            R_bayes, R_edges = varTuning.stim_response_hist(R.ravel(), sp, Cbool, nbins=n_bins, min_obs=5)
+            TH_bayes, TH_edges = varTuning.stim_response_hist(TH.ravel(), sp, Cbool, nbins=n_bins, min_obs=5)
+            PHIE_bayes, PHIE_edges = varTuning.stim_response_hist(PHIE.ravel(), sp, Cbool, nbins=n_bins,min_obs=5)
+            ZETA_bayes, ZETA_edges = varTuning.stim_response_hist(ZETA.ravel(), sp, Cbool, nbins=n_bins,min_obs=5)
 
             plt.close('all')
             all_R_bayes.append(R_bayes)
@@ -462,8 +456,8 @@ def plot_joint_spaces(p_load,p_save):
                 pass
 
 if __name__=='__main__':
-    p_load = os.path.join(os.environ['BOX_SYNC'],r'\__VG3D\_deflection_trials\_NEO')
-    p_save = os.path.join(os.environ['BOX_SYNC'],r'\__VG3D\_deflection_trials\_NEO\results')
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
+    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
     calc_all_mech_hists(p_load,p_save)
     calc_world_geom_hist(p_load,p_save)
     plot_all_geo_hists(save_tgl=True)
