@@ -66,14 +66,14 @@ def get_var(blk,varname='M',join=True,keep_neo=True):
 
     if join:
         if keep_neo:
-            data = np.empty([0,var[0].shape[-1]])
+            data = []
             t_start = 0.*pq.s
             t_stop = 0.*pq.s
             for seg in var:
-                data = np.append(data,seg.as_array(),axis=0)
+                data.append(seg.as_array())
                 t_stop +=seg.t_stop
-
-            sig = AnalogSignal(data*var[0].units,
+            data = np.concatenate(data,axis=0)
+            sig = neo.AnalogSignal(data*var[0].units,
                                         t_start=t_start,
                                         sampling_rate=var[0].sampling_rate,
                                         name=var[0].name)
