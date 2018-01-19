@@ -32,7 +32,7 @@ def mymz_space(blk,unit_num,bin_stretch=False,save_tgl=False,p_save=None,im_ext=
 
     root = neoUtils.get_root(blk,unit_num)
     use_flags = neoUtils.get_Cbool(blk)
-    M = neoUtils.get_var(blk).magnitude[Cbool,:]
+    M = neoUtils.get_var(blk).magnitude
     sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
     idx = np.all(np.isfinite(M),axis=1)
     if bin_stretch:
@@ -94,7 +94,7 @@ def MB_curve(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
         plt.close('all')
 
 
-def phase_plots(blk,unit_num,use_flags,save_tgl=False,bin_stretch=False,p_save=None,im_ext='png',dpi_res=300):
+def phase_plots(blk,unit_num,save_tgl=False,bin_stretch=False,p_save=None,im_ext='png',dpi_res=300):
     ''' Plot Phase planes for My and Mz'''
     root = neoUtils.get_root(blk, unit_num)
     M = neoUtils.get_var(blk).magnitude
@@ -272,12 +272,12 @@ def calc_all_mech_hists(p_load,p_save,n_bins=100):
 
 def calc_world_geom_hist(p_load,p_save,n_bins=100):
     ID = []
-    all_R_bayes = []
+    all_S_bayes = []
     all_TH_bayes = []
     all_PHIE_bayes = []
     all_ZETA_bayes = []
 
-    all_R_edges = []
+    all_S_edges = []
     all_TH_edges = []
     all_PHIE_edges = []
     all_ZETA_edges = []
@@ -295,36 +295,36 @@ def calc_world_geom_hist(p_load,p_save,n_bins=100):
             root = neoUtils.get_root(blk,unit_num)
             ID.append(root)
 
-            R = neoUtils.get_var(blk,'Rcp').magnitude
+            S = neoUtils.get_var(blk,'S').magnitude
             TH = neoUtils.get_var(blk,'TH').magnitude
             PHIE = neoUtils.get_var(blk, 'PHIE').magnitude
             ZETA = neoUtils.get_var(blk, 'ZETA').magnitude
 
 
-            R_bayes, R_edges = varTuning.stim_response_hist(R.ravel(), r, Cbool, nbins=n_bins, min_obs=5)
+            S_bayes, S_edges = varTuning.stim_response_hist(S.ravel(), r, Cbool, nbins=n_bins, min_obs=5)
             TH_bayes, TH_edges = varTuning.stim_response_hist(TH.ravel(), r, Cbool, nbins=n_bins, min_obs=5)
             PHIE_bayes, PHIE_edges = varTuning.stim_response_hist(PHIE.ravel(), r, Cbool, nbins=n_bins,min_obs=5)
             ZETA_bayes, ZETA_edges = varTuning.stim_response_hist(ZETA.ravel(), r, Cbool, nbins=n_bins,min_obs=5)
 
             plt.close('all')
-            all_R_bayes.append(R_bayes)
+            all_S_bayes.append(S_bayes)
             all_TH_bayes.append(TH_bayes)
             all_PHIE_bayes.append(PHIE_bayes)
             all_ZETA_bayes.append(ZETA_bayes)
 
 
-            all_R_edges.append(R_edges)
+            all_S_edges.append(S_edges)
             all_TH_edges.append(TH_edges)
             all_PHIE_edges.append(PHIE_edges)
             all_ZETA_edges.append(ZETA_edges)
 
 
     np.savez(os.path.join(p_save, 'world_geom_hists.npz'),
-             all_R_bayes=all_R_bayes,
+             all_S_bayes=all_S_bayes,
              all_TH_bayes=all_TH_bayes,
              all_PHIE_bayes=all_PHIE_bayes,
              all_ZETA_bayes=all_ZETA_bayes,
-             all_R_edges=all_R_edges,
+             all_S_edges=all_S_edges,
              all_TH_edges=all_TH_edges,
              all_PHIE_edges=all_PHIE_edges,
              all_ZETA_edges=all_ZETA_edges,
@@ -405,11 +405,11 @@ def plot_all_geo_hists(f=None, im_ext='png',save_tgl=True):
 
     p_save = os.path.split(f)[0]
     dat = np.load(f)
-    all_R_bayes = dat['all_R_bayes']
+    all_S_bayes = dat['all_S_bayes']
     all_TH_bayes = dat['all_TH_bayes']
     all_PHIE_bayes = dat['all_PHIE_bayes']
     all_ZETA_bayes = dat['all_ZETA_bayes']
-    all_R_edges = dat['all_R_edges']
+    all_S_edges = dat['all_S_edges']
     all_TH_edges = dat['all_TH_edges']
     all_PHIE_edges = dat['all_PHIE_edges']
     all_ZETA_edges = dat['all_ZETA_edges']
@@ -420,8 +420,8 @@ def plot_all_geo_hists(f=None, im_ext='png',save_tgl=True):
         fig = plt.figure()
 
         ax = fig.add_subplot(2,2,1)
-        plt.plot(all_R_edges[ii][:-1], all_R_bayes[ii], 'ko')
-        ax.set_title('R')
+        plt.plot(all_S_edges[ii][:-1], all_S_bayes[ii], 'ko')
+        ax.set_title('S')
 
         ax = fig.add_subplot(2,2,2)
         plt.plot(all_TH_edges[ii][:-1], all_TH_bayes[ii], 'ko')
