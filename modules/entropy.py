@@ -3,21 +3,40 @@ import neoUtils
 import spikeAnalysis
 import worldGeometry
 import varTuning
+import quantities as pq
+import numpy as np
+import elephant
 
 
-def hold(var,sp,use_flags):
-    if True:
-        raise Exception
-    rate,edges = varTuning.stim_response_hist(var,sp,use_flags,200)
-    edges = edges[:-1]
-    idx = np.isfinite(rate)
-    rate = rate[idx]*1000
-    edges = edges[idx]
+def calc_ent(var,sp,use_flags,nbins=100):
+
+    b = elephant.conversion.binarize(sp,sampling_rate=pq.kHz)[:-1]
+    idx = np.logical_and(use_flags.ravel(), np.isfinite(var).ravel())
+    X = pye.quantise(var[idx],nbins,uniform='bins')[0].ravel()
+    Y = b[idx].astype('int').ravel()
+
+    S = pye.DiscreteSystem(X,(1,nbins),Y,(1,2))
+    S.calculate_entropies(calc=['HX','HY','HXY','SiHXi','HiX','HshX','HiXY','HshXY','ChiX','ChiXY1','HXY1'])
+    return(S.H['HX'],S.H['HXY'],S.I())
 
 
-    max_rate = np.max(np.ceil(rate)).astype('int')
+def shuf_sp(spbool):
+    sp_out = np.zeros_like(spbool)
+    num_spikes = np.sum(spbool)
+    T = len(spbool)
+    idx = np.random.choice(np.arange(0, T), num_spikes, replace=False)
+    sp_out[idx] = True
+    return(sp_out)
 
-    rate = pye.quantise(rate,max_rate,uniform='bins')[0]
-    edges = pye.quantise(edges,len(edges),uniform='bins')[0]
-    S = pyentropy.DiscreteSystem(rate,(1,max_rate),edges,(1,len(edges)))
-    S.calculate_entropies(calc=['HX', 'HY', 'HXY', 'SiHXi', 'HiX', 'HshX', 'HiXY', 'HshXY', 'ChiX'])
+#
+# HX=[]
+# HXY=[]
+# I=[]
+# for ii in np.logspace(1,4,20):
+#     print(ii)
+#     var =F[:,0].magnitude
+#     ENT = calc_ent(var,sp,use_flags,nbins=int(ii))
+#     HX.append(ENT[0])
+#     HXY.append(ENT[1])
+#     I.append(ENT[2])
+# plt.plot(np.logspace(1,4,20),I)
