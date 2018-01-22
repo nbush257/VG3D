@@ -271,6 +271,7 @@ def calc_all_mech_hists(p_load,p_save,n_bins=100):
 
 
 def calc_world_geom_hist(p_load,p_save,n_bins=100):
+    # init
     ID = []
     all_S_bayes = []
     all_TH_bayes = []
@@ -282,36 +283,49 @@ def calc_world_geom_hist(p_load,p_save,n_bins=100):
     all_PHIE_edges = []
     all_ZETA_edges = []
 
-
+    # loop files
     for f in glob.glob(os.path.join(p_load,'rat*.h5')):
+        # load in
         print(os.path.basename(f))
         blk = neoUtils.get_blk(f)
-        Cbool = neoUtils.get_Cbool(blk)
 
+        # get contact
+        Cbool = neoUtils.get_Cbool(blk)
+        use_flags = neoUtils.concatenate_epochs(blk)
+
+        # get vars
+        S = neoUtils.get_var(blk, 'S').magnitude
+
+        TH = neoUtils.get_var(blk, 'TH').magnitude
+        neoUtils.center_var(TH, use_flags)
+
+        PHIE = neoUtils.get_var(blk, 'PHIE').magnitude
+        neoUtils.center_var(PHIE, use_flags)
+
+        ZETA = neoUtils.get_var(blk, 'ZETA').magnitude
+        neoUtils.center_var(ZETA, use_flags)
+
+        # loop units
         for unit in blk.channel_indexes[-1].units:
+            # get unit info
             unit_num = int(unit.name[-1])
             r, b = neoUtils.get_rate_b(blk, unit_num, sigma=5 * pq.ms)
             sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
             root = neoUtils.get_root(blk,unit_num)
             ID.append(root)
 
-            S = neoUtils.get_var(blk,'S').magnitude
-            TH = neoUtils.get_var(blk,'TH').magnitude
-            PHIE = neoUtils.get_var(blk, 'PHIE').magnitude
-            ZETA = neoUtils.get_var(blk, 'ZETA').magnitude
-
-
+            # Create hists
             S_bayes, S_edges = varTuning.stim_response_hist(S.ravel(), r, Cbool, nbins=n_bins, min_obs=5)
             TH_bayes, TH_edges = varTuning.stim_response_hist(TH.ravel(), r, Cbool, nbins=n_bins, min_obs=5)
             PHIE_bayes, PHIE_edges = varTuning.stim_response_hist(PHIE.ravel(), r, Cbool, nbins=n_bins,min_obs=5)
             ZETA_bayes, ZETA_edges = varTuning.stim_response_hist(ZETA.ravel(), r, Cbool, nbins=n_bins,min_obs=5)
 
+            # append outputs
             plt.close('all')
             all_S_bayes.append(S_bayes)
             all_TH_bayes.append(TH_bayes)
             all_PHIE_bayes.append(PHIE_bayes)
             all_ZETA_bayes.append(ZETA_bayes)
-
 
             all_S_edges.append(S_edges)
             all_TH_edges.append(TH_edges)
