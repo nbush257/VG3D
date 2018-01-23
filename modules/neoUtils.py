@@ -476,8 +476,8 @@ def center_var(var,use_flags=None):
         for start,dur in zip(use_flags.times,use_flags.durations):
             start = int(start)
             dur = int(dur)
-            first_index = np.where(np.all(np.isfinite(var[start:start+dur]),axis=1))[0][0]
-
-            var[start+first_index:start+dur+first_index,:]-=var[start+first_index,:]
+            if np.any(np.isfinite(var[start:start+dur,:])):
+                first_index = np.where(np.all(np.isfinite(var[start:start+dur]),axis=1))[0][0]
+                var[start+first_index:start+dur+first_index,:]-=var[start+first_index,:]
 
 
