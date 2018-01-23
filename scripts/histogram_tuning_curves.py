@@ -440,12 +440,12 @@ def plot_all_geo_hists(f=None, im_ext='png',save_tgl=True):
         ax = fig.add_subplot(2,2,2)
         plt.plot(all_TH_edges[ii][:-1], all_TH_bayes[ii], 'ko')
         # ax.set_xlim([-np.pi/2,np.pi/2])
-        ax.set_title(r'$\Delta$\theta')
+        ax.set_title(r'$\Delta\theta$')
 
         ax = fig.add_subplot(2,2,3)
         plt.plot(all_PHIE_edges[ii][:-1], all_PHIE_bayes[ii], 'ko')
         # ax.set_xlim([-np.pi/2, np.pi/2])
-        ax.set_title(r'$\Delta \phiE$')
+        ax.set_title(r'$\Delta\phi$')
 
         ax = fig.add_subplot(2,2,4)
         plt.plot(all_ZETA_edges[ii][:-1], all_ZETA_bayes[ii], 'ko')
