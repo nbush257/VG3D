@@ -465,13 +465,14 @@ def center_var(var,use_flags=None):
 
 
     if sliced:
-        for var_slice in var:
+        for ii in xrange(var.shape[1]):
+            var_slice = var[:,ii,:]
             if np.all(np.isnan(var_slice)):
                 continue
 
             first_index = np.min(
                 np.where(np.isfinite(var_slice))[0][0])
-            var_slice-=var_slice[first_index]
+            var_slice-=var_slice[first_index,:]
     else:
         for start,dur in zip(use_flags.times,use_flags.durations):
             start = int(start)
