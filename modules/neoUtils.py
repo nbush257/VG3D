@@ -4,6 +4,7 @@ import sys
 from neo.core import Block,ChannelIndex,Unit,SpikeTrain,AnalogSignal
 from elephant.conversion import binarize
 import neo
+from worldGeometry import CP_to_world
 import quantities as pq
 import numpy as np
 import scipy
@@ -398,15 +399,19 @@ def get_mean_var_contact(blk, input=None, varname='Rcp'):
     return (var_contacts)
 
 
-def get_contact_apex_idx(blk):
+def get_contact_apex_idx(blk,use_world=True):
     '''
     Use the contact point to estimate the Apex of contact
     :param blk: 
     :return: 
     '''
 
-    CP = get_var(blk,'CP')
+
     use_flags= concatenate_epochs(blk,-1)
+    if use_world:
+        CP = CP_to_world(blk)
+    else:
+        CP = get_var(blk, 'CP')
     CP_contacts = get_analog_contact_slices(CP,use_flags)
     center_var(CP_contacts)
     D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
@@ -423,7 +428,9 @@ def get_value_at_idx(var,idx):
     :param idx: 
     :return: The value of a variable at the given index 
     '''
-    return([var[x,ii] for ii,x in enumerate(idx)])
+    var_out = [var[x, ii, :] for ii, x in enumerate(idx)]
+    return(np.array(var_out))
+
 
 
 def smooth_var_lowess(sig,window=50):
