@@ -404,18 +404,11 @@ def get_contact_apex_idx(blk):
     :param blk: 
     :return: 
     '''
-    if True:
-        raise Exception('Not Finished')
-    def center_CP(CP_contacts):
-        for ii in xrange(CP_contacts.shape[1]):
-            contact = CP_contacts[:,ii,:]
-            first_index = np.where(np.all(np.isfinite(contact),axis=1))[0][0]
-            contact -= contact[first_index,:]
 
     CP = get_var(blk,'CP')
     use_flags= concatenate_epochs(blk,-1)
     CP_contacts = get_analog_contact_slices(CP,use_flags)
-    center_CP(CP_contacts)
+    center_var(CP_contacts)
     D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
 
     apex_idx = np.nanargmax(D,axis=0)
@@ -462,8 +455,6 @@ def center_var(var,use_flags=None):
         sliced=True
     else:
         sliced=False
-
-
     if sliced:
         for ii in xrange(var.shape[1]):
             var_slice = var[:,ii,:]
