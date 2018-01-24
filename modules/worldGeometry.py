@@ -251,7 +251,7 @@ def get_onset_velocity(blk,plot_tgl=False):
     use_flags = neoUtils.concatenate_epochs(blk, -1)
     durations = use_flags.durations
 
-    th, ph = worldGeometry.get_delta_angle(blk)
+    th, ph = get_delta_angle(blk)
     center_angles(th,ph)
     th_max,ph_max = get_max_angular_displacement(th,ph)
 
@@ -301,3 +301,42 @@ def get_onset_velocity(blk,plot_tgl=False):
         f.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     return(V_onset,V_offset)
+
+
+def CP_to_world(blk):
+    '''
+    Transforms the contact point back into the world reference frame,
+    accounting for both the rotation and bending of the whisker.
+    
+    :param blk: 
+    :return CP_world: 
+    '''
+    CP = neoUtils.get_var(blk,'CP',keep_neo=False)[0]
+    PH = neoUtils.get_var(blk,'PHIE',keep_neo=False)[0]
+    PH = np.deg2rad(PH)
+    TH = neoUtils.get_var(blk, 'TH',keep_neo=False)[0]
+    TH =np.deg2rad(TH)
+    Z = neoUtils.get_var(blk,'ZETA',keep_neo=False)[0]
+    # Z = np.deg2rad(Z)
+    BP = neoUtils.get_var(blk, 'BPm',keep_neo=False)[0]
+    cbool = neoUtils.get_Cbool(blk)
+
+    CP_world = np.empty_like(CP); CP_world[:]=np.nan
+    def RX(theta):
+        c = np.cos(theta)[0]
+        s = np.sin(theta)[0]
+        return(np.array([[1,0,0],[0,c,-s],[0,s,c]]))
+    def RY(theta):
+        c = np.cos(theta)[0]
+        s = np.sin(theta)[0]
+        return(np.array([[c,0,s],[0,1,0],[-s,0,c]]))
+    def RZ(theta):
+        c = np.cos(theta)[0]
+        s = np.sin(theta)[0]
+        return(np.array([[c,-s,0],[s,c,0],[0,0,1]]))
+    for ii in xrange(CP.shape[0]):
+        if cbool[ii]:
+            ROT = np.linalg.multi_dot([RX(-Z[ii]),RY(-PH[ii]),RZ(-TH[ii])])
+            CP_world[ii,:] = np.dot(np.linalg.inv(ROT),CP[ii,:][:,np.newaxis]).T
+            CP_world[ii,:]+=BP[ii,:]
+    return CP_world
