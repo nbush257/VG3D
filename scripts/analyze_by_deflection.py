@@ -1,8 +1,8 @@
 import neoUtils
 import neo
+import scipy.stats as stats
 import worldGeometry
-import statsmodels.api as sm
-import pyvttbl
+import quantities as pq
 import spikeAnalysis
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -150,6 +150,63 @@ def plot_anova(df,save_loc=None):
         plt.savefig(os.path.join(save_loc, '{}_S_selectivity_by_dir.png'.format(id)), dpi=300)
 
 
+def onset_velocity_tuning(blk,unit_num=0,use_zeros=True):
+    '''
+    Calculate the onset velocity in both terms of CP and in terms of rotation.
+    Calculate the relationship between the onset firing rate and the different velcocities
+    
+    :param blk: 
+    :param unit_num: 
+    :param use_zeros: 
+    :return V_cp_fit,V_rot_fit: 
+    '''
+    use_flags = neoUtils.concatenate_epochs(blk)
+    trains = spikeAnalysis.get_contact_sliced_trains(blk,unit_num)[-1]
+    apex = neoUtils.get_contact_apex_idx(blk)*pq.ms
+
+    # Get onset FR
+    onset_counts = np.array([len(train.time_slice(train.t_start,train.t_start+dur)) for
+                    train,dur in zip(trains,apex)])
+    onset_FR = np.divide(onset_counts,apex)
+    onset_FR.units=1/pq.s
+
+    # Get V_onset_cp
+    CP = neoUtils.get_var(blk,'CP')
+    CP_contact = neoUtils.get_analog_contact_slices(CP, use_flags)
+    neoUtils.center_var(CP_contact)
+    val = neoUtils.get_value_at_idx(CP_contact, apex.magnitude.astype('int'))
+    D = np.sqrt(val[:, 0] ** 2 + val[:, 1] ** 2 + val[:, 2] ** 2)*pq.m
+    V_cp = D / apex
+    V_cp.units=pq.m/pq.s
+
+    # get V_onset_rot
+    V_rot = worldGeometry.get_onset_velocity(blk)[0]
+
+    # Fit CP
+    if use_zeros:
+        idx = np.isfinite(V_cp)
+    else:
+        idx = np.logical_and(np.isfinite(V_cp),onset_FR>0)
+
+    V_cp_fit = stats.linregress(V_cp[idx],onset_FR[idx])
+
+    # Fit ROT
+    if use_zeros:
+        idx = np.isfinite(V_rot)
+    else:
+        idx = np.logical_and(np.isfinite(V_rot), onset_FR > 0)
+
+    V_rot_fit = stats.linregress(V_rot[idx], onset_FR[idx])
+
+    dir_idx = worldGeometry.get_contact_direction(blk,False)
+
+    return(V_cp_fit,V_rot_fit)
+
+
+def get_vel_onset_batch(p_load,p_save):
+
+
+
 def main(p_load,p_save):
     '''
     Calculate the anova tables and data by deflection direction and arclength
@@ -178,6 +235,45 @@ def main(p_load,p_save):
     aov.to_hdf(os.path.join(p_save, 'direction_arclength_FR_group_anova.h5'),'w')
 
 
+def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
+    '''
+    Gets the PSTHs for each direction.
+    :param blk: 
+    :param unit_num: 
+    :param norm_dur: 
+    :param binsize: 
+    :return PSTH, t_edges, max_fr: The PSTH binheights, the bin edges, and the max value of FR  
+    '''
+    unit = blk.channel_indexes[-1].units[unit_num]
+    _, _, trains = spikeAnalysis.get_contact_sliced_trains(blk, unit)
+
+    b, durations = spikeAnalysis.get_binary_trains(trains)
+
+    idx, med_angle = worldGeometry.get_contact_direction(blk, plot_tgl=False)
+    if idx is -1:
+        return (-1)
+
+    th_contacts, ph_contacts = worldGeometry.get_delta_angle(blk)
+    PSTH = []
+    t_edges = []
+    max_fr = []
+    for dir in np.arange(np.max(idx) + 1):
+        sub_idx = np.where(idx == dir)[0]
+        sub_trains = [trains[ii] for ii in sub_idx]
+        if norm_dur:
+            t_edges_temp, PSTH_temp, w = spikeAnalysis.get_time_stretched_PSTH(sub_trains)
+        else:
+            spt = spikeAnalysis.trains2times(sub_trains, concat_tgl=True)
+            PSTH_temp, t_edges_temp = np.histogram(spt, bins=np.arange(0, 500, float(binsize)))
+            PSTH_temp = PSTH_temp.astype('f8') / len(durations) / pq.ms * 1000.
+            w = binsize
+
+        max_fr.append(np.max(PSTH_temp))
+        PSTH.append(PSTH_temp)
+        t_edges.append(t_edges_temp)
+    max_fr = np.max(max_fr)
+
+    return(PSTH,t_edges,max_fr)
 
 if __name__=='__main__':
     p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
