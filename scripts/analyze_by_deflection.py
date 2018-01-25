@@ -228,7 +228,7 @@ def onset_tuning(blk,unit_num=0,use_zeros=True):
             for k,v in fit.iteritems():
                 fits_direction.loc[idx2,k] = v
             idx2+=1
-    return(fits_all,fits_direction)
+    return(fits_all,fits_direction,df)
 
 
 def get_vel_onset_batch(p_load,p_save):
