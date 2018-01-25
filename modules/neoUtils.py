@@ -416,6 +416,11 @@ def get_contact_apex_idx(blk,use_world=True):
     center_var(CP_contacts)
     D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
 
+    # catch all nan slices
+    nan_idx = np.all(np.isnan(D),axis=0)
+    D[:,nan_idx]=0
+
+    # find maximum
     apex_idx = np.nanargmax(D,axis=0)
     return(apex_idx)
 

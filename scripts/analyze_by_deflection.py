@@ -188,7 +188,8 @@ def onset_tuning(blk,unit_num=0,use_zeros=True):
     V_rot,_,D = worldGeometry.get_onset_velocity(blk)
 
     dir_idx,dir_angle = worldGeometry.get_contact_direction(blk, False)
-
+    if dir_idx is -1:
+        return(-1,-1,-1)
     df = pd.DataFrame()
     df['id'] = [id for x in xrange(MB_dot.shape[0])]
     df['MB'] = MB_apex
@@ -231,9 +232,25 @@ def onset_tuning(blk,unit_num=0,use_zeros=True):
     return(fits_all,fits_direction,df)
 
 
-def get_vel_onset_batch(p_load,p_save):
+def batch_onset_tunings(p_load,p_save):
+    DF_ALL = pd.DataFrame()
+    DF_DIRECTION = pd.DataFrame()
+    DF = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        print('Working on {}'.format(os.path.basename(f)))
+        blk = neoUtils.get_blk(f)
+        num_units = len(blk.channel_indexes[-1].units)
+        for unit_num in xrange(num_units):
+            df_all,df_direction,df = onset_tuning(blk,unit_num=unit_num)
+            if df_all is -1:
+                continue
+            DF  = DF.append(df)
+            DF_ALL = DF_ALL.append(df_all)
+            DF_DIRECTION = DF_DIRECTION.append(df_direction)
 
-
+    DF.to_csv(os.path.join(p_save,'onset_data.csv'),'w')
+    DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'), 'w')
+    DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'), 'w')
 
 def main(p_load,p_save):
     '''
@@ -259,8 +276,8 @@ def main(p_load,p_save):
                 print('Problem with {}c{}'.format(os.path.basename(f),ii))
 
         plt.close('all')
-    df.to_hdf(os.path.join(p_save,'direction_arclength_FR_group_data.h5'),'w')
-    aov.to_hdf(os.path.join(p_save, 'direction_arclength_FR_group_anova.h5'),'w')
+    df.to_csv(os.path.join(p_save,'direction_arclength_FR_group_data.csv'),'w')
+    aov.to_csv(os.path.join(p_save, 'direction_arclength_FR_group_anova.csv'),'w')
 
 
 def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
