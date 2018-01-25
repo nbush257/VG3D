@@ -300,7 +300,7 @@ def get_onset_velocity(blk,plot_tgl=False):
         f.suptitle('{}'.format(neoUtils.get_root(blk,0)))
         f.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-    return(V_onset,V_offset)
+    return(V_onset,V_offset,D_max)
 
 
 def CP_to_world(blk):

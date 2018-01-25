@@ -150,7 +150,7 @@ def plot_anova(df,save_loc=None):
         plt.savefig(os.path.join(save_loc, '{}_S_selectivity_by_dir.png'.format(id)), dpi=300)
 
 
-def onset_velocity_tuning(blk,unit_num=0,use_zeros=True):
+def onset_tuning(blk,unit_num=0,use_zeros=True):
     '''
     Calculate the onset velocity in both terms of CP and in terms of rotation.
     Calculate the relationship between the onset firing rate and the different velcocities
@@ -163,44 +163,72 @@ def onset_velocity_tuning(blk,unit_num=0,use_zeros=True):
     use_flags = neoUtils.concatenate_epochs(blk)
     trains = spikeAnalysis.get_contact_sliced_trains(blk,unit_num)[-1]
     apex = neoUtils.get_contact_apex_idx(blk)*pq.ms
+    apex_idx = apex.magnitude.astype('int')
+    id = neoUtils.get_root(blk,unit_num)
+    # get MB and FB at apex
+    M = neoUtils.get_var(blk)
+    MB = neoUtils.get_MB_MD(M)[0]
+    MB_contacts = neoUtils.get_analog_contact_slices(MB,use_flags)
+    MB_apex = neoUtils.get_value_at_idx(MB_contacts,apex_idx).squeeze()
+    MB_dot = MB_apex/apex
 
+    F = neoUtils.get_var(blk,'F')
+    FB = neoUtils.get_MB_MD(F)[0]
+    FB_contacts = neoUtils.get_analog_contact_slices(FB, use_flags)
+    FB_apex = neoUtils.get_value_at_idx(FB_contacts, apex_idx).squeeze()
+    FB_dot = FB_apex / apex
     # Get onset FR
     onset_counts = np.array([len(train.time_slice(train.t_start,train.t_start+dur)) for
                     train,dur in zip(trains,apex)])
     onset_FR = np.divide(onset_counts,apex)
     onset_FR.units=1/pq.s
 
-    # Get V_onset_cp
-    CP = neoUtils.get_var(blk,'CP')
-    CP_contact = neoUtils.get_analog_contact_slices(CP, use_flags)
-    neoUtils.center_var(CP_contact)
-    val = neoUtils.get_value_at_idx(CP_contact, apex.magnitude.astype('int'))
-    D = np.sqrt(val[:, 0] ** 2 + val[:, 1] ** 2 + val[:, 2] ** 2)*pq.m
-    V_cp = D / apex
-    V_cp.units=pq.m/pq.s
 
     # get V_onset_rot
-    V_rot = worldGeometry.get_onset_velocity(blk)[0]
+    V_rot,_,D = worldGeometry.get_onset_velocity(blk)
 
-    # Fit CP
-    if use_zeros:
-        idx = np.isfinite(V_cp)
-    else:
-        idx = np.logical_and(np.isfinite(V_cp),onset_FR>0)
+    dir_idx,dir_angle = worldGeometry.get_contact_direction(blk, False)
 
-    V_cp_fit = stats.linregress(V_cp[idx],onset_FR[idx])
+    df = pd.DataFrame()
+    df['id'] = [id for x in xrange(MB_dot.shape[0])]
+    df['MB'] = MB_apex
+    df['MB_dot'] = MB_dot
+    df['FB_dot'] = FB_dot
+    df['FB'] = FB_apex
+    df['rot'] = D
+    df['rot_dot'] = V_rot
 
-    # Fit ROT
-    if use_zeros:
-        idx = np.isfinite(V_rot)
-    else:
-        idx = np.logical_and(np.isfinite(V_rot), onset_FR > 0)
+    df['dir_idx'] = dir_idx
+    df['FR'] = onset_FR
+    df['dir_angle'] = [dir_angle[x] for x in dir_idx]
+    df = df.replace(np.inf,np.nan)
+    df = df.dropna()
 
-    V_rot_fit = stats.linregress(V_rot[idx], onset_FR[idx])
+    # FIT:
+    fits_all = pd.DataFrame(columns=['id','var','rvalue','pvalue','slope','intercept'])
+    fits_direction = pd.DataFrame()
+    idx=0
+    idx2=0
+    for var in ['MB','MB_dot','FB','FB_dot','rot','rot_dot']:
+        fit = stats.linregress(df[var], df['FR'])._asdict()
+        fits_all.loc[idx, 'id'] = id
+        fits_all.loc[idx,'var']=var
 
-    dir_idx = worldGeometry.get_contact_direction(blk,False)
+        for k,v in fit.iteritems():
+            fits_all.loc[idx,k] = v
+        idx+=1
 
-    return(V_cp_fit,V_rot_fit)
+        for direction in xrange(np.max(dir_idx)+1):
+            temp_idx = df['dir_idx'] == direction
+            fit = stats.linregress(df[var][temp_idx], df['FR'][temp_idx])._asdict()
+            fits_direction.loc[idx2, 'id'] = id
+            fits_direction.loc[idx2, 'var'] = var
+            fits_direction.loc[idx2, 'dir_idx'] = direction
+            fits_direction.loc[idx2, 'med_dir'] = dir_angle[direction]
+            for k,v in fit.iteritems():
+                fits_direction.loc[idx2,k] = v
+            idx2+=1
+    return(fits_all,fits_direction)
 
 
 def get_vel_onset_batch(p_load,p_save):

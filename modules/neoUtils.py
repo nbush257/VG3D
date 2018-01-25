@@ -367,7 +367,7 @@ def get_analog_contact_slices(var, contact, slice2array=True):
     else:
         var_out = var_slice
 
-    return var_out.squeeze()
+    return var_out
 
 
 def get_mean_var_contact(blk, input=None, varname='Rcp'):
