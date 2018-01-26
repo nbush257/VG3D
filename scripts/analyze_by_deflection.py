@@ -13,6 +13,8 @@ import varTuning
 import glob
 import numpy as np
 import os
+import matplotlib.ticker as ticker
+
 sns.set()
 
 def eta_squared(aov):
@@ -248,11 +250,11 @@ def batch_onset_tunings(p_load,p_save):
             DF_ALL = DF_ALL.append(df_all)
             DF_DIRECTION = DF_DIRECTION.append(df_direction)
 
-    DF.to_csv(os.path.join(p_save,'onset_data.csv'),'w')
-    DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'), 'w')
-    DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'), 'w')
+    # DF.to_csv(os.path.join(p_save,'onset_data.csv'))
+    DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'))
+    # DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'))
 
-def main(p_load,p_save):
+def batch_anova(p_load,p_save):
     '''
     Calculate the anova tables and data by deflection direction and arclength
     :param p_load: 
@@ -276,8 +278,8 @@ def main(p_load,p_save):
                 print('Problem with {}c{}'.format(os.path.basename(f),ii))
 
         plt.close('all')
-    df.to_csv(os.path.join(p_save,'direction_arclength_FR_group_data.csv'),'w')
-    aov.to_csv(os.path.join(p_save, 'direction_arclength_FR_group_anova.csv'),'w')
+    df.to_csv(os.path.join(p_save,'direction_arclength_FR_group_data.csv'))
+    aov.to_csv(os.path.join(p_save, 'direction_arclength_FR_group_anova.csv'))
 
 
 def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
@@ -320,12 +322,35 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
 
     return(PSTH,t_edges,max_fr)
 
+def plot_onset_tunings(df_by_cell,df_by_direction):
+
+    df_by_cell = df_by_cell[df_by_cell.stim_responsive]
+    df_by_direction = df_by_direction[df_by_direction.stim_responsive]
+    cell_idx = df_by_cell['id'].unique()
+    dfr = df_by_cell[['id','var','rvalue']]
+    is_sig = df_by_cell['pvalue']<0.05
+    dfr.loc[np.invert(is_sig),'rvalue']=0
+    dfr_pvt = dfr.pivot_table('rvalue',['id','var'])
+    dfr_pvt = dfr_pvt.unstack()
+    sns.heatmap(dfr_pvt,vmin=-1.,vmax=1.,cmap=sns.color_palette('RdBu_r',128))
+    ax = plt.gca()
+    ax.yaxis.set_major_locator(ticker.MultipleLocator(5))
+    plt.yticks(rotation=0)
+    plt.xticks(rotation=60)
+    plt.draw()
+
+    for cell in cell_idx:
+        sub_df = df_by_direction[df_by_direction.id==cell]
+        for var in sub_df['var'].unique():
+            var_df = sub_df[sub_df['var']==var]
+            is_sig = var_df['pvalue']<0.05
+            var_df.loc[np.invert(is_sig),'rvalue']=0
+            plt.polar(var_df.med_dir,var_df.rvalue,'.')
+
+
 if __name__=='__main__':
     p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
     p_save = os.path.join(os.environ['BOX_PATH'], r'__VG3D\_deflection_trials\_NEO\results')
 
-    main(p_load, p_save)
-
-
-
+    batch_anova(p_load, p_save)
 
