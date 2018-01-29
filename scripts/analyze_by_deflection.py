@@ -322,8 +322,8 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
 
     return(PSTH,t_edges,max_fr)
 
-def plot_onset_tunings(df_by_cell,df_by_direction):
-
+def plot_onset_tunings(df_by_cell,df_by_direction,p_save,save_tgl=True):
+    cmap = sns.color_palette('Paired',6)
     df_by_cell = df_by_cell[df_by_cell.stim_responsive]
     df_by_direction = df_by_direction[df_by_direction.stim_responsive]
     cell_idx = df_by_cell['id'].unique()
@@ -339,13 +339,34 @@ def plot_onset_tunings(df_by_cell,df_by_direction):
     plt.xticks(rotation=60)
     plt.draw()
 
+    # df_by_dir must be the reshaped
+    df_tunings = pd.DataFrame(columns=['id','var','theta_k','DSI'])
     for cell in cell_idx:
-        sub_df = df_by_direction[df_by_direction.id==cell]
-        for var in sub_df['var'].unique():
-            var_df = sub_df[sub_df['var']==var]
-            is_sig = var_df['pvalue']<0.05
-            var_df.loc[np.invert(is_sig),'rvalue']=0
-            plt.polar(var_df.med_dir,var_df.rvalue,'.')
+        f = plt.figure()
+        ax = f.add_subplot(111,projection='polar')
+        sub_cell = df_by_direction.loc[cell]
+        if not np.any(sub_cell['stim_responsive']):
+            continue
+        varnames = sub_cell.index.get_level_values(0).unique()
+        for ii,var in enumerate(varnames):
+            R = sub_cell.loc[var].rvalue.abs()
+            theta = sub_cell.loc[var].med_dir
+            theta_k,DSI = varTuning.get_PD_from_hist(theta,R)
+            df_tunings = df_tunings.append(pd.Series([cell,var,theta_k,DSI],index=['id','var','theta_k','DSI']),ignore_index=True)
+
+            ax.annotate('',
+                        xy=(theta_k, DSI ),
+                        xytext=(0, 0),
+                        arrowprops={'arrowstyle': 'simple,head_width=1', 'linewidth': 1, 'color': cmap[ii],'alpha':0.5})
+            ax = plt.gca()
+            ax.set_rlim(0,1)
+            ax.set_title('{}'.format(cell))
+
+        if save_tgl:
+            plt.savefig(os.path.join(p_save,'{}_onset_tuning.png'.format(cell)),dpi=300)
+        plt.close('all')
+        df_tunings.to_csv(os.path.join(p_save,'onset_tuning_direction_strength.csv'))
+
 
 
 if __name__=='__main__':
