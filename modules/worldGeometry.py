@@ -133,10 +133,11 @@ def get_contact_direction(blk,plot_tgl=True):
     :param plot_tgl:    A switch as to whether you want to plot the deflections and their groups for inspection.
                         Default = True
                         
-    :return idx:   idx: 
+    :return idx, med_angle:   idx: 
                      Index for every contact as to which group 
                      that contact belongs. Index 0 is the first direction, 
                      index 1 is the next clockwise group, etc...
+
                     med_angle: median angle in the theta/phi centered space
     
     '''

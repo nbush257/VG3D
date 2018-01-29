@@ -298,7 +298,7 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
 
     idx, med_angle = worldGeometry.get_contact_direction(blk, plot_tgl=False)
     if idx is -1:
-        return (-1)
+        return (-1,-1,-1)
 
     th_contacts, ph_contacts = worldGeometry.get_delta_angle(blk)
     PSTH = []
@@ -325,8 +325,7 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
 def plot_onset_tunings(df_by_cell,df_by_direction,p_save,save_tgl=True):
     cmap = sns.color_palette('Paired',6)
     df_by_cell = df_by_cell[df_by_cell.stim_responsive]
-    df_by_direction = df_by_direction[df_by_direction.stim_responsive]
-    cell_idx = df_by_cell['id'].unique()
+    df_by_direction = df_by_directioplt.pie(aov_results['significant_arclength']'[.mean())n[df_by_direction.stim_respoisumcell_idx = df_by_cell['id'].unique(),
     dfr = df_by_cell[['id','var','rvalue']]
     is_sig = df_by_cell['pvalue']<0.05
     dfr.loc[np.invert(is_sig),'rvalue']=0
@@ -367,6 +366,52 @@ def plot_onset_tunings(df_by_cell,df_by_direction,p_save,save_tgl=True):
         plt.close('all')
         df_tunings.to_csv(os.path.join(p_save,'onset_tuning_direction_strength.csv'))
 
+def batch_peak_PSTH_time(p_load,p_save):
+    df = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        blk = neoUtils.get_blk(f)
+        print('Working on {}'.format(os.path.basename(f)))
+        num_units = len(blk.channel_indexes[-1].units)
+        _,med_dir = worldGeometry.get_contact_direction(blk,plot_tgl=False)
+        for unit_num in xrange(num_units):
+            id = neoUtils.get_root(blk,unit_num)
+            PSTH,t_edges,max_fr = get_PSTH_by_dir(blk,unit_num)
+            if PSTH is -1:
+                continue
+            peak_time = [t_edges[x][np.nanargmax(PSTH[x])] for x in
+                        xrange(len(PSTH))]
+            df_temp = pd.DataFrame()
+            df_temp['id'] =[id for x in range(len(med_dir))]
+            df_temp['med_dir'] =med_dir
+            df_temp['peak_time'] =peak_time
+            df = df.append(df_temp)
+    df.to_csv(os.path.join(p_save,'peak_PSTH_time.csv'))
+    print('done')
+
+def directional_selectivity_by_arclength(df,p_save):
+    theta_pref = []
+    DSI = []
+    arclength_idx=[]
+    id_idx=[]
+    cell_list = df.id.unique()
+    for cell in cell_list:
+        sub_df = df[df.id==cell]
+        arclength_labels = sub_df.Arclength.unique()
+        sub_df = pd.pivot_table(sub_df,index=['Arclength','Direction'])
+        for arclength in arclength_labels:
+            theta = sub_df.loc[arclength].med_dir
+            R = sub_df.loc[arclength].Firing_Rate
+            theta_pref_temp,DSI_temp = varTuning.get_PD_from_hist(theta,R)
+            theta_pref.append(theta_pref_temp)
+            DSI.append(DSI_temp)
+            arclength_idx.append(arclength)
+            id_idx.append(cell)
+    DF_out = pd.DataFrame()
+    DF_out['id'] = id_idx
+    DF_out['Arclength'] = arclength_idx
+    DF_out['theta_pref'] = theta_pref
+    DF_out['DSI'] = DSI
+    DF_out.to_csv(os.path.join(p_save,'DSI_by_arclength.csv'))
 
 
 if __name__=='__main__':

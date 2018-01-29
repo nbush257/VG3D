@@ -23,9 +23,9 @@ def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=False):
     box_path = os.environ['BOX_PATH']
     dat_path = os.path.join(box_path,r'__VG3D\_deflection_trials\_NEO')
     if not fullname:
-        fid = NIO(os.path.join(dat_path,f))
+        fid = NIO(os.path.join(dat_path,f),mode='ro')
     else:
-        fid = NIO(f)
+        fid = NIO(f,mode='ro')
 
     return fid.read_block()
 
@@ -243,7 +243,8 @@ def get_root(blk,cell_no):
     :param cell_no: index of the cell number
     :return: root - a unique string ID
     '''
-    return(blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no))
+    s = (blk.annotations['ratnum'] + blk.annotations['whisker'] + 'c{:01d}'.format(cell_no))
+    return(s.replace('_',''))
 
 
 def get_deriv(var,sgolay_tgl=False,window=11):
