@@ -4,7 +4,7 @@ import sys
 from neo.core import Block,ChannelIndex,Unit,SpikeTrain,AnalogSignal
 from elephant.conversion import binarize
 import neo
-from worldGeometry import CP_to_world
+# from worldGeometry import CP_to_world
 import quantities as pq
 import numpy as np
 import scipy

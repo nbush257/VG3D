@@ -2,6 +2,7 @@ import neoUtils
 import numpy as np
 from sklearn import mixture
 import scipy
+import scipy.stats
 import seaborn as sns
 import matplotlib.pyplot as plt
 import sklearn
@@ -27,7 +28,11 @@ def get_delta_angle(blk):
 
 
 def center_angles(th_contacts,ph_contacts):
-    for th,ph in zip(th_contacts,ph_contacts):
+    num_contacts = th_contacts.shape[1]
+    for ii in xrange(num_contacts):
+        th = th_contacts[:,ii]
+        ph = ph_contacts[:,ii]
+
         if np.all(np.isnan(th)) or np.all(np.isnan(ph)):
             continue
 
@@ -210,7 +215,7 @@ def get_contact_direction(blk,plot_tgl=True):
     # get the median angles and sort with the first direction stimulated as zero
     med_angle = []
     for ii in xrange(8):
-        med_angle.append(np.nanmedian(projection_angle[idx==ii]))
+        med_angle.append(scipy.stats.circmean(projection_angle[idx==ii]))
     med_angle = np.array(med_angle)
 
     # sort the group indices such that the first deflection angle is 0, and they increase from there
@@ -224,7 +229,7 @@ def get_contact_direction(blk,plot_tgl=True):
     # get the new median angles (in the centered theta/phi space)
     med_angle = []
     for ii in xrange(8):
-        med_angle.append(np.nanmedian(projection_angle[new_idx==ii]))
+        med_angle.append(scipy.stats.circmean(projection_angle[new_idx==ii]))
     med_angle = np.array(med_angle)
 
     # plotting
@@ -308,9 +313,9 @@ def CP_to_world(blk):
     '''
     Transforms the contact point back into the world reference frame,
     accounting for both the rotation and bending of the whisker.
-    
-    :param blk: 
-    :return CP_world: 
+
+    :param blk:
+    :return CP_world:
     '''
     CP = neoUtils.get_var(blk,'CP',keep_neo=False)[0]
     PH = neoUtils.get_var(blk,'PHIE',keep_neo=False)[0]
