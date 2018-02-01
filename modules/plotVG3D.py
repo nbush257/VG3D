@@ -104,3 +104,11 @@ def plot_spike_trains_by_direction(blk,unit_num=0,norm_dur=False,binsize=5*pq.ms
     return(0)
 
 
+def polar_histogram(vals, nbins=20, kind='bar'):
+    R,theta = np.histogram(vals,nbins)
+    plt.polar()
+    if kind== 'bar':
+        plt.bar(theta[:-1],R,width=np.mean(np.diff(theta)),bottom=0,align='edge',color='k',alpha=0.4)
+    elif kind== 'line':
+        theta =theta+np.mean(np.diff(theta))/2
+        plt.plot(theta[:-1], R,'ko--')

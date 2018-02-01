@@ -14,7 +14,6 @@ import glob
 import numpy as np
 import os
 import matplotlib.ticker as ticker
-
 sns.set()
 
 def eta_squared(aov):
@@ -60,6 +59,7 @@ def anova_analysis(blk,unit_num=0):
     aov_table['id'] = root
 
     return df, aov_table
+
 
 def plot_anova(df,save_loc=None):
     sns.set_style('white')
@@ -254,6 +254,7 @@ def batch_onset_tunings(p_load,p_save):
     DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'))
     # DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'))
 
+
 def batch_anova(p_load,p_save):
     '''
     Calculate the anova tables and data by deflection direction and arclength
@@ -298,7 +299,7 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
 
     idx, med_angle = worldGeometry.get_contact_direction(blk, plot_tgl=False)
     if idx is -1:
-        return (-1,-1,-1)
+        return (-1,-1,-1,-1)
 
     th_contacts, ph_contacts = worldGeometry.get_delta_angle(blk)
     PSTH = []
@@ -320,12 +321,14 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
         t_edges.append(t_edges_temp)
     max_fr = np.max(max_fr)
 
-    return(PSTH,t_edges,max_fr)
+    return(PSTH,t_edges,max_fr,med_angle)
+
 
 def plot_onset_tunings(df_by_cell,df_by_direction,p_save,save_tgl=True):
     cmap = sns.color_palette('Paired',6)
     df_by_cell = df_by_cell[df_by_cell.stim_responsive]
-    df_by_direction = df_by_directioplt.pie(aov_results['significant_arclength']'[.mean())n[df_by_direction.stim_respoisumcell_idx = df_by_cell['id'].unique(),
+    df_by_direction = df_by_direction[df_by_direction.stim_respoisive]
+    cell_idx = df_by_cell['id'].unique()
     dfr = df_by_cell[['id','var','rvalue']]
     is_sig = df_by_cell['pvalue']<0.05
     dfr.loc[np.invert(is_sig),'rvalue']=0
@@ -366,6 +369,7 @@ def plot_onset_tunings(df_by_cell,df_by_direction,p_save,save_tgl=True):
         plt.close('all')
         df_tunings.to_csv(os.path.join(p_save,'onset_tuning_direction_strength.csv'))
 
+
 def batch_peak_PSTH_time(p_load,p_save):
     df = pd.DataFrame()
     for f in glob.glob(os.path.join(p_load,'*.h5')):
@@ -387,6 +391,7 @@ def batch_peak_PSTH_time(p_load,p_save):
             df = df.append(df_temp)
     df.to_csv(os.path.join(p_save,'peak_PSTH_time.csv'))
     print('done')
+
 
 def directional_selectivity_by_arclength(df,p_save):
     theta_pref = []
@@ -414,9 +419,106 @@ def directional_selectivity_by_arclength(df,p_save):
     DF_out.to_csv(os.path.join(p_save,'DSI_by_arclength.csv'))
 
 
-if __name__=='__main__':
-    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
-    p_save = os.path.join(os.environ['BOX_PATH'], r'__VG3D\_deflection_trials\_NEO\results')
+def plot_all_direction_selectivity(df):
+    '''
+    Plots to direction selectivity index stratified on arclength, uses DSI_by_arclength.csv.
+    :param df:
+    :return:
+    '''
+    df = df.pivot(index='id',columns='Arclength')
+    df2 = df[df.theta_pref.Medial.isnull()]
+    df2 = df2.drop('Medial', level=1,axis=1)
+    df = df.dropna()
+    df_norm = df['DSI'].subtract(df['DSI']['Proximal'],axis='rows').sort_values(by='Distal')
+    df2_norm = df2['DSI'].subtract(df2['DSI']['Proximal'],axis='rows').sort_values(by='Distal')
+    sns.heatmap(df_norm,vmin=-1,vmax=1,cmap='RdBu_r',linewidth=0.2,linecolor=[0.3,0.3,0.3])
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.figure()
+    sns.heatmap(df2_norm,vmin=-1,vmax=1,cmap='RdBu_r',linewidth=0.2,linecolor=[0.3,0.3,0.3])
+    plt.yticks(rotation=0)
+    plt.tight_layout()
+    plt.draw()
 
-    batch_anova(p_load, p_save)
+
+def plot_onset_tuning_population(df):
+    '''
+    plot the population results of onset tuning strengths for different variables. uses onset_tuning_direction_strength_reshape.xlsx
+
+    :param df:
+    :return:
+    '''
+
+
+def get_adaptation_df(p_load,max_t=20):
+    '''
+    Returns a dataframe that has the firing rate for the
+    first N (default=20) ms for each cell and direction. Should be useful for
+    calculating an 'adaptation' parameter.
+
+    :param p_load: path to where all the neo files exist
+    :param max_t: maximum time in miliseconds to grab the firing rate
+    :return:
+    '''
+    df_all = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        blk = neoUtils.get_blk(f)
+        num_units = len(blk.channel_indexes[-1].units)
+        for unit_num in range(num_units):
+            df = pd.DataFrame()
+            id = neoUtils.get_root(blk,unit_num)
+            print('Working on {}'.format(id))
+            PSTH,edges,_,med_angle = get_PSTH_by_dir(blk,unit_num,norm_dur=False,binsize=1*pq.ms)
+            if PSTH is -1:
+                continue
+            for ii in xrange(len(PSTH)):
+                df_dir = pd.DataFrame()
+                df_dir['dir_idx'] = np.repeat(ii,max_t)
+                df_dir['time'] = edges[ii][:max_t]
+                df_dir['rate'] = PSTH[ii][:max_t]
+                df_dir['med_angle'] = med_angle[ii]
+                df = df.append(df_dir)
+                df['id'] = [id for x in range(len(df))]
+        df_all = df_all.append(df)
+    return(df_all)
+
+def get_threshold_index(p_load):
+    '''
+    Return a dataframe with a binary telling you if a particular contact ellicited a spike for each cell
+    :param p_load: path to the neo files
+    :return: a pandas dataframe with all the contacts for all cells. Cannot reshape since every whisker has a dif. number of contacts
+    '''
+    df_all = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        blk = neoUtils.get_blk(f)
+        num_units = len(blk.channel_indexes[-1].units)
+        for unit_num in xrange(num_units):
+            df= pd.DataFrame()
+            id = neoUtils.get_root(blk,unit_num)
+            trains = spikeAnalysis.get_contact_sliced_trains(blk,unit_num)[-1]
+            df['id'] = [id for x in xrange(len(trains))]
+            df['did_spike'] = [len(x)>0 for x in trains]
+            df_all = df_all.append(df)
+    return(df_all)
+
+
+def calc_adaptation(df,binsize=10):
+    edges=np.arange(0,df.time.max()+1,10)
+    df = df[df.stim_responsive]
+    cell_list = df.id.unique()
+    df_all = pd.DataFrame()
+    for cell in cell_list:
+        sub_df = df[df.id==cell]
+        df_by_dir = pd.pivot_table(sub_df,index='time',columns='dir_idx',values=['rate','med_angle'])
+        means = pd.DataFrame([df_by_dir[x:x+binsize].mean() for x in edges]).T
+        means.columns=edges
+        adaptation = -np.log(means[10].rate/means[0].rate)
+        adaptation_df = pd.DataFrame()
+        adaptation_df['id']=[cell for x in xrange(len(adaptation))]
+        adaptation_df['adaptation']=adaptation
+        adaptation_df['med_dir']=means[0].med_angle
+        adaptation_df['dir_idx']=np.arange(8)
+
+        df_all = df_all.append(adaptation_df)
+    return(df_all)
 
