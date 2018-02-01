@@ -146,13 +146,14 @@ def get_contact_direction(blk,plot_tgl=True):
                     med_angle: median angle in the theta/phi centered space
     
     '''
-    def reduce_deflection(blk, num_pts):
+    def reduce_deflection(th_contacts,ph_contacts, num_pts):
         '''
         Grabs a subset of theta/phi points from a deflection.
         Probably not useful. Defaults to error
 
-        :param blk: 
-        :param num_pts: 
+        :param th_contacts: should be centered already
+        :param ph_contact: should be centered already
+        :param num_pts:
         :param pad: 
         :return: 
         '''
@@ -160,8 +161,6 @@ def get_contact_direction(blk,plot_tgl=True):
         # if True:
         #     raise Exception('This function is not finished, and is likely not useful. NEB 20180109')
 
-        th_contacts, ph_contacts = get_delta_angle(blk)
-        center_angles(th_contacts, ph_contacts)
 
         X = np.empty([th_contacts.shape[1], num_pts * 2])
         for ii in xrange(ph_contacts.shape[-1]):
@@ -183,18 +182,22 @@ def get_contact_direction(blk,plot_tgl=True):
     n_contacts = len(use_flags)
     if n_contacts<50:
         return(-1,-1)
-    direction_index = np.empty(n_contacts,dtype='int');
-    direction_index[:] = np.nan
+    direction_index = np.zeros(n_contacts,dtype='int')
+
 
     # get contact angles and zero them to the start of contact
     th_contacts,ph_contacts = get_delta_angle(blk)
     center_angles(th_contacts,ph_contacts)
+    good_contacts = np.invert(np.logical_or(np.all(np.isnan(th_contacts),axis=0),
+                                np.all(np.isnan(ph_contacts),axis=0)))
 
+    th_contacts = th_contacts[:,good_contacts]
+    ph_contacts = ph_contacts[:,good_contacts]
     # get max angles
     th_max,ph_max = get_max_angular_displacement(th_contacts,ph_contacts)
 
     # get PCA decomp
-    X = reduce_deflection(blk,10)
+    X = reduce_deflection(th_contacts,ph_contacts,10)
     pca = sklearn.decomposition.PCA()
     Y = pca.fit_transform(X)
     Y1,Y2 = norm_angles(Y[:,0],Y[:,1])
@@ -203,9 +206,6 @@ def get_contact_direction(blk,plot_tgl=True):
     # group angles into a design matrix and get the direction of the deflection [-pi:pi]
     projection_angle = np.arctan2(np.deg2rad(ph_max),np.deg2rad(th_max))[:,np.newaxis]
 
-    good_contacts = np.all(np.isfinite(Y), axis=1)
-    Y = Y[good_contacts,:] # remove nan groups
-    projection_angle = projection_angle[good_contacts].ravel()
 
     # Cluster the groups
     clf = mixture.GaussianMixture(n_components=8,n_init=100)
