@@ -495,9 +495,16 @@ def get_threshold_index(p_load):
         for unit_num in xrange(num_units):
             df= pd.DataFrame()
             id = neoUtils.get_root(blk,unit_num)
+            print('working on {}'.format(id))
             trains = spikeAnalysis.get_contact_sliced_trains(blk,unit_num)[-1]
+            dir_idx,med_dir = worldGeometry.get_contact_direction(blk,plot_tgl=False)
+            if dir_idx is -1:
+                continue
+            dir_map = {key: value for (key, value) in enumerate(med_dir)}
             df['id'] = [id for x in xrange(len(trains))]
             df['did_spike'] = [len(x)>0 for x in trains]
+            df['dir_idx'] = dir_idx
+            df['med_dir'] = df['dir_idx'].map(dir_map)
             df_all = df_all.append(df)
     return(df_all)
 
@@ -521,4 +528,16 @@ def calc_adaptation(df,binsize=10):
 
         df_all = df_all.append(adaptation_df)
     return(df_all)
+
+def threshold_polar_plot(df_thresh):
+    df_thresh = df_thresh[df_thresh.stim_responsive]
+    cell_list = df_thresh.id.unique()
+    for cell in cell_list:
+        sub_df = df_thresh[df_thresh.id==cell]
+        R = sub_df.groupby('dir_idx').mean()['did_spike']
+        theta = sub_df.groupby('dir_idx').mean()['med_dir']
+        plt.polar()
+        plt.plot(theta,R,'o')
+
+
 
