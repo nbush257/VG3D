@@ -90,7 +90,7 @@ def get_radial_distance_group(blk,plot_tgl=False):
     S = neoUtils.get_var(blk,'S')
     use_flags = neoUtils.concatenate_epochs(blk,-1)
     S_contacts = neoUtils.get_analog_contact_slices(S,use_flags)
-    S_med = np.nanmedian(S_contacts,axis=0)[:,np.newaxis]
+    S_med = np.nanmedian(S_contacts,axis=0)
 
     clf3 = mixture.GaussianMixture(n_components=3,n_init=100)
     clf2 = mixture.GaussianMixture(n_components=2,n_init=100)
