@@ -35,10 +35,18 @@ def anova_analysis(blk,unit_num=0):
     idx_dir,med_dir = worldGeometry.get_contact_direction(blk,plot_tgl=False)
     FR = spikeAnalysis.get_contact_sliced_trains(blk,unit_num)[0].magnitude
     idx_S = worldGeometry.get_radial_distance_group(blk,plot_tgl=False)
+    # Create arclength groups
+    if idx_S is -1:
+        print('Only one arclength group')
+        arclength_labels=['Proximal']
+    elif idx_S is -2:
+        print('Too few contacts')
+        return(-1,-1)
     if np.max(idx_S) == 2:
         arclength_labels = ['Proximal', 'Medial', 'Distal']
-    else:
+    elif np.max(idx_S)==1:
         arclength_labels = ['Proximal', 'Distal']
+
     idx_S = [arclength_labels[x] for x in idx_S]
     df = pd.DataFrame()
     directions = pd.DataFrame()
@@ -250,9 +258,9 @@ def batch_onset_tunings(p_load,p_save):
             DF_ALL = DF_ALL.append(df_all)
             DF_DIRECTION = DF_DIRECTION.append(df_direction)
 
-    # DF.to_csv(os.path.join(p_save,'onset_data.csv'))
+    DF.to_csv(os.path.join(p_save,'onset_data.csv'))
     DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'))
-    # DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'))
+    DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'))
 
 
 def batch_anova(p_load,p_save):
@@ -272,8 +280,11 @@ def batch_anova(p_load,p_save):
         for ii in xrange(num_units):
             try:
                 df_temp,aov_temp = anova_analysis(blk,unit_num=ii)
+                if df_temp is -1:
+                    continue
                 df = df.append(df_temp)
                 aov = aov.append(aov_temp)
+
                 # plot_anova(df_temp,save_loc=p_save)
             except:
                 print('Problem with {}c{}'.format(os.path.basename(f),ii))
@@ -482,6 +493,7 @@ def get_adaptation_df(p_load,max_t=20):
         df_all = df_all.append(df)
     return(df_all)
 
+
 def get_threshold_index(p_load):
     '''
     Return a dataframe with a binary telling you if a particular contact ellicited a spike for each cell
@@ -528,6 +540,7 @@ def calc_adaptation(df,binsize=10):
 
         df_all = df_all.append(adaptation_df)
     return(df_all)
+
 
 def threshold_polar_plot(df_thresh):
     df_thresh = df_thresh[df_thresh.stim_responsive]

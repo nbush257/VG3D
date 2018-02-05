@@ -13,7 +13,9 @@ from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
 import sklearn
 import statsmodels.nonparametric.smoothers_lowess as sls
+from worldGeometry import CP_to_world
 # import my functions
+
 proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
 sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
