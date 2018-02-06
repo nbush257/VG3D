@@ -38,6 +38,17 @@ plt.tight_layout()
 plt.savefig(os.path.join(save_loc,'PSTH_peak_times.{}'.format(ext)),dpi=dpi_res)
 plt.close('all')
 
+# ==============================
+wd = fig_width/2.5
+ht = wd/1.25
+f = plt.figure(figsize=(wd,ht))
+sns.distplot(df.peak_time,20,kde=False,color='k',hist_kws={'edgecolor':'k','linewidth':0.5},norm_hist=True)
+sns.despine()
+plt.xlabel('Time of maximal firing\n(all directions)')
+plt.ylabel('Need to figure out these units')
+plt.tight_layout()
+plt.savefig(os.path.join(save_loc,'all_peak_time_hist.{}'.format(ext)),dpi=dpi_res)
+plt.close('all')
 
 # ===============================
 wd = fig_width/3
@@ -80,3 +91,4 @@ plt.xlabel('1-CircVar of Peak PSTH time')
 plt.yticks(np.arange(0,15,5))
 plt.tight_layout()
 plt.savefig(os.path.join(save_loc,'DSI_of_peak_time_all_cells.{}'.format(ext)),dpi=dpi_res)
+plt.close('all')

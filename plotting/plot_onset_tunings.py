@@ -43,7 +43,7 @@ idx = np.mean(aa,axis=1).argsort()[::-1]
 
 # plot summary for all cells
 f = plt.figure(figsize=(wd,ht))
-sns.heatmap(aa[idx,:],vmin=-1.,vmax=1.)
+sns.heatmap(aa[idx,:],vmin=-1.,vmax=1.,cmap=sns.color_palette('RdBu_r',256))
 ax = plt.gca()
 ax.yaxis.set_major_locator(ticker.MultipleLocator(5))
 plt.yticks([])
@@ -53,6 +53,7 @@ plt.xticks(locs,category_labels,rotation=60)
 plt.xlabel('')
 plt.draw()
 plt.tight_layout()
+plt.savefig(os.path.join(save_loc,'onset_tuning_all.{}'.format(ext)),dpi=dpi_res)
 
 # df_by_dir must be the reshaped
 df_tunings = pd.DataFrame(columns=['id','var','theta_k','DSI'])
