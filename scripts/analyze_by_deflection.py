@@ -69,118 +69,6 @@ def anova_analysis(blk,unit_num=0):
     return df, aov_table
 
 
-def plot_anova(df_all,save_loc=None):
-    sns.set_style('white')
-    df_all = df_all[df_all.stim_responsive]
-    cell_list = df_all.id.unique()
-    for id in cell_list:
-        print(id)
-        df = df_all[df_all.id==id]
-        arclength_labels = list(set(df['Arclength']))
-        direction_labels = list(set(df['Direction']))
-        arclength_labels.sort(reverse=True)
-        med_dir = df[['Direction', 'med_dir']].drop_duplicates().sort_values('Direction')['med_dir'].as_matrix()
-        fig,ax = plt.subplots()
-
-        sns.boxplot(x='Direction', y='Firing_Rate',hue='Arclength',data=df,palette='Blues',notch=False,width=0.5)
-        ax.set_title('{}'.format(id))
-        ax.legend(bbox_to_anchor=(.9, 1.1))
-        plt.draw()
-        sns.despine(offset=10, trim=True)
-        if save_loc is not None:
-            plt.savefig(os.path.join(save_loc, '{}_S_dir_box.png'.format(id)), dpi=300)
-        plt.close('all')
-
-        # plot just by direction
-        fig, ax = plt.subplots()
-        sns.boxplot(x='Direction',y='Firing_Rate',data=df,palette='husl',width=0.6)
-        ax.set_title('{}'.format(id))
-        sns.despine(offset=10, trim=False)
-        if save_loc is not None:
-            plt.savefig(os.path.join(save_loc, '{}_dir_box.png'.format(id)), dpi=300)
-        plt.close('all')
-
-        #plot just by arclength
-        fig, ax = plt.subplots()
-        sns.boxplot(x='Arclength', y='Firing_Rate', data=df, palette='Blues',width=0.6)
-        ax.set_title('{}'.format(id))
-        sns.despine(offset=10, trim=False)
-        if save_loc is not None:
-            plt.savefig(os.path.join(save_loc, '{}_S_box.png'.format(id)), dpi=300)
-        plt.close('all')
-
-        # Factor Plot
-        sns.factorplot(x='Direction',y='Firing_Rate',col='Arclength',data=df,kind='box',width=0.5)
-        if save_loc is not None:
-            plt.savefig(os.path.join(save_loc, '{}_factor.png'.format(id)), dpi=300)
-        plt.close('all')
-
-        # Plot polar by arclength
-        f = plt.figure()
-        ax = f.add_subplot(111,projection='polar')
-        mean_by_category = df.groupby(['Direction', 'Arclength'])['Firing_Rate'].mean()
-        sem_by_category = df.groupby(['Direction', 'Arclength'])['Firing_Rate'].sem()
-        cmap = sns.color_palette('Blues_r', len(arclength_labels))
-
-        for ii,arclength in enumerate(arclength_labels):
-            idx = mean_by_category[:,arclength].index
-            x = med_dir[idx]
-            x = np.concatenate([x,[x[0]]])
-            y = mean_by_category[:, arclength].as_matrix()
-            y = np.concatenate([y,[y[0]]])
-            error = sem_by_category[:,arclength].as_matrix()
-            error = np.concatenate([error,[error[0]]])
-            # ax.plot(x, y ,'.',alpha=.8,color=cmap[ii])
-            ax.fill_between(x, y - error, y + error,color=cmap[ii])
-        ax.legend(arclength_labels,bbox_to_anchor=(1.2, 1.1))
-        if save_loc is not None:
-            plt.savefig(os.path.join(save_loc, '{}_S_polar.png'.format(id)), dpi=300)
-        plt.close('all')
-
-        # plot direction selectivity by arclength
-
-        f,ax= plt.subplots()
-        theta_pref = pd.Series()
-        DSI = pd.Series()
-        for arclength in arclength_labels:
-          idx = mean_by_category[:, arclength].index
-          x = med_dir[idx]
-          theta_pref[arclength],DSI[arclength] = varTuning.get_PD_from_hist(x,mean_by_category[:,arclength])
-        sns.barplot(x=DSI.index, y=DSI, palette=cmap)
-        ax.set_ylim(0,1)
-        plt.xticks(rotation=0)
-        sns.despine(offset=5,trim=True)
-        plt.ylabel('Direction Selectivity Index\n(1-Circular Variance)')
-        plt.title('{}\nDirection selectivity by arclength'.format(id))
-        f.set_size_inches([3.19,4.8])
-        plt.tight_layout()
-        if save_loc is not None:
-            plt.savefig(os.path.join(save_loc, '{}_dir_selectivity_by_S.png'.format(id)), dpi=300)
-        plt.close('all')
-
-        # plot arclength selectivity by direction?
-        cmap = sns.color_palette('husl',8)
-        tuning_by_dir = pd.Series()
-        for direction in direction_labels:
-          try:
-              tuning_by_dir[str(direction)] =  mean_by_category[direction,'Proximal']/mean_by_category[direction,'Distal']
-          except:
-              tuning_by_dir[str(direction)] = np.nan
-
-        f = plt.figure()
-        plt.polar()
-        plt.plot(med_dir,tuning_by_dir,'ko')
-        ax = plt.gca()
-        theta_fill = np.arange(0, 2, 1. / 360) * np.pi
-        plt.fill_between(theta_fill,1.,alpha=0.2,color='r')
-        plt.fill_between(theta_fill, 1.,ax.get_rmax(), alpha=0.2,color='g')
-        ax.spines['polar'].set_visible(False)
-        ax.set_title('Arclength tuning\nby direction group {}'.format(id))
-        if save_loc is not None:
-            plt.savefig(os.path.join(save_loc, '{}_S_selectivity_by_dir.png'.format(id)), dpi=300)
-        plt.close('all')
-
-
 def onset_tuning(blk,unit_num=0,use_zeros=True):
     '''
     Calculate the onset velocity in both terms of CP and in terms of rotation.
@@ -356,54 +244,6 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
     return(PSTH,t_edges,max_fr,med_angle)
 
 
-def plot_onset_tunings(df_by_cell,df_by_direction,p_save,save_tgl=True):
-    cmap = sns.color_palette('Paired',6)
-    df_by_cell = df_by_cell[df_by_cell.stim_responsive]
-    df_by_direction = df_by_direction[df_by_direction.stim_responsive]
-    cell_idx = df_by_cell['id'].unique()
-    dfr = df_by_cell[['id','var','rvalue']]
-    is_sig = df_by_cell['pvalue']<0.05
-    dfr.loc[np.invert(is_sig),'rvalue']=0
-    dfr_pvt = dfr.pivot_table('rvalue',['id','var'])
-    dfr_pvt = dfr_pvt.unstack()
-    sns.heatmap(dfr_pvt,vmin=-1.,vmax=1.,cmap=sns.color_palette('RdBu_r',128))
-    ax = plt.gca()
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(5))
-    plt.yticks(rotation=0)
-    plt.xticks(rotation=60)
-    plt.draw()
-
-    # df_by_dir must be the reshaped
-    df_tunings = pd.DataFrame(columns=['id','var','theta_k','DSI'])
-    for cell in cell_idx:
-        f = plt.figure()
-        ax = f.add_subplot(111,projection='polar')
-        sub_cell = df_by_direction[df_by_direction.id==cell]
-        if not np.any(sub_cell['stim_responsive']):
-            continue
-        varnames = sub_cell['var'].unique()
-        for ii,var in enumerate(varnames):
-            R = sub_cell[sub_cell['var']==var].rvalue.abs()
-            theta = sub_cell[sub_cell['var']==var].med_dir.abs()
-            theta_k,DSI = varTuning.get_PD_from_hist(theta,R)
-            df_tunings = df_tunings.append(pd.Series([cell,var,theta_k,DSI],index=['id','var','theta_k','DSI']),ignore_index=True)
-            plt.plot(0,0,'o',color=cmap[ii])
-            ax.annotate('',
-                        xy=(theta_k, DSI ),
-                        xytext=(0, 0),
-                        arrowprops={'arrowstyle': 'simple,head_width=1', 'linewidth': 1, 'color': cmap[ii],'alpha':0.5})
-            ax = plt.gca()
-            ax.set_rlim(0,1)
-            ax.set_title('{}'.format(cell))
-            ax.legend(varnames,bbox_to_anchor=(1.15,1.15))
-
-
-        if save_tgl:
-            plt.savefig(os.path.join(p_save,'{}_onset_tuning.png'.format(cell)),dpi=300)
-        plt.close('all')
-    df_tunings.to_csv(os.path.join(p_save,'onset_tuning_direction_strength.csv'))
-
-
 def batch_peak_PSTH_time(p_load,p_save):
     df = pd.DataFrame()
     for f in glob.glob(os.path.join(p_load,'*.h5')):
@@ -457,37 +297,6 @@ def directional_selectivity_by_arclength(df,p_save):
     DF_out['theta_pref'] = theta_pref
     DF_out['DSI'] = DSI
     DF_out.to_csv(os.path.join(p_save,'DSI_by_arclength.csv'))
-
-
-def plot_all_direction_selectivity(df):
-    '''
-    Plots to direction selectivity index stratified on arclength, uses DSI_by_arclength.csv.
-    :param df:
-    :return:
-    '''
-    df = df.pivot(index='id',columns='Arclength')
-    df2 = df[df.theta_pref.Medial.isnull()]
-    df2 = df2.drop('Medial', level=1,axis=1)
-    df = df.dropna()
-    df_norm = df['DSI'].subtract(df['DSI']['Proximal'],axis='rows').sort_values(by='Distal')
-    df2_norm = df2['DSI'].subtract(df2['DSI']['Proximal'],axis='rows').sort_values(by='Distal')
-    sns.heatmap(df_norm,vmin=-1,vmax=1,cmap='RdBu_r',linewidth=0.2,linecolor=[0.3,0.3,0.3])
-    plt.yticks(rotation=0)
-    plt.tight_layout()
-    plt.figure()
-    sns.heatmap(df2_norm,vmin=-1,vmax=1,cmap='RdBu_r',linewidth=0.2,linecolor=[0.3,0.3,0.3])
-    plt.yticks(rotation=0)
-    plt.tight_layout()
-    plt.draw()
-
-
-def plot_onset_tuning_population(df):
-    '''
-    plot the population results of onset tuning strengths for different variables. uses onset_tuning_direction_strength_reshape.xlsx
-
-    :param df:
-    :return:
-    '''
 
 
 def get_adaptation_df(p_load,max_t=20):
@@ -571,34 +380,3 @@ def calc_adaptation(df,binsize=10):
     return(df_all)
 
 
-def threshold_polar_plot(df_thresh):
-    pass
-    df_thresh = df_thresh[df_thresh.stim_responsive]
-    cell_list = df_thresh.id.unique()
-    for cell in cell_list:
-        sub_df = df_thresh[df_thresh.id==cell]
-        R = sub_df.groupby('dir_idx').mean()['did_spike']
-        theta = sub_df.groupby('dir_idx').mean()['med_dir']
-        plt.polar()
-        plt.plot(theta,R,'o')
-
-
-def plot_delta_theta_by_arclength(df):
-    '''
-    Plot the change in preferred direction as arclength changes
-    Takes to DSI_by_arclength csv
-    :param df:
-    :return:
-    '''
-    df = df[df.stim_responsive]
-    pvt = pd.pivot_table(df,columns='Arclength',index='id',values='theta_pref')
-    delta_theta =pvt['Distal']-pvt['Proximal']
-    r,theta = np.histogram(delta_theta,np.arange(-np.pi,np.pi,np.pi/10))
-    theta = theta[:-1]+np.mean(np.diff(theta))
-    sns.set_style('white')
-    ax = plt.subplot(111,projection='polar')
-    plt.polar(theta,r,'k--')
-    plt.fill_between(theta,np.zeros_like(r),r,color='k',alpha=0.4)
-    plt.title('$\\hat\\theta_{Distal} - \\hat\\theta_{Proximal}$')
-    ax.set_rticks(np.arange(0, np.max(r),5))
-    plt.tight_layout()
