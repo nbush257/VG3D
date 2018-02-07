@@ -465,26 +465,26 @@ def smooth_var_lowess(sig,window=50):
     return out
 
 def center_var(var,use_flags=None):
-    ''' performs inplace centering to contact onset'''
+    ''' performs centering to contact onset'''
     if var.ndim>2 or var.shape[1]>3:
         sliced=True
     else:
         sliced=False
+    var_out = var.copy()
     if sliced:
         for ii in xrange(var.shape[1]):
             var_slice = var[:,ii,:]
             if np.all(np.isnan(var_slice)):
                 continue
 
-            first_index = np.min(
-                np.where(np.isfinite(var_slice))[0][0])
-            var_slice-=var_slice[first_index,:]
+            first_index = np.where(np.all(np.isfinite(var_slice),axis=1))[0][0]
+            var_out[:,ii,:]-=var_slice[first_index,:]
     else:
         for start,dur in zip(use_flags.times,use_flags.durations):
             start = int(start)
             dur = int(dur)
             if np.any(np.isfinite(var[start:start+dur,:])):
                 first_index = np.where(np.all(np.isfinite(var[start:start+dur]),axis=1))[0][0]
-                var[start+first_index:start+dur+first_index,:]-=var[start+first_index,:]
-
+                var_out[start+first_index:start+dur+first_index,:]-=var[start+first_index,:]
+    return(var_out)
 
