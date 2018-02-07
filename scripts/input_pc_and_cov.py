@@ -3,6 +3,12 @@ import os
 import neoUtils
 import numpy as np
 import sklearn
+try:
+    import tensorflow
+    tensorflow_installed=True
+except ImportError:
+    tensorflow_installed=False
+    pass
 
 def get_X(blk):
     use_flags = neoUtils.concatenate_epochs(blk)
@@ -72,8 +78,7 @@ def manifold_fit(blk,n_pts=10000,n_components=2):
     '''
     X = get_X(blk)
     idx = np.all(np.isfinite(X),axis=1)
-    LLE =
-    sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method='ltsa',n_jobs=-1,n_components=n_components)
+    LLE = sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method='ltsa',n_jobs=-1,n_components=n_components)
     X_sub = X[idx,:]
     samp = np.random.choice(X_sub.shape[0],n_pts,replace=False)
     X_sub = X_sub[samp,:]
@@ -83,4 +88,8 @@ def manifold_fit(blk,n_pts=10000,n_components=2):
     Y[idx,:] = LLE.transform(X[idx,:])
 
     return(LLE,Y)
+if tensorflow_installed:
+    def auto_encoder(blk):
+        pass
+
 
