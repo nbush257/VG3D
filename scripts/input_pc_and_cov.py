@@ -3,8 +3,7 @@ import os
 import neoUtils
 import numpy as np
 
-def get_pc(blk):
-    # get data
+def get_X(blk):
     use_flags = neoUtils.concatenate_epochs(blk)
     cbool = neoUtils.get_Cbool(blk)
     M = neoUtils.get_var(blk, 'M').magnitude
@@ -17,10 +16,23 @@ def get_pc(blk):
     deltaPH = neoUtils.center_var(PH, use_flags)
     deltaTH[np.invert(cbool)] = np.nan
     deltaPH[np.invert(cbool)] = np.nan
-    X = np.concatenate([M,F,deltaTH,deltaPH],axis=1)
-    pc = neoUtils.applyPCA(X, cbool)[1]
+    X = np.concatenate([M, F, deltaTH, deltaPH], axis=1)
+    return(X)
 
+
+def get_pc(blk):
+    '''
+    apply PCA to the input data
+    :param blk: 
+    :return: principal components structure
+    '''    
+    cbool = neoUtils.get_Cbool(blk)
+    X = get_X(blk)
+    pc = neoUtils.applyPCA(X, cbool)[1]
+    
     return(pc)
+
+
 def batch_pc(p_load,p_save):
     ID = []
     COV=[]
@@ -51,4 +63,19 @@ def batch_pc(p_load,p_save):
     print('Saved PCA descriptions!')
     return None
 
-# TODO: Nonlinear Manifold fitting
+def manifold_fit(blk):
+    '''
+    Fit the input data to a LLE manifold
+    :param blk:
+    :return:
+    '''
+    X = get_X(blk)
+    idx = np.all(np.isfinite(X),axis=1)
+    LLE = sklearn.manifold.LLE(n_neighbors=100,method='ltsa')
+    LLE.fit(X[idx,:])
+    Y = np.emtpy_like(X)
+    Y[:] = np.nan
+    Y[idx,:] = LLE.transform(X)
+
+    return(LLE,Y)
+
