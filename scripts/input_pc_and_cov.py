@@ -2,6 +2,7 @@ import glob
 import os
 import neoUtils
 import numpy as np
+import sklearn
 
 def get_X(blk):
     use_flags = neoUtils.concatenate_epochs(blk)
@@ -63,7 +64,7 @@ def batch_pc(p_load,p_save):
     print('Saved PCA descriptions!')
     return None
 
-def manifold_fit(blk):
+def manifold_fit(blk,n_pts=10000,n_components=2):
     '''
     Fit the input data to a LLE manifold
     :param blk:
@@ -71,11 +72,15 @@ def manifold_fit(blk):
     '''
     X = get_X(blk)
     idx = np.all(np.isfinite(X),axis=1)
-    LLE = sklearn.manifold.LLE(n_neighbors=100,method='ltsa',n_jobs=-1)
-    LLE.fit(X[idx,:])
-    Y = np.emtpy_like(X)
+    LLE =
+    sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method='ltsa',n_jobs=-1,n_components=n_components)
+    X_sub = X[idx,:]
+    samp = np.random.choice(X_sub.shape[0],n_pts,replace=False)
+    X_sub = X_sub[samp,:]
+    LLE.fit(X_sub)
+    Y = np.empty([X.shape[0],n_components],dtype='f8')
     Y[:] = np.nan
-    Y[idx,:] = LLE.transform(X)
+    Y[idx,:] = LLE.transform(X[idx,:])
 
     return(LLE,Y)
 
