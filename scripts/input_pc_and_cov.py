@@ -35,7 +35,19 @@ def batch_pc(p_load,p_save):
         COV.append(cov)
         EXP_VAR.append(exp_var)
         ID.append(id)
-    np.savez(os.path.join(p_save,'cov_exp_var.npz'),cov=COV,exp_var=EXP_VAR,id=ID)
+    ID = np.array(ID)
+    COV = np.array(COV)
+    EXP_VAR = np.array(EXP_VAR)
+    COV = np.moveaxis(COV,[0,1,2],[2,0,1])
+    EXP_VAR = EXP_VAR.T
+    var_labels = ['Mx','My','Mz','Fx','Fy','Fz','TH','PHI']
+
+    np.savez(os.path.join(p_save,'cov_exp_var.npz'),
+             cov=COV,
+             exp_var=EXP_VAR,
+             id=ID,
+             var_labels=var_labels)
+
     print('Saved PCA descriptions!')
     return None
 
