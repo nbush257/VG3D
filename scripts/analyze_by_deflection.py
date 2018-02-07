@@ -369,7 +369,7 @@ def calc_adaptation(df,binsize=10):
         df_by_dir = pd.pivot_table(sub_df,index='time',columns='dir_idx',values=['rate','med_angle'])
         means = pd.DataFrame([df_by_dir[x:x+binsize].mean() for x in edges]).T
         means.columns=edges
-        adaptation = -np.log(means[10].rate/means[0].rate)
+        adaptation = np.log(means[0].rate)-np.log(means[10].rate)
         adaptation_df = pd.DataFrame()
         adaptation_df['id']=[cell for x in xrange(len(adaptation))]
         adaptation_df['adaptation_index']=adaptation

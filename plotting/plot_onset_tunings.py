@@ -22,14 +22,17 @@ ext = 'png'
 wd = fig_width/3
 ht = wd/0.2
 category_labels = ['FB','$\\dot{FB}$','MB','$\\dot{MB}$','ROT','$\\dot{ROT}$']
+def load_data():
+    df_by_cell = pd.read_csv(os.path.join(os.environ['BOX_PATH'],'__VG3D/_deflection_trials/_NEO/results/onset_tuning_by_cell.csv'))
+    df_by_direction = pd.read_csv(os.path.join(os.environ['BOX_PATH'],'__VG3D/_deflection_trials/_NEO/results/onset_tuning_by_cell_and_direction.csv'))
+    df_by_cell = df_by_cell[df_by_cell.stim_responsive]
+    df_by_direction = df_by_direction[df_by_direction.stim_responsive]
+    return df_by_cell,df_by_direction
 
-df_by_cell = pd.read_csv(os.path.join(os.environ['BOX_PATH'],'__VG3D/_deflection_trials/_NEO/results/onset_tuning_by_cell.csv'))
-df_by_direction = pd.read_csv(os.path.join(os.environ['BOX_PATH'],'__VG3D/_deflection_trials/_NEO/results/onset_tuning_by_cell_and_direction.csv'))
-
+df_by_cell,df_by_direction = load_data()
 
 cmap = sns.color_palette('Paired',6)
-df_by_cell = df_by_cell[df_by_cell.stim_responsive]
-df_by_direction = df_by_direction[df_by_direction.stim_responsive]
+
 if len(cell_list)==0:
     cell_list = df_by_cell['id'].unique()
 
@@ -88,3 +91,43 @@ for cell in cell_list:
     plt.savefig(os.path.join(save_loc,'{}_onset_tuning.{}'.format(cell,ext)),dpi=dpi_res)
     plt.close('all')
 
+# ==============================
+# Box plot across vars
+df_by_cell,df_by_direction = load_data()
+wd = fig_width/3
+ht = wd/.75
+f = plt.figure(figsize=(wd,ht))
+
+sns.set_style('ticks')
+df_by_cell['rvalue'][df_by_cell.pvalue>0.05]=np.nan
+df_by_cell.rvalue = np.abs(df_by_cell.rvalue)
+sns.boxplot(x='var',y='rvalue',data=df_by_cell,order=['MB','MB_dot','FB','FB_dot','rot','rot_dot'],palette=sns.color_palette('Paired',6),width=0.7)
+plt.ylabel('Pearson Correlation')
+plt.xticks(np.arange(len(category_labels)),category_labels,rotation=60)
+plt.xlabel('')
+plt.ylim(0,1)
+sns.despine(trim=True)
+plt.tight_layout()
+plt.savefig(os.path.join(save_loc,'onset_tuning_by_var.{}'.format(ext)),dpi=dpi_res)
+plt.close('all')
+
+# =============================
+# Pie plot of best var
+wd = fig_width/2.5
+ht = wd
+f = plt.figure(figsize=(wd,ht))
+
+df_by_cell,df_by_direction = load_data()
+df_by_cell['rvalue'][df_by_cell.pvalue>0.05]=np.nan
+df_by_cell.rvalue = np.abs(df_by_cell.rvalue)
+
+df_pvt = pd.pivot_table(df_by_cell,values='rvalue',index='id',columns='var')
+counts = df_pvt.idxmax(axis=1).value_counts()
+counts = counts[['FB','FB_dot','MB','MB_dot','rot','rot_dot']]
+
+
+sns.set_style('ticks')
+counts.plot(kind='pie',labels = category_labels,colors = cmap,wedgeprops={'linewidth':1,'edgecolor':'k'})
+plt.axis('equal')
+plt.ylabel('')
+plt.savefig(os.path.join(save_loc,'best_var_pie.{}'.format(ext)),dpi=dpi_res)
