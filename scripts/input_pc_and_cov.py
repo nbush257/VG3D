@@ -71,7 +71,7 @@ def manifold_fit(blk):
     '''
     X = get_X(blk)
     idx = np.all(np.isfinite(X),axis=1)
-    LLE = sklearn.manifold.LLE(n_neighbors=100,method='ltsa')
+    LLE = sklearn.manifold.LLE(n_neighbors=100,method='ltsa',n_jobs=-1)
     LLE.fit(X[idx,:])
     Y = np.emtpy_like(X)
     Y[:] = np.nan
