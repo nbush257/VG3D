@@ -84,3 +84,11 @@ def manifold_fit(blk,n_pts=10000,n_components=2):
 
     return(LLE,Y)
 
+
+if __name__=='__main__':
+    blk = neoUtils.get_blk(fname)
+    X = get_X(blk)
+    LLE,Y = manifold_fit(blk)
+    outname = os.path.splitext(fname)[0]+'_manifold.npz'
+    np.savez(outname,LLE=LLE,Y=Y,X=X)
+
