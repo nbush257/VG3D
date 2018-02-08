@@ -495,15 +495,15 @@ def CP_to_world(blk):
     :param blk:
     :return CP_world:
     '''
-    CP = neoUtils.get_var(blk,'CP',keep_neo=False)[0]
-    PH = neoUtils.get_var(blk,'PHIE',keep_neo=False)[0]
+    CP = get_var(blk,'CP',keep_neo=False)[0]
+    PH = get_var(blk,'PHIE',keep_neo=False)[0]
     PH = np.deg2rad(PH)
-    TH = neoUtils.get_var(blk, 'TH',keep_neo=False)[0]
+    TH = get_var(blk, 'TH',keep_neo=False)[0]
     TH =np.deg2rad(TH)
-    Z = neoUtils.get_var(blk,'ZETA',keep_neo=False)[0]
+    Z = get_var(blk,'ZETA',keep_neo=False)[0]
     # Z = np.deg2rad(Z)
-    BP = neoUtils.get_var(blk, 'BPm',keep_neo=False)[0]
-    cbool = neoUtils.get_Cbool(blk)
+    BP = get_var(blk, 'BPm',keep_neo=False)[0]
+    cbool = get_Cbool(blk)
 
     CP_world = np.empty_like(CP); CP_world[:]=np.nan
     def RX(theta):
