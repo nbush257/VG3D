@@ -1,4 +1,5 @@
 import glob
+import sys
 import os
 import neoUtils
 import numpy as np
@@ -83,7 +84,8 @@ def manifold_fit(blk,sub_samp=4,n_components=2,method='ltsa'):
     scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
     X[idx,:] = scaler.fit_transform(X[idx,:])
 
-    LLE = sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method=method,n_jobs=-2,n_components=n_components)
+    LLE =
+    sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method=method,n_jobs=-1,n_components=n_components)
     X_sub = X[idx,:]
     # samp = np.random.choice(X_sub.shape[0],n_pts,replace=False)
     samp = np.arange(0,X_sub.shape[0],sub_samp)
@@ -102,9 +104,11 @@ if tensorflow_installed:
         pass
 
 if __name__=='__main__':
+    fname = sys.argv[1]
     blk = neoUtils.get_blk(fname)
     X = get_X(blk)
     LLE,Y = manifold_fit(blk)
     outname = os.path.splitext(fname)[0]+'_manifold.npz'
+    print(outname)
     np.savez(outname,LLE=LLE,Y=Y,X=X)
 

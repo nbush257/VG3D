@@ -20,10 +20,16 @@ proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
 sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
 
-def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=False):
+def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=True):
     '''loads in a NEO block from a pickle file. Calling without arguments pulls in a default file'''
-    box_path = os.environ['BOX_PATH']
-    dat_path = os.path.join(box_path,r'__VG3D\_deflection_trials\_NEO')
+    try:
+        box_path = os.environ['BOX_PATH']
+        dat_path = os.path.join(box_path,r'__VG3D\_deflection_trials\_NEO')
+    except:
+        print('Box path not found')
+        pass
+
+
     if not fullname:
         fid = NIO(os.path.join(dat_path,f),mode='ro')
     else:
