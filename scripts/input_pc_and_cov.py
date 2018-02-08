@@ -70,24 +70,34 @@ def batch_pc(p_load,p_save):
     print('Saved PCA descriptions!')
     return None
 
-def manifold_fit(blk,n_pts=10000,n_components=2):
+def manifold_fit(blk,sub_samp=4,n_components=2,method='ltsa'):
     '''
     Fit the input data to a LLE manifold
     :param blk:
     :return:
     '''
     X = get_X(blk)
+    cbool=neoUtils.get_Cbool(blk)
+    X[np.invert(cbool),:]=np.nan
     idx = np.all(np.isfinite(X),axis=1)
-    LLE = sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method='ltsa',n_jobs=-1,n_components=n_components)
+    scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
+    X[idx,:] = scaler.fit_transform(X[idx,:])
+
+    LLE = sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method=method,n_jobs=-2,n_components=n_components)
     X_sub = X[idx,:]
-    samp = np.random.choice(X_sub.shape[0],n_pts,replace=False)
+    # samp = np.random.choice(X_sub.shape[0],n_pts,replace=False)
+    samp = np.arange(0,X_sub.shape[0],sub_samp)
     X_sub = X_sub[samp,:]
+
     LLE.fit(X_sub)
     Y = np.empty([X.shape[0],n_components],dtype='f8')
     Y[:] = np.nan
     Y[idx,:] = LLE.transform(X[idx,:])
 
     return(LLE,Y)
+
+
+
 if tensorflow_installed:
     def auto_encoder(blk):
         pass
