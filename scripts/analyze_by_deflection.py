@@ -140,6 +140,8 @@ def onset_tuning(blk,unit_num=0,use_zeros=True):
 
         for direction in xrange(np.max(dir_idx)+1):
             temp_idx = df['dir_idx'] == direction
+            if not np.any(temp_idx):
+                continue
             fit = stats.linregress(df[var][temp_idx], df['FR'][temp_idx])._asdict()
             fits_direction.loc[idx2, 'id'] = id
             fits_direction.loc[idx2, 'var'] = var
@@ -167,9 +169,17 @@ def batch_onset_tunings(p_load,p_save):
             DF_ALL = DF_ALL.append(df_all)
             DF_DIRECTION = DF_DIRECTION.append(df_direction)
 
-    DF.to_csv(os.path.join(p_save,'onset_data.csv'))
-    DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'))
-    DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'))
+    # get_stim_responsive columns
+    stim_responsive_file = os.path.join(p_save,'cell_id_stim_responsive.csv')
+    if os.path.isfile(stim_responsive_file):
+        is_stim = pd.read_csv(stim_responsive_file)
+        DF = DF.merge(is_stim, on='id')
+        DF_ALL = DF_ALL.merge(is_stim, on='id')
+        DF_DIRECTION = DF_DIRECTION.merge(is_stim, on='id')
+
+    DF.to_csv(os.path.join(p_save,'onset_data.csv'),index=False)
+    DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'),index=False)
+    DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'),index=False)
 
 
 def batch_anova(p_load,p_save):
@@ -201,6 +211,28 @@ def batch_anova(p_load,p_save):
         plt.close('all')
     df.to_csv(os.path.join(p_save,'direction_arclength_FR_group_data.csv'))
     aov.to_csv(os.path.join(p_save, 'direction_arclength_FR_group_anova.csv'))
+
+def get_anova_pvals(p_load):
+    """
+    Takes direction_arclength_FR_group_anova and
+    saves a dataframe of pvalues for significant cells only
+    :param df:
+    :return:
+    """
+    df = pd.read_csv(os.path.join(p_load,'direction_arclength_FR_group_anova.csv'))
+    df= df[df.stim_responsive]
+    df_pvt = pd.pivot_table(df,
+                            values='PR(>F)',
+                            index='id',
+                            columns='test')
+    df_pvt = df_pvt.rename(index=str,columns={'C(Arclength)':'Arclength',
+                                     'C(Arclength):C(Direction)':'Interaction',
+                                     'C(Direction)':'Direction'})
+    df_pvt = df_pvt[['Arclength','Direction','Interaction']]
+    df_pvt.to_csv(os.path.join(p_load,'anova_pvals.csv'))
+    print('Saved to {}'.format(os.path.join(p_load,'anova_pvals.csv')))
+    return None
+
 
 
 def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
@@ -267,13 +299,15 @@ def batch_peak_PSTH_time(p_load,p_save):
     print('done')
 
 
-def directional_selectivity_by_arclength(df,p_save):
+def directional_selectivity_by_arclength(p_load):
     """
     takes a dataframe that has the arclength, direction, and FR data
     :param df:
-    :param p_save:
+    :param p_load:
     :return:
     """
+    df = pd.read_csv(os.path.join(p_load,r'direction_arclength_FR_group_data.csv'))
+    df= df[df.stim_responsive]
     theta_pref = []
     DSI = []
     arclength_idx=[]
@@ -296,7 +330,9 @@ def directional_selectivity_by_arclength(df,p_save):
     DF_out['Arclength'] = arclength_idx
     DF_out['theta_pref'] = theta_pref
     DF_out['DSI'] = DSI
-    DF_out.to_csv(os.path.join(p_save,'DSI_by_arclength.csv'))
+    DF_out = DF_out.merge(df[['id','stim_responsive']],on='id')
+
+    DF_out.to_csv(os.path.join(p_load, 'DSI_by_arclength.csv'), index=False)
 
 
 def get_adaptation_df(p_load,max_t=20):

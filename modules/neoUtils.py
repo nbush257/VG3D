@@ -465,7 +465,7 @@ def smooth_var_lowess(sig,window=50):
 
 def center_var(var,use_flags=None):
     ''' performs centering to contact onset'''
-    if var.ndim>2 or var.shape[1]>3:
+    if var.ndim>2 or use_flags is None:
         sliced=True
     else:
         sliced=False

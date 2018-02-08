@@ -7,7 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import sklearn
 import quantities as pq
-
+import plotVG3D
 def get_delta_angle(blk):
     '''
     This function returns the changes in world angle with respect to the first frame of contact.
@@ -113,15 +113,21 @@ def get_radial_distance_group(blk,plot_tgl=False):
         return(-1)
     idx_out = np.zeros(S_med.shape[0],dtype='int')
     idx_out[mask] = idx
+    bin_edges = np.histogram(S_med_masked,50)[1][:-1]
     if plot_tgl:
-        cc = sns.color_palette("Blues", n_clusts+3)
+        sns.set_style('ticks')
         for ii in xrange(n_clusts):
-            sns.distplot(S_med[idx==ii],color = cc[ii+3],kde=False)
+            if n_clusts==2:
+                cc = plotVG3D.arclength_group_colors()[0,2]
+            else:
+                cc = plotVG3D.arclength_group_colors()
+            sns.distplot(S_med[idx==ii],bins=bin_edges,color = cc[ii],kde=False)
         ax = plt.gca()
         ax.set_ylabel('Number of contacts')
         ax.set_xlabel('Arclength at contact (m)')
         ax.grid('off', axis='x')
         ax.set_title('{}'.format(neoUtils.get_root(blk,0)))
+        sns.despine()
 
     return(idx_out)
 
