@@ -262,6 +262,8 @@ def get_onset_velocity(blk,plot_tgl=False):
     :param plot_tgl: 
     :return: 
     '''
+    if True:
+        raise Warning('This code is probably depricated by newer onset section algorithms')
     use_flags = neoUtils.concatenate_epochs(blk, -1)
     durations = use_flags.durations
 
@@ -315,5 +317,72 @@ def get_onset_velocity(blk,plot_tgl=False):
         f.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     return(V_onset,V_offset,D_max)
+
+def get_onset(var,onset,to_array=True):
+    if var.shape[1]!=len(onset):
+        raise ValueError('Number of contacts in the onset do not match the number of contacts in the variable')
+    if var.ndim==2:
+        var = var[:,:,np.newaxis]
+    elif var.ndim==1:
+        raise ValueError('var cannot be one dimensional')
+    if to_array:
+        var_out = np.empty([np.max(onset),var.shape[1],var.shape[2]])
+        for ii,idx in enumerate(onset):
+            var_out[:,ii,:] = var[:idx,ii,:]
+    else:
+        var_out = []
+        for ii,idx in enumerate(onset):
+            var_out.append(var[:idx,ii,:])
+
+    return(var_out)
+
+def get_offset(var,offset,to_array=True):
+    if True:
+        raise Exception('There are issues with the offset being a consistent output from get offset')
+
+    # TODO: Make offset consistent-- this is done in get_apex having mutliple modes. The reset of the functions need to be altered still
+    if var.shape[1]!=len(offset):
+        raise ValueError('Number of contacts in the onset do not match the number of contacts in the variable')
+    if var.ndim==2:
+        var = var[:,:,np.newaxis]
+    elif var.ndim==1:
+        raise ValueError('var cannot be one dimensional')
+
+    last_time = [np.where(np.all(np.isfinite(var[:,ii,:]),axis=1))[0][-1] for ii in range(len(offset))]
+    if to_array:
+        var_out = np.empty([np.max(offset),var.shape[1],var.shape[2]])
+
+        for ii,idx in enumerate(offset):
+
+            var_out[:,ii,:] = var[idx:last_time[ii],ii,:]
+    else:
+        var_out = []
+        for ii,idx in enumerate(offset):
+            var_out.append(var[:idx,ii,:])
+
+    return(var_out)
+def on_off_time_derivative(var,onset=None,offset=None):
+    # TODO: finish consituent get onset offsets
+    # TODO: Add the extraction off the first and last points in the onset/offset
+    if True:
+        raise Exception('This is incomplete')
+
+    if var.shape[1]!=len(onset):
+        raise ValueError('Number of contacts in the onset do not match the number of contacts in the variable')
+    if onset is None and offset is None:
+        raise Warning('need to pass either an onset or offset')
+    if var.ndim==2:
+        var = var[:,:,np.newaxis]
+    elif var.ndim==1:
+        raise ValueError('var cannot be one dimensional')
+
+    if onset is not None:
+        var_onset = get_onset(var,onset)
+        var_dot = (var_on-var_0)/onset[:,np.newaxis]
+    if offset is not None:
+        last_time = [np.where(np.all(np.isfinite(var[:,ii,:]),axis=1))[0][-1] for ii in range(len(offset))]
+        var_offset_start = neoUtils.get_value_at_idx(var,last_time-offset)
+        var_offset_stop = neoUtils.get_value_at_idx(var,last_time)
+        var_offset_dot = np.divide((var_offset_stop-var_offset_start),offset[:,np.newaxis])
 
 

@@ -13,6 +13,7 @@ from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
 import sklearn
 import statsmodels.nonparametric.smoothers_lowess as sls
+import warnings
 # import my functions
 
 proc_path =os.environ['PROC_PATH']
@@ -407,7 +408,7 @@ def get_mean_var_contact(blk, input=None, varname='Rcp'):
     return (var_contacts)
 
 
-def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.75):
+def get_contact_apex_idx(blk,use_world=True,mode='apex',thresh=0.75,time_win=10):
     '''
     Use the contact point to estimate the Apex of contact
     If Stretch is passed, calls the end of onset the first point at which the deflection
@@ -415,7 +416,10 @@ def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.75
     is the last point in the deflection that was at that percentage of
     maximal deflection. This is a more intuitive onset in my opinion, and is robust
     to maximal points that occur at the wrong place.
-
+    Possible modes:
+            'apex' - gets the idx of max deflection
+            'thresh' - gets the first point passing a threshold and last point coming down through that threshold
+            'time_win' - uses a constant window around beginning and end of contact
     :param blk: 
     :return: 
     '''
@@ -427,7 +431,7 @@ def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.75
     CP_contacts = get_analog_contact_slices(CP,use_flags)
     CP_contacts = center_var(CP_contacts)
     D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
-    if stretch:
+    if mode=='thresh':
         for ii in range(D.shape[-1]):
             mask = np.isfinite(D[:,ii])
             D[mask,ii] = D[mask,ii]/np.nanmax(D[mask,ii])
@@ -437,18 +441,29 @@ def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.75
     D[:,nan_idx]=0
 
     # find maximum
-    if stretch:
+    if mode=='thresh':
         D_bool = D>thresh
         onset = np.empty(D.shape[-1],dtype='int')
         offset = np.empty(D.shape[-1],dtype='int')
         for ii in range(D_bool.shape[-1]):
             onset[ii] = np.where(D_bool[:,ii])[0][0]
             offset[ii] = np.where(D_bool[:,ii])[0][-1]
-        return(onset,offset)
-    else:
-        apex_idx = np.nanargmax(D,axis=0)
-        return(apex_idx)
+    elif mode=='apex':
+        onset = np.nanargmax(D,axis=0)
+        offset = onset.copy()
 
+    elif mode=='time_win':
+        onset = np.repeat(time_win,D.shape[1])
+        c_length = np.array([np.where(np.isfinite(D[:,ii]))[0][-1] for ii in range(D.shape[1])])
+        too_long = time_win>c_length
+        onset[too_long]=c_length[too_long]
+        offset=c_length-time_win
+        negs = offset<0
+        if np.any(negs):
+            warnings.warn('Time window is larger than {} of {} contacts'.format(negs.sum(),D.shape[1]))
+            offset[negs]=0
+
+    return(onset,offset)
 
 def get_value_at_idx(var,idx):
     '''
