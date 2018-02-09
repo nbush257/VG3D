@@ -407,18 +407,18 @@ def get_mean_var_contact(blk, input=None, varname='Rcp'):
     return (var_contacts)
 
 
-def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.99):
+def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.75):
     '''
     Use the contact point to estimate the Apex of contact
+    If Stretch is passed, calls the end of onset the first point at which the deflection
+    is some percent of the maximal deflection distance, and the offset beginning
+    is the last point in the deflection that was at that percentage of
+    maximal deflection. This is a more intuitive onset in my opinion, and is robust
+    to maximal points that occur at the wrong place.
+
     :param blk: 
     :return: 
     '''
-    def nl(x,k_scale=80):
-        k = 1/np.percentile(x,k_scale)
-        z = 2/(1+np.exp(-k*x)) - 1
-        invnl = lambda y: -1/k*(np.log(1-y)-np.log(1+y))
-        return z,invnl
-
     use_flags= concatenate_epochs(blk,-1)
     if use_world:
         CP = CP_to_world(blk)
@@ -430,8 +430,7 @@ def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.99
     if stretch:
         for ii in range(D.shape[-1]):
             mask = np.isfinite(D[:,ii])
-            D[mask,ii] = nl(D[mask,ii],cutoff*100)[0]
-
+            D[mask,ii] = D[mask,ii]/np.nanmax(D[mask,ii])
 
     # catch all nan slices
     nan_idx = np.all(np.isnan(D),axis=0)
@@ -440,11 +439,11 @@ def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.99
     # find maximum
     if stretch:
         D_bool = D>thresh
-        onset = np.empty(D.shape[-1])
-        offset = np.empty(D.shape[-1])
+        onset = np.empty(D.shape[-1],dtype='int')
+        offset = np.empty(D.shape[-1],dtype='int')
         for ii in range(D_bool.shape[-1]):
-            onset[ii] = np.where(D_bool)[0][0]
-            offset[ii] = np.where(D_bool)[0][-1]
+            onset[ii] = np.where(D_bool[:,ii])[0][0]
+            offset[ii] = np.where(D_bool[:,ii])[0][-1]
         return(onset,offset)
     else:
         apex_idx = np.nanargmax(D,axis=0)
