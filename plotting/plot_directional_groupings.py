@@ -140,8 +140,11 @@ for file in glob.glob(os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_t
             print('File {} already found, skipping'.format(os.path.basename(outname)))
         else:
             print('Working on {}'.format(outname))
-            idx = worldGeometry.get_radial_distance_group(blk, plot_tgl=True)
+            try:
+                idx = worldGeometry.get_radial_distance_group(blk, plot_tgl=True)
             # save if not bad data
-            if idx is not -1:
-                plt.savefig(outname, dpi=dpi_res)
-                plt.close('all')
+                if idx is not -1:
+                    plt.savefig(outname, dpi=dpi_res)
+                    plt.close('all')
+            except:
+                print('Failed at {}'.format(root))
