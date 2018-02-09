@@ -118,7 +118,7 @@ def get_radial_distance_group(blk,plot_tgl=False):
         sns.set_style('ticks')
         for ii in xrange(n_clusts):
             if n_clusts==2:
-                cc = plotVG3D.arclength_group_colors()[0,2]
+                cc = plotVG3D.arclength_group_colors()[0::2]
             else:
                 cc = plotVG3D.arclength_group_colors()
             sns.distplot(S_med[idx==ii],bins=bin_edges,color = cc[ii],kde=False)

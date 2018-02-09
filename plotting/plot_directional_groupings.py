@@ -106,47 +106,42 @@ def plot_spike_trains_by_direction(blk,unit_num=0,norm_dur=False,binsize=5*pq.ms
     f.suptitle(neoUtils.get_root(blk,unit_num))
     return(0)
 
-# ========================================== #
-#          plot directional PSTHs            #
-# ========================================== #
+
 for file in glob.glob(os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\*.h5')):
+    # get block
     blk = neoUtils.get_blk(file)
     num_units = len(blk.channel_indexes[-1].units)
+    # loop over units in block
     for unit_num in xrange(num_units):
+        # string operations
         root = neoUtils.get_root(blk,unit_num)
         outname = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\{}_directional_normed.png'.format(root))
+        # ========================================== #
+        #          plot directional PSTHs            #
+        # ========================================== #
+        # get directional groupings if not found already
         if os.path.isfile(outname):
             print('File {} already found, skipping'.format(os.path.basename(outname)))
-            continue
-        print('Working on {}'.format(outname))
-        out = plot_spike_trains_by_direction(blk,unit_num,norm_dur=True)
-        if out is -1:
-            continue
+        else:
+            print('Working on {}'.format(outname))
+            out = plot_spike_trains_by_direction(blk,unit_num,norm_dur=True)
+        # Check for bad direction grouping
+            if out is not -1:
+            # Save
+                plt.savefig(outname,dpi=dpi_res)
+                plt.close('all')
 
-        plt.savefig(outname,dpi=dpi_res)
-        plt.close('all')
-
-        ##
+        # ========================================== #
+        #          plot arclength groups             #
+        # ========================================== #
         outname = os.path.join(os.environ['BOX_PATH'],
                                r'__VG3D\_deflection_trials\_NEO\results\{}_arclength_groupings.png'.format(root))
         if os.path.isfile(outname):
             print('File {} already found, skipping'.format(os.path.basename(outname)))
-            continue
-        print('Working on {}'.format(outname))
-        try:
+        else:
+            print('Working on {}'.format(outname))
             idx = worldGeometry.get_radial_distance_group(blk, plot_tgl=True)
-        except:
-            print('Warning,{} Failed'.format(root))
-        if idx is -1:
-            continue
-
-        plt.savefig(outname, dpi=dpi_res)
-        plt.close('all')
-# # ========================================== #
-# #          plot arclength groups             #
-# # ========================================== #
-# for file in glob.glob(os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\*.h5')):
-#     blk = neoUtils.get_blk(file)
-#     num_units = len(blk.channel_indexes[-1].units)
-#     for unit_num in xrange(num_units):
-#         root = neoUtils.get_root(blk,unit_num)
+            # save if not bad data
+            if idx is not -1:
+                plt.savefig(outname, dpi=dpi_res)
+                plt.close('all')
