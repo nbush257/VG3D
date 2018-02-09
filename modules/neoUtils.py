@@ -407,13 +407,17 @@ def get_mean_var_contact(blk, input=None, varname='Rcp'):
     return (var_contacts)
 
 
-def get_contact_apex_idx(blk,use_world=True,cutoff=.9):
+def get_contact_apex_idx(blk,use_world=True,cutoff=.05,stretch=False,thresh=0.99):
     '''
     Use the contact point to estimate the Apex of contact
     :param blk: 
     :return: 
     '''
-
+    def nl(x,k_scale=80):
+        k = 1/np.percentile(x,k_scale)
+        z = 2/(1+np.exp(-k*x)) - 1
+        invnl = lambda y: -1/k*(np.log(1-y)-np.log(1+y))
+        return z,invnl
 
     use_flags= concatenate_epochs(blk,-1)
     if use_world:
@@ -423,14 +427,28 @@ def get_contact_apex_idx(blk,use_world=True,cutoff=.9):
     CP_contacts = get_analog_contact_slices(CP,use_flags)
     CP_contacts = center_var(CP_contacts)
     D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
+    if stretch:
+        for ii in range(D.shape[-1]):
+            mask = np.isfinite(D[:,ii])
+            D[mask,ii] = nl(D[mask,ii],cutoff*100)[0]
+
 
     # catch all nan slices
     nan_idx = np.all(np.isnan(D),axis=0)
     D[:,nan_idx]=0
 
     # find maximum
-    apex_idx = np.nanargmax(D,axis=0)
-    return(apex_idx)
+    if stretch:
+        D_bool = D>thresh
+        onset = np.empty(D.shape[-1])
+        offset = np.empty(D.shape[-1])
+        for ii in range(D_bool.shape[-1]):
+            onset[ii] = np.where(D_bool)[0][0]
+            offset[ii] = np.where(D_bool)[0][-1]
+        return(onset,offset)
+    else:
+        apex_idx = np.nanargmax(D,axis=0)
+        return(apex_idx)
 
 
 def get_value_at_idx(var,idx):
