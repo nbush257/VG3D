@@ -20,7 +20,7 @@ proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
 sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
 
-def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=True):
+def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5'):
     '''loads in a NEO block from a pickle file. Calling without arguments pulls in a default file'''
     try:
         box_path = os.environ['BOX_PATH']
@@ -30,10 +30,10 @@ def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=True):
         pass
 
 
-    if not fullname:
-        fid = NIO(os.path.join(dat_path,f),mode='ro')
-    else:
+    if os.path.isfile(f):
         fid = NIO(f,mode='ro')
+    else:
+        fid = NIO(os.path.join(dat_path,f),mode='ro')
 
     return fid.read_block()
 
@@ -408,7 +408,7 @@ def get_mean_var_contact(blk, input=None, varname='Rcp'):
     return (var_contacts)
 
 
-def get_contact_apex_idx(blk,use_world=True):
+def get_contact_apex_idx(blk,use_world=True,cutoff=.9):
     '''
     Use the contact point to estimate the Apex of contact
     :param blk: 
@@ -422,7 +422,7 @@ def get_contact_apex_idx(blk,use_world=True):
     else:
         CP = get_var(blk, 'CP')
     CP_contacts = get_analog_contact_slices(CP,use_flags)
-    center_var(CP_contacts)
+    CP_contacts = center_var(CP_contacts)
     D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
 
     # catch all nan slices

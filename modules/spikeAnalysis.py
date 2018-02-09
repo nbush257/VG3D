@@ -292,7 +292,7 @@ def trains2times(trains,concat_tgl=False):
         return(spt)
 
 
-def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
+def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M',onset_flag='onset'):
     '''
     Finds contacts which ellicited the desired number of spikes. Useful if trying to look at RA onset.
     :param blk:
@@ -303,9 +303,17 @@ def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
     '''
     use_flag = neoUtils.concatenate_epochs(blk,-1)
     unit = blk.channel_indexes[-1].units[unit_num]
+    if onset_flag=='onset' or onset_flag=='offset':
+        apex_idx = neoUtils.get_contact_apex_idx(blk)
+    elif onset_flag=='both':
+        pass
+    else:
+        raise ValueError("onset_flag should be on of the following:['onset','offset','both']")
     trains = get_contact_sliced_trains(blk,unit)[-1]
     c_idx=[]
     for ii,train in enumerate(trains):
+        if onset_flag=='onset':
+            sub_train = train[train<apex_idx[ii]+train.t_start]
         if len(train)==num_spikes:
             c_idx.append(ii)
     var = neoUtils.get_var(blk,varname)
