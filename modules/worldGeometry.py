@@ -318,6 +318,8 @@ def get_onset_velocity(blk,plot_tgl=False):
         f.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     return(V_onset,V_offset,D_max)
+
+
 def get_last_time(var):
     """
     Given a sliced variable, return the index of the last point of contact in each contact
@@ -376,7 +378,9 @@ def get_onset(var,onset,to_array=True):
         var_out = []
         for ii,idx in enumerate(onset):
             var_out.append(var[:idx,ii,:])
+
     return(var_out)
+
 
 def get_offset(var,offset,to_array=True):
 
@@ -396,37 +400,40 @@ def get_offset(var,offset,to_array=True):
     last_time = get_last_time(var)
 
     if to_array:
-        var_out = np.empty([np.max(last_time-offset),var.shape[1],var.shape[2]])
+        var_out = np.empty([np.max(last_time-offset)+1,var.shape[1],var.shape[2]])
         var_out[:] = np.nan
         for ii,idx in enumerate(offset):
-            var_out[:(last_time[ii]-idx),ii,:] = var[idx:last_time[ii],ii,:]
+            var_out[:last_time[ii]+1,ii,:] = var[idx:last_time[ii]+1,ii,:]
     else:
         var_out = []
         for ii,idx in enumerate(offset):
-            var_out.append(var[idx:last_time[ii],ii,:])
+            var_out.append(var[idx:last_time[ii]+1,ii,:])
 
     return(var_out)
-def on_off_time_derivative(var,onset=None,offset=None):
-    # TODO: Add the extraction off the first and last points in the onset/offset
-    if True:
-        raise Exception('This is incomplete')
 
-    if var.shape[1]!=len(onset):
-        raise ValueError('Number of contacts in the onset do not match the number of contacts in the variable')
-    if onset is None and offset is None:
-        raise Warning('need to pass either an onset or offset')
-    if var.ndim==2:
-        var = var[:,:,np.newaxis]
-    elif var.ndim==1:
-        raise ValueError('var cannot be one dimensional')
 
-    if onset is not None:
-        var_onset = get_onset(var,onset)
-        var_dot = (var_on-var_0)/onset[:,np.newaxis]
-    if offset is not None:
-        last_time = [np.where(np.all(np.isfinite(var[:,ii,:]),axis=1))[0][-1] for ii in range(len(offset))]
-        var_offset_start = neoUtils.get_value_at_idx(var,last_time-offset)
-        var_offset_stop = neoUtils.get_value_at_idx(var,last_time)
-        var_offset_dot = np.divide((var_offset_stop-var_offset_start),offset[:,np.newaxis])
+def onset_offset_time_derive(var,idx,mode='onset'):
+    """
+    Get the temporal derivative of the onset or offset periods
+    given onset or offset indices.
+    :param var: Sliced variable
+    :param idx: onset or offset indices (relative to contact start)
+    :param mode: get the onset or offset values
+    :return: an [N-contacts x N-dimensions] martix of derivatives
+    """
+
+    var = check_input_sliced(var,idx)
+
+    if mode=='onset':
+        var_onset = get_onset(var,idx,to_array=False)
+        var_dot = np.array([(x[-1]-x[0])/len(x) for x in var_onset])
+
+    elif mode=='offset':
+        var_offset = get_offset(var,idx,to_array=False)
+        var_dot = np.array([(x[-1]-x[0])/len(x) for x in var_offset])
+
+    return var_dot
+
+
 
 

@@ -457,7 +457,7 @@ def get_contact_apex_idx(blk,use_world=True,mode='apex',thresh=0.75,time_win=10)
         c_length = np.array([np.where(np.isfinite(D[:,ii]))[0][-1] for ii in range(D.shape[1])])
         too_long = time_win>c_length
         onset[too_long]=c_length[too_long]
-        offset=c_length-time_win
+        offset=c_length-time_win+1
         negs = offset<0
         if np.any(negs):
             warnings.warn('Time window is larger than {} of {} contacts'.format(negs.sum(),D.shape[1]))
