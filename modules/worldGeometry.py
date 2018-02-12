@@ -254,6 +254,7 @@ def get_contact_direction(blk,plot_tgl=True):
 
 
 def get_onset_velocity(blk,plot_tgl=False):
+    # TODO : Maybe make this work with the new onset/offset functions
     '''
     Get the onset and offset velocities for each deflection 
     with respect to the angular motion of the base (TH,PHIE)
@@ -317,52 +318,95 @@ def get_onset_velocity(blk,plot_tgl=False):
         f.tight_layout(rect=[0, 0.03, 1, 0.95])
 
     return(V_onset,V_offset,D_max)
+def get_last_time(var):
+    """
+    Given a sliced variable, return the index of the last point of contact in each contact
+    Since the variable is a matrix, and the data are irregular in length, this extracts the
+    last time point in which the contact was valid
 
-def get_onset(var,onset,to_array=True):
-    if var.shape[1]!=len(onset):
-        raise ValueError('Number of contacts in the onset do not match the number of contacts in the variable')
+    :param var: [time x N-contacts X N-dims] matrix of the variable to get the last time from
+    :return: 1D array of indices in which the contact ends
+    """
+    var = check_input_sliced(var,idx=None)
+    last_time = [np.where(np.all(np.isfinite(var[:,ii,:]),axis=1))[0][-1]
+                 for ii in range(var.shape[1])]
+    return(last_time)
+
+
+def check_input_sliced(var, idx=None):
+    """
+    This is a utility function to make sure the inputs are proper when getting
+    the onset and offset slices
+
+    :param var: The sliced variable we want to get the section of
+    :param idx: The index for each contact at which to reference
+    :return var: eturns the variable reshaped if needed. Else it is unchanged
+    """
+    if idx is not None:
+        if var.shape[1]!=len(idx):
+            raise ValueError('Number of contacts in the onset do not match '
+                             'the number of contacts in the variable')
     if var.ndim==2:
         var = var[:,:,np.newaxis]
     elif var.ndim==1:
         raise ValueError('var cannot be one dimensional')
+    return(var)
+
+
+def get_onset(var,onset,to_array=True):
+    """
+    Get the variable sliced just the onset portion,
+    as defined by the onset
+    :param var: The contact sliced variable for which you want to extract the onset
+                    Must be [time x n-contacts x n-dim]
+    :param onset: a list of time indices which signal the
+                    last time index of the onset period
+    :param to_array: A boolean of whether to return a list of arrays or a nan padded array
+
+    :return: the sliced variable. The first point is the onset of contact, the last point
+                    is the end of the defined onset period
+    """
+    var = check_input_sliced(var,onset)
     if to_array:
-        var_out = np.empty([np.max(onset),var.shape[1],var.shape[2]])
+        var_out = np.empty([np.max(onset), var.shape[1], var.shape[2]])
+        var_out[:] = np.nan
         for ii,idx in enumerate(onset):
-            var_out[:,ii,:] = var[:idx,ii,:]
+            var_out[:idx,ii,:] = var[:idx,ii,:]
     else:
         var_out = []
         for ii,idx in enumerate(onset):
             var_out.append(var[:idx,ii,:])
-
     return(var_out)
 
 def get_offset(var,offset,to_array=True):
-    if True:
-        raise Exception('There are issues with the offset being a consistent output from get offset')
 
-    # TODO: Make offset consistent-- this is done in get_apex having mutliple modes. The reset of the functions need to be altered still
-    if var.shape[1]!=len(offset):
-        raise ValueError('Number of contacts in the onset do not match the number of contacts in the variable')
-    if var.ndim==2:
-        var = var[:,:,np.newaxis]
-    elif var.ndim==1:
-        raise ValueError('var cannot be one dimensional')
+    """
+    Get the variable sliced just the offset portion,
+    as defined by the offset
+    :param var: The contact sliced variable for which you want to extract the onset
+                    Must be [time x n-contacts x n-dim]
+    :param onset: a list of time indices which signal the
+                    first time index of the offset period
+    :param to_array: A boolean of whether to return a list of arrays or a nan padded array
 
-    last_time = [np.where(np.all(np.isfinite(var[:,ii,:]),axis=1))[0][-1] for ii in range(len(offset))]
+    :return: the sliced variable. The first point is the beginning of the offset,
+             the last point is the end of the contact
+    """
+    var = check_input_sliced(var,offset)
+    last_time = get_last_time(var)
+
     if to_array:
-        var_out = np.empty([np.max(offset),var.shape[1],var.shape[2]])
-
+        var_out = np.empty([np.max(last_time-offset),var.shape[1],var.shape[2]])
+        var_out[:] = np.nan
         for ii,idx in enumerate(offset):
-
-            var_out[:,ii,:] = var[idx:last_time[ii],ii,:]
+            var_out[:(last_time[ii]-idx),ii,:] = var[idx:last_time[ii],ii,:]
     else:
         var_out = []
         for ii,idx in enumerate(offset):
-            var_out.append(var[:idx,ii,:])
+            var_out.append(var[idx:last_time[ii],ii,:])
 
     return(var_out)
 def on_off_time_derivative(var,onset=None,offset=None):
-    # TODO: finish consituent get onset offsets
     # TODO: Add the extraction off the first and last points in the onset/offset
     if True:
         raise Exception('This is incomplete')
