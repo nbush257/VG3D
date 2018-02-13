@@ -302,6 +302,7 @@ def get_onset_contacts(blk,unit_num=0,num_spikes=[1],onset_flag='onset',thresh=0
     :return: var_sliced, c_idx (an index of which contacts have the desired numer of spikes)
     '''
     # cast the number of spikes to a list
+    # TODO: Let the onset come in as an input.
     if type(num_spikes) is np.ndarray:
         num_spikes = num_spikes.tolist()
     elif type(num_spikes) is int:
@@ -319,7 +320,7 @@ def get_onset_contacts(blk,unit_num=0,num_spikes=[1],onset_flag='onset',thresh=0
     if onset_flag=='time':
         pass # allows time_win from optional argument
     elif onset_flag in ['onset','offset']:
-        onset,offset = neoUtils.get_contact_apex_idx(blk,stretch=True,thresh=thresh)
+        onset,offset = neoUtils.get_contact_apex_idx(blk,mode='thresh',thresh=thresh)
     else:
         raise ValueError("onset_flag is invalid. Allowable flags are:['onset','offset','time']")
 

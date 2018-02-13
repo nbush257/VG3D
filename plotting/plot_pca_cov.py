@@ -37,7 +37,10 @@ plt.close('all')
 # ================================
 # Plot Covariance matrices
 sns.set_style('white')
+wd = fig_width/2
+ht=wd
 for cell in cell_list:
+    f = plt.figure(figsize=(wd,ht))
     idx = np.where(dat['id']==cell)[0][0]
     cov = dat['cov'][:,:,idx]
     mask = np.zeros_like(cov, dtype='bool')
@@ -49,8 +52,9 @@ for cell in cell_list:
     plt.draw()
     plt.xticks(np.arange(0.5,8),dat['var_labels'].tolist())
     plt.yticks(np.arange(0.5,8),dat['var_labels'].tolist(),rotation=0)
-    plt.title('Variable covariance {}'.format(cell))
+    plt.title('Variable covariance\n{}'.format(cell))
+    # plt.axis('equal')
     plt.tight_layout()
-    plt.savefig(os.path.join(save_loc,'var_covariance_{}.{}'.format(cell,ext)))
+    plt.savefig(os.path.join(save_loc,'var_covariance_{}.{}'.format(cell,ext)),dpi=dpi_res)
     plt.close('all')
 
