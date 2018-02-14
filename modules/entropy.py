@@ -22,6 +22,26 @@ def calc_ent(var,sp,use_flags,nbins=100,sigma=5*pq.ms):
     S.calculate_entropies(calc=['HX','HY','HXY','SiHXi','HiX','HshX','HiXY','HshXY','ChiX'])
     return(S.H['HX'],S.H['HXY'],S.I(),S)
 
+def KL(p,q):
+    """
+    Return the KL divergence of a histogram. They must have the same bin edges
+    :param p: Histogram 1
+    :param q: Histogram 2
+    :return:
+    """
+    if type(p) == np.ma.core.MaskedArray:
+        p[p.mask]=0
+        p=p.data
+    else:
+        p[np.isnan(p)]=0
+
+    if type(q) == np.ma.core.MaskedArray:
+        q[q.mask]=0
+        q = q.data
+    else:
+        q[np.isnan(q)]=0
+
+    return(np.sum(np.where(p!=0,p*np.log(p/q),0)))
 
 HX=[]
 HXY=[]
