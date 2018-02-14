@@ -292,7 +292,7 @@ def trains2times(trains,concat_tgl=False):
         return(spt)
 
 
-def get_onset_contacts(blk,unit_num=0,num_spikes=[1],onset_flag='onset',thresh=0.85,time_win=50*pq.ms):
+def get_onset_contacts(blk,idx,unit_num=0,num_spikes=[1],mode='onset'):
     '''
     Finds contacts which ellicited the desired number of spikes. Useful if trying to look at RA onset.
     :param blk:
@@ -310,19 +310,9 @@ def get_onset_contacts(blk,unit_num=0,num_spikes=[1],onset_flag='onset',thresh=0
     if type(num_spikes) is not list:
         raise ValueError('num_spikes must ba a list')
 
-    # make time_win a quantity
-    if type(time_win) is not pq.quantity.Quantity:
-        time_win = time_win*pq.ms
-
     # Get data
     use_flag = neoUtils.concatenate_epochs(blk,-1)
     unit = blk.channel_indexes[-1].units[unit_num]
-    if onset_flag=='time':
-        pass # allows time_win from optional argument
-    elif onset_flag in ['onset','offset']:
-        onset,offset = neoUtils.get_contact_apex_idx(blk,mode='thresh',thresh=thresh)
-    else:
-        raise ValueError("onset_flag is invalid. Allowable flags are:['onset','offset','time']")
 
     trains = get_contact_sliced_trains(blk,unit)[-1]
     c_idx=[]
@@ -330,15 +320,10 @@ def get_onset_contacts(blk,unit_num=0,num_spikes=[1],onset_flag='onset',thresh=0
     # loop each train and extract contacts in which
     # onset or offset has appropriate number of spikes
     for ii,train in enumerate(trains):
-        if onset_flag=='onset':
-            sub_train = train[train<onset[ii]+train.t_start.magnitude]
-        elif onset_flag=='offset':
-            sub_train = train[train>offset[ii]+train.t_start.magnitude]
-        elif onset_flag=='time':
-            if time_win>0:
-                sub_train = train[train>time_win+train.t_start]
-            elif time_win<0:
-                sub_train = train[train>time_win+train.t_stop]
+        if mode=='onset':
+            sub_train = train[train<idx[ii]+train.t_start.magnitude]
+        elif mode=='offset':
+            sub_train = train[train>idx[ii]+train.t_start.magnitude]
 
         if len(sub_train) in num_spikes:
             c_idx.append(ii)
