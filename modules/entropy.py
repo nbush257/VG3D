@@ -23,15 +23,6 @@ def calc_ent(var,sp,use_flags,nbins=100,sigma=5*pq.ms):
     return(S.H['HX'],S.H['HXY'],S.I(),S)
 
 
-def shuf_sp(spbool):
-    sp_out = np.zeros_like(spbool)
-    num_spikes = np.sum(spbool)
-    T = len(spbool)
-    idx = np.random.choice(np.arange(0, T), num_spikes, replace=False)
-    sp_out[idx] = True
-    return(sp_out)
-
-
 HX=[]
 HXY=[]
 I=[]

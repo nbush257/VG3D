@@ -346,3 +346,4 @@ def get_time_stretched_PSTH(trains,nbins=100):
 def first_spike_latency(trains):
     latency = [x[0].magnitude - x.t_start.magnitude if len(x) > 0 else np.nan for x in trains]
     return(np.array(latency))
+
