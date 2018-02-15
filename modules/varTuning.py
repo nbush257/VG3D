@@ -141,7 +141,7 @@ def stim_response_hist(var, sp, use_flags, nbins=100, min_obs=5):
 
     return response,stim_edges
 
-def joint_response_hist(var1, var2, sp, use_flags, bins=None, min_obs=5):
+def joint_response_hist(var1, var2, sp, cbool, bins=None, min_obs=5):
     ''' Returns the noramlized response histogram of two variables
     INPUTS:     var1,var2 -- the two variables on which to plot the joint histogram. Must be either 1D numpy or column vector
                 sp -- either a neo spike train, or a numpy array. The numpy array can be a continuous rate estimate
@@ -176,7 +176,7 @@ def joint_response_hist(var1, var2, sp, use_flags, bins=None, min_obs=5):
 
     # use only observations where both vars are finite
     not_nan_mask = np.logical_and(np.isfinite(var1), np.isfinite(var2))
-    not_nan_mask = np.logical_and(not_nan_mask,use_flags)
+    not_nan_mask = np.logical_and(not_nan_mask,cbool)
     not_nan = np.where(not_nan_mask)[0]
 
     # handle bins -- NEB may want to make this more flexible/clean.
@@ -201,9 +201,9 @@ def joint_response_hist(var1, var2, sp, use_flags, bins=None, min_obs=5):
     if type(sp)==neo.core.spiketrain.SpikeTrain:
         spt = sp.times.magnitude.astype('int')
         idx = [x for x in spt if x in not_nan]
-        post = np.histogram2d(var1[idx], var2[idx], bins=bins,)[0]
+        post = np.histogram2d(var1[idx], var2[idx], bins=[var1_edges,var2_edges],)[0]
     else:
-        post = np.histogram2d(var1[not_nan_mask], var2[not_nan_mask], bins=bins, weights = sp[not_nan_mask])[0]
+        post = np.histogram2d(var1[not_nan_mask], var2[not_nan_mask], bins=[var1_edges,var2_edges], weights = sp[not_nan_mask])[0]
 
     bayes = np.divide(post,prior,dtype='float32')
     bayes = bayes.T

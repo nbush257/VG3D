@@ -2,7 +2,7 @@ from analyze_by_deflection import *
 # ============================ #
 # edit here #
 # ============================ #
-save_loc = os.path.join(os.environ['BOX_PATH'],'__VG3D/_deflection_trials/_NEO/results')
+save_loc = os.path.join(os.environ['BOX_PATH'],r'__VG3D/_deflection_trials/_NEO/results')
 cell_list = ['201711B2']
 plt.rcParams['svg.fonttype'] = 'none'
 plt.rcParams['axes.titlesize'] = 12
@@ -18,7 +18,7 @@ ext = 'png'
 sns.set_style('ticks')
 # =================================
 # Plot PCA variance explained
-dat = np.load(r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results\cov_exp_var.npz')
+dat = np.load(os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\cov_exp_var.npz'))
 wd = fig_width/3
 ht = wd/.75
 f = plt.figure(figsize=(wd,ht))
@@ -37,20 +37,23 @@ plt.close('all')
 # ================================
 # Plot Covariance matrices
 sns.set_style('white')
+wd = fig_width/2
+ht=wd
 for cell in cell_list:
+    f = plt.figure(figsize=(wd,ht))
     idx = np.where(dat['id']==cell)[0][0]
     cov = dat['cov'][:,:,idx]
     mask = np.zeros_like(cov, dtype='bool')
     mask[np.triu_indices_from(mask)] = True
     cmap = sns.color_palette('RdBu_r', 16)
-    sns.heatmap(cov, cmap=cmap, vmin=-1, vmax=1, mask=mask)#,linecolor=[0.3,0.3,0.3],linewidths=0.5)
+    sns.heatmap(cov, cmap='RdBu_r', vmin=-1, vmax=1, mask=mask)#,linecolor=[0.3,0.3,0.3],linewidths=0.5)
     ax = plt.gca()
     ax.set_facecolor([0.4,0.4,0.4])
     plt.draw()
     plt.xticks(np.arange(0.5,8),dat['var_labels'].tolist())
-    plt.yticks(np.arange(0.5,8),dat['var_labels'].tolist(),rotation=0)
+    plt.yticks(np.arange(7.5,0,-1),dat['var_labels'].tolist(),rotation=0)
     plt.title('Variable covariance {}'.format(cell))
-    plt.tight_layout()
-    plt.savefig(os.path.join(save_loc,'var_covariance_{}.{}'.format(cell,ext)))
+   plt.tight_layout()
+    plt.savefig(os.path.join(save_loc,'var_covariance_{}.{}'.format(cell,ext)),dpi=dpi_res)
     plt.close('all')
 

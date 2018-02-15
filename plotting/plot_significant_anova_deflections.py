@@ -22,12 +22,12 @@ wd=fig_width/4
 ht = wd/0.3
 
 
-df = pd.read_csv(r'C:\Users\nbush257\Box Sync\__VG3D\_deflection_trials\_NEO\results\anova_pvals.csv')
+df = pd.read_csv(os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\anova_pvals.csv'))
 df = df[df.stim_responsive]
 df_thresh = df[['Arclength','Direction','Interaction']]<0.05
 
 f = plt.figure(figsize=(wd,ht))
-sns.heatmap(df_thresh,cmap=sns.cubehelix_palette(2),linewidth=0.4,linecolor=[0.6,0.6,0.6],cbar=False)
+sns.heatmap(df_thresh,cmap=sns.cubehelix_palette(as_cmap=True),linewidth=0.4,linecolor=[0.6,0.6,0.6],cbar=False)
 plt.yticks([])
 plt.ylabel('Cell')
 plt.xticks(rotation=60)

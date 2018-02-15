@@ -133,7 +133,7 @@ for id in cell_list:
     plt.xticks(rotation=60)
     plt.tight_layout()
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_dir_selectivity_by_S.png'.format(id)), dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_dir_selectivity_by_S.png'.format(id)), dpi=dpi_res)
     plt.close('all')
 
     # plot arclength selectivity by direction?
@@ -155,5 +155,5 @@ for id in cell_list:
     ax.spines['polar'].set_visible(False)
     ax.set_title('Arclength tuning\nby direction group {}'.format(id))
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_selectivity_by_dir.png'.format(id)), dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_S_selectivity_by_dir.png'.format(id)), dpi=dpi_res)
     plt.close('all')
