@@ -11,6 +11,8 @@ import GLM
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import statsmodels.api as sm
+from sklearn.preprocessing import StandardScaler
 
 if sys.version_info.major==3:
     import pickle
@@ -28,97 +30,37 @@ def init_model_params():
     winsize = int(B[0].shape[0])
     return sigma_vals,B,winsize
 
-def bin_design_matrix(X,binsize):
-    idx = np.arange(0,X.shape[0],binsize)
-    return(X[idx,:])
-
-
-def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=None):
-    '''
-    Takes a list of variables and turns it into a matrix.
-    Sets the non-contact mechanics to zero, but keeps all the kinematics as NaN
-    You can append the derivative or apply the pillow bases, or both.
-    Scales, but does not center the output
-    '''
-    X = []
-    if type(window)==pq.quantity.Quantity:
-        window = int(window)
-
-    if type(binsize)==pq.quantity.Quantity:
-        binsize = int(binsize)
-    Cbool = neoUtils.get_Cbool(blk,-1)
-    use_flags = neoUtils.concatenate_epochs(blk)
-
-    # ================================ #
-    # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
-    # ================================ #
-
-    for varname in varlist:
-        if varname in ['MB','FB']:
-            var = neoUtils.get_var(blk,varname[0],keep_neo=False)[0]
-            var = neoUtils.get_MB_MD(var)[0]
-            var[np.invert(Cbool)]=0
-        elif varname in ['MD','FD']:
-            var = neoUtils.get_var(blk,varname[0],keep_neo=False)[0]
-            var = neoUtils.get_MB_MD(var)[1]
-            var[np.invert(Cbool)]=0
-        elif varname in ['ROT','ROTD']:
-            TH = neoUtils.get_var(blk,'TH',keep_neo=False)[0]
-            PH = neoUtils.get_var(blk,'PHIE',keep_neo=False)[0]
-            TH = neoUtils.center_var(TH,use_flags=use_flags)
-            PH = neoUtils.center_var(PH,use_flags=use_flags)
-            TH[np.invert(Cbool)] = 0
-            PH[np.invert(Cbool)] = 0
-            if varname=='ROT':
-                var = np.sqrt(TH**2+PH**2)
-            else:
-                var = np.arctan2(PH,TH)
-        else:
-            var = neoUtils.get_var(blk,varname, keep_neo=False)[0]
-
-        if varname in ['M','F']:
-            var[np.invert(Cbool),:]=0
-        if varname in ['TH','PHIE']:
-            var = neoUtils.center_var(var,use_flags)
-            var[np.invert(Cbool),:]=0
-
-        var = neoUtils.replace_NaNs(var,'pchip')
-        var = neoUtils.replace_NaNs(var,'interp')
-
-        X.append(var)
-    X = np.concatenate(X, axis=1)
-
-    # ================================ #
-    # CALCULATE DERIVATIVE
-    # ================================ #
-    if deriv_tgl:
-         pass
-         # TODO: Use the smoothed data to get the derivatives
-         Xdot = neoUtils.get_deriv(X)
-         X = np.append(X, Xdot, axis=1)
-
-
-     # ================================ #
-     # APPLY BASES FUNCTIONS OR WINDOWING
-     # ================================ #
-    if bases is not None:
-        X = GLM.apply_bases(X,bases)
-    else:
-        X = GLM.make_tensor(X, window)
-        X = GLM.reshape_tensor(X)
-    # ================================ #
-    # SCALE
-    # ================================ #
-    scaler = StandardScaler(with_mean=False)
-    X = scaler.fit_transform(X)
-
-    X = bin_design_matrix(X,binsize)
-    return X
-
 
 def optarg_list(option,opt,value,parser):
     ''' Parses a comma seperated list of variables to include in the model'''
     setattr(parser.values,option.dest,value.split(','))
+def bin_model(X,y,cbool,binsize):
+    """
+    This model will attempt to predict the number of spikes in a given bin that is larger than 1ms
+    :param X: The full design matrix, binning is done here.
+                - Assumes you have all covariates in X
+                - Assumes you have NOT included spike history in X
+    :param y: A neo spiketrain. Eventually will want to extend to allow for boolean
+    :return:
+    """
+    # time zero will inform us about the proceeding spikes between time 0 and 1, which is why there is an extra index
+    # in Xbin
+
+    Xbin = GLM.bin_design_matrix(X,binsize=binsize)[:-1]
+    scaler = StandardScaler(with_mean=False)
+    Xbin = scaler.fit_transform(Xbin)
+    cbool= GLM.bin_design_matrix(cbool[:,np.newaxis],binsize=binsize)[:-1].ravel()
+    ybin = elephant.conversion.BinnedSpikeTrain(y,binsize=binsize*pq.ms).to_array().T.astype('f8')
+
+    # add history
+    Xbin = GLM.add_spike_history(Xbin,ybin,-1) # no basis
+    # prep model
+    yhat = np.zeros(ybin.shape[0])
+    # TODO run stm
+    yhat_out,mdl = GLM.run_GLM(Xbin[cbool,:],ybin[cbool,:],family=sm.families.Poisson,link=sm.genmod.families.links.log)
+    yhat[cbool] = yhat_out.ravel()
+
+def continuous_model(X,y,cbool):
 
 
 def main():

@@ -9,6 +9,7 @@ import elephant
 from scipy import corrcoef
 import quantities as pq
 import progressbar
+import neoUtils
 
 try:
     import cmt
@@ -195,8 +196,11 @@ def add_spike_history(X, y, B=None):
     '''
     if B is None:
         B = make_bases(2, [1, 4])[0]
+        yy = apply_bases(y, B, lag=0)
+    elif B is -1:
+        yy = np.concatenate([[[0]],y[:-1]],axis=0)
 
-    yy = apply_bases(y, B, lag=1)
+
     XX = np.concatenate([X,yy],axis=1)
     return XX
 
@@ -226,6 +230,8 @@ def run_GLM(X,y,family=None,link=None):
         link = sm.genmod.families.links.logit
     if family==None:
         family=sm.families.Binomial(link=link)
+    else:
+        family = family(link=link)
 
     # make y a column vector
     if y.ndim==1:
@@ -345,7 +351,69 @@ def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.aran
     return rr
 
 
+def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=None):
+    '''
+    Takes a list of variables and turns it into a matrix.
+    Sets the non-contact mechanics to zero, but keeps all the kinematics as NaN
+    You can append the derivative or apply the pillow bases, or both.
+    Scales, but does not center the output
+    '''
+    X = []
+    if type(window)==pq.quantity.Quantity:
+        window = int(window)
 
+    if type(binsize)==pq.quantity.Quantity:
+        binsize = int(binsize)
+    Cbool = neoUtils.get_Cbool(blk,-1)
+    use_flags = neoUtils.concatenate_epochs(blk)
+
+    # ================================ #
+    # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
+    # ================================ #
+
+    for varname in varlist:
+        if varname in ['MB','FB']:
+            var = neoUtils.get_var(blk,varname[0],keep_neo=False)[0]
+            var = neoUtils.get_MB_MD(var)[0]
+            var[np.invert(Cbool)]=0
+        elif varname in ['MD','FD']:
+            var = neoUtils.get_var(blk,varname[0],keep_neo=False)[0]
+            var = neoUtils.get_MB_MD(var)[1]
+            var[np.invert(Cbool)]=0
+        elif varname in ['ROT','ROTD']:
+            TH = neoUtils.get_var(blk,'TH',keep_neo=False)[0]
+            PH = neoUtils.get_var(blk,'PHIE',keep_neo=False)[0]
+            TH = neoUtils.center_var(TH,use_flags=use_flags)
+            PH = neoUtils.center_var(PH,use_flags=use_flags)
+            TH[np.invert(Cbool)] = 0
+            PH[np.invert(Cbool)] = 0
+            if varname=='ROT':
+                var = np.sqrt(TH**2+PH**2)
+            else:
+                var = np.arctan2(PH,TH)
+        else:
+            var = neoUtils.get_var(blk,varname, keep_neo=False)[0]
+
+        if varname in ['M','F']:
+            var[np.invert(Cbool),:]=0
+        if varname in ['TH','PHIE']:
+            var = neoUtils.center_var(var,use_flags)
+            var[np.invert(Cbool),:]=0
+
+        var = neoUtils.replace_NaNs(var,'pchip')
+        var = neoUtils.replace_NaNs(var,'interp')
+
+        X.append(var)
+    X = np.concatenate(X, axis=1)
+
+    return X
+
+def bin_design_matrix(X,binsize):
+    idx = np.arange(0,X.shape[0],binsize)
+    return(X[idx,:])
+
+def get_deriv(fname,varlist,smoothing):
+    pass
 if keras_tgl:
     def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):
         # set y
