@@ -84,8 +84,7 @@ def manifold_fit(blk,sub_samp=4,n_components=2,method='ltsa'):
     scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
     X[idx,:] = scaler.fit_transform(X[idx,:])
 
-    LLE =
-    sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method=method,n_jobs=-1,n_components=n_components)
+    LLE = sklearn.manifold.LocallyLinearEmbedding(n_neighbors=10,method=method,n_jobs=-1,n_components=n_components)
     X_sub = X[idx,:]
     # samp = np.random.choice(X_sub.shape[0],n_pts,replace=False)
     samp = np.arange(0,X_sub.shape[0],sub_samp)
