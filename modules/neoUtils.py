@@ -289,6 +289,27 @@ def Cbool_to_cc(Cbool):
     stops = np.where(np.diff(Cbool) == -1)[0]
     return starts,stops
 
+def epoch_to_bool(epoch,t_stop):
+    """
+    converts a neo epoch to a boolean vector, given the length of the desired vector
+    :param epoch: a neo epoch of contact onsets and durations
+    :param t_stop: the length of the desired boolean vector
+    :return cbool: a boolean numpy vector of times where contact occurs
+    """
+    if type(t_stop) == pq.quantity.Quantity:
+        t_stop.units=pq.ms
+        t_stop = int(t_stop)
+    elif type(t_stop) is int:
+        pass
+    else:
+        raise ValueError('t_stop should be either a quantiity or an int')
+    cbool =np.zeros(t_stop,dtype='bool')
+    for (start,dur) in zip(epoch.times.magnitude,epoch.durations.magnitude):
+        start = int(start)
+        dur = int(dur)
+        cbool[start:start+dur] = True
+    return(cbool)
+
 
 def get_MB_MD(data_in):
     '''
@@ -562,3 +583,38 @@ def CP_to_world(blk):
             CP_world[ii,:] = np.dot(np.linalg.inv(ROT),CP[ii,:][:,np.newaxis]).T
             CP_world[ii,:]+=BP[ii,:]
     return CP_world
+
+def shuffle_spiketrain(sp,use_flags):
+    """
+    takes a spike train and shuffles the times only during contact periods
+    but allows for the total number of spikes in a contact period to be
+    changed.
+    :param sp: either a neo spike train, an array of spike times, or a boolean vector
+                indicating when spikes occur
+    :param use_flags: a neo epoch of contact times
+    :return sp_shuf: a shuffled spiketrain of the same type as the input
+    """
+    if type(sp) == neo.core.spiketrain.SpikeTrain:
+        cbool = epoch_to_bool(use_flags,sp.t_stop)
+        spbool = np.zeros_like(cbool)
+        spbool[sp.times.as_array().astype('int')] = 1
+        spbool = np.logical_and(cbool,spbool)
+    elif sp.dtype=='bool':
+        cbool = epoch_to_bool(use_flags,len(sp))
+        spbool = np.logical_and(sp,cbool)
+    else:
+        raise ValueError('Spike train is not the correct type.')
+    possible_time = np.where(cbool)[0]
+    n_spikes = np.sum(spbool)
+    shuf_times = np.random.choice(possible_time,n_spikes,replace=False)
+    shuf_times.sort()
+    if type(sp) == neo.core.spiketrain.SpikeTrain:
+        shuf_sp = neo.SpikeTrain(shuf_times,t_stop = sp.t_stop,units= sp.units)
+    elif sp.dtype=='bool':
+        shuf_sp = np.zeros_like(spbool)
+        shuf_sp[shuf_times]=1
+    else:
+        raise Exception('This is one of those errors that makes you made at the person who wrote this. This shouldnt happen')
+
+    return shuf_sp
+

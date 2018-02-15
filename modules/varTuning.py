@@ -201,9 +201,9 @@ def joint_response_hist(var1, var2, sp, cbool, bins=None, min_obs=5):
     if type(sp)==neo.core.spiketrain.SpikeTrain:
         spt = sp.times.magnitude.astype('int')
         idx = [x for x in spt if x in not_nan]
-        post = np.histogram2d(var1[idx], var2[idx], bins=bins,)[0]
+        post = np.histogram2d(var1[idx], var2[idx], bins=[var1_edges,var2_edges],)[0]
     else:
-        post = np.histogram2d(var1[not_nan_mask], var2[not_nan_mask], bins=bins, weights = sp[not_nan_mask])[0]
+        post = np.histogram2d(var1[not_nan_mask], var2[not_nan_mask], bins=[var1_edges,var2_edges], weights = sp[not_nan_mask])[0]
 
     bayes = np.divide(post,prior,dtype='float32')
     bayes = bayes.T
