@@ -327,8 +327,8 @@ def get_MB_MD(data_in):
     elif type(data_in)==np.ndarray:
         dat = data_in
 
-    MD = np.arctan2(dat[:, 2], dat[:, 1])
-    MB = np.sqrt(dat[:, 1] ** 2 + dat[:, 2] ** 2)
+    MD = np.arctan2(dat[:, 2], dat[:, 1])[:,np.newaxis]
+    MB = np.sqrt(dat[:, 1] ** 2 + dat[:, 2] ** 2)[:,np.newaxis]
     if type(data_in)==neo.core.analogsignal.AnalogSignal or type(data_in)==neo.core.block.Block:
         MD = neo.core.AnalogSignal(MD, units=pq.radians, sampling_rate=pq.kHz)
         MB = neo.core.AnalogSignal(MB, units=pq.N*pq.m, sampling_rate=pq.kHz)

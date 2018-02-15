@@ -54,7 +54,28 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     # ================================ #
 
     for varname in varlist:
-        var = neoUtils.get_var(blk,varname, keep_neo=False)[0]
+        if varname in ['MB','FB']:
+            var = neoUtils.get_var(blk,varname[0],keep_neo=False)[0]
+            var = neoUtils.get_MB_MD(var)[0]
+            var[np.invert(Cbool)]=0
+        elif varname in ['MD','FD']:
+            var = neoUtils.get_var(blk,varname[0],keep_neo=False)[0]
+            var = neoUtils.get_MB_MD(var)[1]
+            var[np.invert(Cbool)]=0
+        elif varname in ['ROT','ROTD']:
+            TH = neoUtils.get_var(blk,'TH',keep_neo=False)[0]
+            PH = neoUtils.get_var(blk,'PHIE',keep_neo=False)[0]
+            TH = neoUtils.center_var(TH,use_flags=use_flags)
+            PH = neoUtils.center_var(PH,use_flags=use_flags)
+            TH[np.invert(Cbool)] = 0
+            PH[np.invert(Cbool)] = 0
+            if varname=='ROT':
+                var = np.sqrt(TH**2+PH**2)
+            else:
+                var = np.arctan2(PH,TH)
+        else:
+            var = neoUtils.get_var(blk,varname, keep_neo=False)[0]
+
         if varname in ['M','F']:
             var[np.invert(Cbool),:]=0
         if varname in ['TH','PHIE']:
@@ -72,6 +93,7 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     # ================================ #
     if deriv_tgl:
          pass
+         # TODO: Use the smoothed data to get the derivatives
          Xdot = neoUtils.get_deriv(X)
          X = np.append(X, Xdot, axis=1)
 
