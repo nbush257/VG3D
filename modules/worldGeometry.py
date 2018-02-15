@@ -254,7 +254,6 @@ def get_contact_direction(blk,plot_tgl=True):
 
 
 def get_onset_velocity(blk,plot_tgl=False):
-    # TODO : Maybe make this work with the new onset/offset functions
     '''
     Get the onset and offset velocities for each deflection 
     with respect to the angular motion of the base (TH,PHIE)

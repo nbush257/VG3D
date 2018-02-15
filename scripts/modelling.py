@@ -1,6 +1,7 @@
 from neo.io import PickleIO
 from neo.io import NixIO
 import neoUtils
+import quantities as pq
 import os
 import sys
 VG3D_modules = os.path.join(os.path.abspath(os.path.join(os.getcwd(),os.pardir)),'modules')
@@ -46,6 +47,7 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     if type(binsize)==pq.quantity.Quantity:
         binsize = int(binsize)
     Cbool = neoUtils.get_Cbool(blk,-1)
+    use_flags = neoUtils.concatenate_epochs(blk)
 
     # ================================ #
     # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
@@ -54,6 +56,9 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     for varname in varlist:
         var = neoUtils.get_var(blk,varname, keep_neo=False)[0]
         if varname in ['M','F']:
+            var[np.invert(Cbool),:]=0
+        if varname in ['TH','PHIE']:
+            var = neoUtils.center_var(var,use_flags)
             var[np.invert(Cbool),:]=0
 
         var = neoUtils.replace_NaNs(var,'pchip')
@@ -66,6 +71,7 @@ def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=No
     # CALCULATE DERIVATIVE
     # ================================ #
     if deriv_tgl:
+         pass
          Xdot = neoUtils.get_deriv(X)
          X = np.append(X, Xdot, axis=1)
 

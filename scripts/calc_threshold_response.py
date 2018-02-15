@@ -7,7 +7,6 @@ import pandas as pd
 import worldGeometry
 import numpy as np
 def create_threshold_DF(blk,unit_num=0,time_win=20,max_spikes=3):
-    # TODO: I don't know if this is super meaningful.
     # If we use a constant time window then we are not looking at the magnitude, but th derivative
     # which could be what we want...
     use_flags = neoUtils.concatenate_epochs(blk)

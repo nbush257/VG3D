@@ -302,7 +302,6 @@ def get_onset_contacts(blk,idx,unit_num=0,num_spikes=[1],mode='onset'):
     :return: var_sliced, c_idx (an index of which contacts have the desired numer of spikes)
     '''
     # cast the number of spikes to a list
-    # TODO: Let the onset come in as an input.
     if type(num_spikes) is np.ndarray:
         num_spikes = num_spikes.tolist()
     elif type(num_spikes) is int:
