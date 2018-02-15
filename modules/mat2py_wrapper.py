@@ -8,6 +8,7 @@ import neo.io
 import glob
 import os
 import re
+import sys
 
 
 def convertC(C):
@@ -30,6 +31,8 @@ def convertC(C):
     cends = np.where(d == -1)[0]
     # return the Nx2 Matrix of onsets (inclusive) and offsets(exclusive)
     return np.vstack((cstarts, cends)).T
+
+
 def create_unit_chan(blk):
     chx = neo.core.ChannelIndex(index=np.array([0]),name='electrode_0')
 
@@ -79,7 +82,11 @@ def createSeg(fname):
     rawvars = dat['rawvars'][0, 0]
     PT = dat['PT'][0, 0]
     C = dat['C']
+    use_flags = dat['use_flags']
+
     cc = convertC(C)
+    use_cc = convertC(use_flags)
+
     num_contacts = cc.shape[0]
     trial_idx = int(PT['trial'][0][1:])
     # access the neural data
@@ -107,11 +114,11 @@ def createSeg(fname):
         sig = filtvars[varname]
         if varname == 'M':
             U = pq.N*pq.m
-            name = 'Moment'
-        elif varname == 'F':
+            name = varname
+        elif varname == 'FX' or varname == 'FY'or varname == 'F':
             U = pq.N
-            name = 'Force'
-        elif varname == 'Rcp':
+            name = varname
+        elif varname == 'Rcp' or varname == 'CP' or varname == 'CPm' or varname == 'S':
             U = pq.m
             name = varname
         else:
@@ -124,6 +131,8 @@ def createSeg(fname):
                 sig, units=U, sampling_rate=pq.kHz, name=name
             )
         )
+
+
     # add the spike trains to the segment
 
 
@@ -145,16 +154,23 @@ def createSeg(fname):
             name='contacts')
     )
 
+    seg.epochs.append(
+        neo.core.Epoch(
+            times=use_cc[:, 0] * ms,
+            durations=np.diff(use_cc, axis=1) * ms,
+            labels=None,
+            name='use_flags')
+    )
     return seg
 
 
-def batch_convert(d_list, p):
+def batch_convert(d_list, p, suffix='NEO'):
     d_list = list(d_list)
     for root in d_list:
         try:
             root_full = os.path.join(p, root)
-            fname_M = root_full + '_NEO.mat'
-            fname_N = root_full + '_NEO.h5'
+            fname_M = root_full + '_{}.mat'.format(suffix)
+            fname_N = root_full + '_{}.h5'.format(suffix)
 
             files = glob.glob(root_full + '*1K.mat')
 
@@ -204,10 +220,16 @@ def get_list(p, fname_spec):
 
 
 if __name__ == '__main__':
-    p = r'D:\Users\nbush\Desktop\nix_test'
+    p = sys.argv[1]
+    if len(sys.argv)==3:
+        suffix = sys.argv[2]
+    else:
+        suffix = 'NEO'
+    print('Using Suffix {}'.format(suffix))
+
     fname_spec = '*1K.mat'
     d_list = get_list(p, fname_spec)
-    batch_convert(d_list, p)
+    batch_convert(d_list, p,suffix=suffix)
 
 
 

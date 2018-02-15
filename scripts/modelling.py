@@ -1,14 +1,18 @@
-from neo.io import PickleIO as PIO
+from neo.io import PickleIO
+from neo.io import NixIO
+import neoUtils
+import quantities as pq
 import os
 import sys
 VG3D_modules = os.path.join(os.path.abspath(os.path.join(os.getcwd(),os.pardir)),'modules')
 sys.path.append(VG3D_modules)
-from neo_utils import *
-from mechanics import *
-from GLM import *
+import neoUtils
+import GLM
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import statsmodels.api as sm
+from sklearn.preprocessing import StandardScaler
 
 if sys.version_info.major==3:
     import pickle
@@ -22,73 +26,41 @@ sns.set()
 
 def init_model_params():
     sigma_vals = np.arange(2, 200, 4)*pq.ms
-    B = make_bases(5, [0, 15], b=2)
+    B = GLM.make_bases(5, [0, 15], b=2)
     winsize = int(B[0].shape[0])
     return sigma_vals,B,winsize
-
-def bin_design_matrix(X,binsize):
-    idx = np.arange(0,X.shape[0],binsize)
-    return(X[idx,:])
-
-
-def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=None):
-    ''' 
-    Takes a list of variables and turns it into a matrix.
-    Sets the non-contact mechanics to zero, but keeps all the kinematics as NaN
-    You can append the derivative or apply the pillow bases, or both.
-    Scales, but does not center the output
-    '''
-    X = []
-
-    Cbool = get_Cbool(blk)
-
-    # ================================ #
-    # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
-    # ================================ #
-
-    for varname in varlist:
-        var = get_var(blk,varname, keep_neo=False)[0]
-        if varname in ['M','F']:
-            var[np.invert(Cbool),:]=0
-            var = replace_NaNs(var,'pchip')
-            var = replace_NaNs(var,'interp')
-
-        X.append(var)
-    X = np.concatenate(X, axis=1)
-
-    # ================================ #
-    # CALCULATE DERIVATIVE
-    # ================================ #
-    if deriv_tgl:
-         Xdot = get_deriv(X)
-         X = np.append(X, Xdot, axis=1)
-
-    # ================================ #
-    # APPLY WINDOW
-    # ================================ #
-
-    X = make_tensor(X, window)
-    X = reshape_tensor(X)
-
-     # ================================ #
-     # APPLY BASES FUNCTIONS
-     # ================================ #
-    if bases is not None:
-        X = apply_bases(X,bases)
-
-    # ================================ #
-    # SCALE
-    # ================================ #
-    scaler = StandardScaler(with_mean=False)
-    X = scaler.fit_transform(X)
-
-    X = bin_design_matrix(X,binsize)
-    return X
 
 
 def optarg_list(option,opt,value,parser):
     ''' Parses a comma seperated list of variables to include in the model'''
     setattr(parser.values,option.dest,value.split(','))
+def bin_model(X,y,cbool,binsize):
+    """
+    This model will attempt to predict the number of spikes in a given bin that is larger than 1ms
+    :param X: The full design matrix, binning is done here.
+                - Assumes you have all covariates in X
+                - Assumes you have NOT included spike history in X
+    :param y: A neo spiketrain. Eventually will want to extend to allow for boolean
+    :return:
+    """
+    # time zero will inform us about the proceeding spikes between time 0 and 1, which is why there is an extra index
+    # in Xbin
+
+    Xbin = GLM.bin_design_matrix(X,binsize=binsize)[:-1]
+    scaler = StandardScaler(with_mean=False)
+    Xbin = scaler.fit_transform(Xbin)
+    cbool= GLM.bin_design_matrix(cbool[:,np.newaxis],binsize=binsize)[:-1].ravel()
+    ybin = elephant.conversion.BinnedSpikeTrain(y,binsize=binsize*pq.ms).to_array().T.astype('f8')
+
+    # add history
+    Xbin = GLM.add_spike_history(Xbin,ybin,-1) # no basis
+    # prep model
+    yhat = np.zeros(ybin.shape[0])
+    # TODO run stm
+    yhat_out,mdl = GLM.run_GLM(Xbin[cbool,:],ybin[cbool,:],family=sm.families.Poisson,link=sm.genmod.families.links.log)
+    yhat[cbool] = yhat_out.ravel()
+
+def continuous_model(X,y,cbool):
 
 
 def main():
@@ -211,7 +183,7 @@ def main():
     print(os.path.basename(fname))
 
     # read data in
-    fid = PIO(fname)
+    fid = neo.io.NixIO(fname)
     blk = fid.read_block()
 
     # set binsize to a quantity
@@ -226,9 +198,9 @@ def main():
 
     # calculate pillow bases if desired.
     if pillow_tgl:
-        B = make_bases(5,[0,15],2)
+        B = GLM.make_bases(5,[0,15],2)
         bases=B[0]
-        X_pillow = create_design_matrix(blk, varlist, deriv_tgl=deriv_tgl, bases=bases)
+        X_pillow = create_design_matrix(blk, varlist, deriv_tgl=options.deriv_tgl, bases=bases)
     else:
         B=None
         bases = None
@@ -256,7 +228,7 @@ def main():
         # ===================================== #
         sp = concatenate_sp(blk)[unit.name]
         b = elephant.conversion.BinnedSpikeTrain(sp,binsize=binsize)
-        Cbool=get_Cbool(blk)
+        Cbool=get_Cbool(blk,-1)
 
         spike_isbool=binsize==pq.ms
         if spike_isbool:

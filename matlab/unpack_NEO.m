@@ -16,6 +16,7 @@ for ii= 1:length(block.segments)
     Zcp{ii} = seg.analogsignals{9}.signal;
     
     cc{ii} = [seg.epochs{1}.times(:) seg.epochs{1}.times(:)+seg.epochs{1}.durations(:)];
+    cc_use_flags{ii} = [seg.epochs{2}.times(:) seg.epochs{2}.times(:)+seg.epochs{2}.durations(:)];
 end
 clear ii jj seg
 
@@ -41,6 +42,8 @@ if concat_TGL
     THcp = vertcat(THcp{:});
     Zcp = vertcat(Zcp{:});
     cc = vertcat(cc{:});
+    cc_use_flags = vertcat(cc_use_flags{:});
+  
     for ii = 1:size(sp,2)
         temp{ii} = [sp{:,ii}];
     end

@@ -28,12 +28,24 @@ p.addOptional('sgolay_degree', 2); % Default is 2-- Nick has not understood how 
 p.addOptional('nan_gap', 15); % in samples
 p.addOptional('mad_outlier_detection_tgl',true);
 p.addOptional('mad_thresh',10); % numper to multiply times the IQR
-
-
+p.addOptional('py_outlier_detect',true); % Toggle the python outlier detection
+p.addOptional('py_outliers',[]); % Outlier index passed in
 parse(p,var,varargin{:});
 vv = p.Results;
 %%
+if vv.py_outlier_detect
+    if isempty(vv.py_outliers)
+        error('no outliers passed from python')
+        var(outliers,:) = nan; 
+    end
+end
+
+%%
 filtvar = var;
+%%
+
+
+
 %%
 if vv.mad_outlier_detection_tgl %http://www.sciencedirect.com/science/article/pii/S0022103113000668
     med = nanmedian(filtvar);

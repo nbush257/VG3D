@@ -8,7 +8,9 @@ import neo
 import elephant
 from scipy import corrcoef
 import quantities as pq
-from neo.io import PickleIO as PIO
+import progressbar
+import neoUtils
+
 try:
     import cmt
     from cmt.models import STM,Bernoulli
@@ -30,6 +32,87 @@ except ImportError:
     keras_tgl=False
 
 
+def make_bases(num_bases,endpoints,b=1):
+    '''
+    Imported from the neuroGLM toolbox. Makes non-linear raised cosine basis functions a la Pillow 2008
+     
+    :param num_bases:   int -- Number of basis functions 
+    :param endpoints:   list or array -- first and last temporal peaks to be covered in the basis 
+    :param b:           float -- nonlinear scaling parameter
+    
+    :returns (bases, centers, time_domain):
+                        bases -- actual functions to be used in projections
+                        centers -- indices of peaks in basis functinos
+                        time_domain -- array of times which correspond to the indices in the basis functions.
+     
+    '''
+    binsize=1
+    endpoints = np.asarray(endpoints)
+    nlin = lambda x: np.log(x+1e-20)
+    invnl = lambda x: np.exp(x)-1e-20
+
+    yrange = nlin(endpoints+b)
+    db = np.diff(yrange)/(num_bases-1)
+    ctrs = np.arange(yrange[0],yrange[1]+.1,db)
+    mxt = invnl(yrange[-1]+2*db)-b
+    iht = np.arange(0,mxt,binsize)
+    bases = []
+
+    def f_t(x,c,dc):
+        a1 = (x-c)*np.pi/dc/2
+        a1[a1>np.pi]=np.pi
+        a1[a1<-np.pi]=-np.pi
+        return (np.cos(a1)+1)/2
+
+    xx = matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
+    cc = matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
+
+    return(f_t(xx,cc,db),ctrs,iht)
+
+
+def apply_bases(X, bases, lag=0):
+    '''
+    Project a matrix X into a lower dimensional basis given by bases.
+    
+    :param X:       A matrix [time x dimensions] of features to project into bases 
+    :param bases:   basis functions as returned by make_bases
+    :param lag:     number of samples by which to lag the input [for example, if we don't want to use the current 
+                        observation to predict the current output, we can force a lag here] 
+    
+    :return X_out:  A matrix of [time x (dimensions * num_bases)] of the input mapped into the basis 
+                        
+    '''
+    if np.any(np.isnan(X)):
+        raise Warning('input contains NaNs. some timepoints will lose data')
+
+    X_out = np.zeros([X.shape[0],X.shape[1]*bases.shape[1]])
+
+    for ii in xrange(X.shape[1]):
+        for jj in xrange(bases.shape[1]):
+            temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
+            zero_pad = np.zeros(lag)
+            temp = np.concatenate([zero_pad, temp[:-lag-1]])
+            X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
+    return(X_out)
+
+
+def map_bases(weights,bases):
+    '''
+    takes the fitted weights from the GLM and maps them back into time space
+        columns of ww are the basis, rows are the inputs
+    
+    :param weights: weights as returned by statsmodels GLM 
+    :param bases:   basis functions as returned by make_bases 
+    
+    :return(filters, ww):   filters -- The weights represented in the time_domain, rather than the basis domain.
+                            ww      -- the weights reshaped into a matrix that can be multiplied by the basis functions.
+    '''
+
+    ww = weights.reshape([-1,bases[0].shape[1]])
+    filters = np.dot(bases[0],ww.T)
+
+    return filters,ww
+
 
 def make_tensor(timeseries, window_size=10,lag=0):
     '''
@@ -37,27 +120,38 @@ def make_tensor(timeseries, window_size=10,lag=0):
     :param timeseries: variable on which to window
     :param window_size: number of samples for the window to look into the past
     :param lag: number of samples to lag the entries of the Q dimension
-    :return: X -- a tensor of N x Q x M tensor where N is the number of timesteps in the original timeseries, M is the number of variable dimensions, and Q is the window size
+    :return: X -- a tensor of N x Q x M tensor where N is the number of timesteps in the original timeseries, Q is the window size, and M is the number of variable dimensions,
                     the 0th slice of the Q dimension is the current-lag, the -1th slice is the most latent time.
     '''
     if type(timeseries) == neo.core.analogsignal.AnalogSignal:
         timeseries = timeseries.magnitude
+
     X = np.empty((timeseries.shape[0],window_size,timeseries.shape[-1]))
     for ii in xrange(window_size+lag,timeseries.shape[0]-window_size):
         X[ii,:,:] = np.flipud(timeseries[ii-window_size+1-lag:ii+1-lag,:])
     return X
 
-def make_binned_tensor(signal,binned_train,window_size=10):
-    ''' gets a tensor to represent the inputs leading up to a bin of a spike train. 
-    Might be more general to use neo signals and trains, but is wayyy slow'''
+
+def make_binned_tensor(timeseries, binned_train, window_size=10, lag=0):
+    '''
+    Create a tensor which takes a window prior to the current bin and sets that to the third dimension.
+    
+    :param timeseries:      variable on which to window
+    :param binned_train:    an elephant binned spike train--gives us the indices for the bins
+    :param window_size:     The number of samples to look into the past
+    :param lag:             The number of samples prior to the current time to include in the tensor. Defaults to zero: the 0th element of the window is the current time
+    
+    :return X:              a tensor of N x Q x M tensor where N is the number of bins, Q is the window size, and M is the number of variable dimensions,
+                            the 0th slice of the Q dimension is  [bin_start_time-lag], the -1th slice is the most latent time[bin_start_time-lag-window_size].        
+    '''
 
     # Init the output tensor
-    X = np.empty((binned_train.num_bins,window_size,signal.shape[-1]))
+    X = np.empty((binned_train.num_bins, window_size, timeseries.shape[-1]))
     X[:] = np.nan
 
     # convert signal to array if needed
-    if type(signal)==neo.core.analogsignal.AnalogSignal:
-        signal =signal.as_array()
+    if type(timeseries)==neo.core.analogsignal.AnalogSignal:
+        timeseries =timeseries.magnitude
 
     # get indices of bin start time
     starts = binned_train.bin_edges.magnitude.astype('int')
@@ -66,18 +160,19 @@ def make_binned_tensor(signal,binned_train,window_size=10):
     for ii,start in enumerate(starts[:-1]):
         if (start-window_size)<0:
             continue
-        X[ii,:,:]=signal[start-window_size:start,:]
+        X[ii,:,:]= np.flipud(timeseries[start - window_size+1-lag:start+1-lag, :])
 
     return X
+
 
 def reshape_tensor(X):
     '''
     takes a 3D tensor and flattens it to a 2D array such that each observation in a window is now a column.
-    Orders columns such that the adjacent columns corrspond to the same variable at different points in the window
+    Orders columns such that the adjacent columns correspond to the same variable at different points in the window
     (0th column is oth variable at current time, 1st column is zeroth variable 1 sample into the past...)
 
-    :param X: input tensor
-    :return:
+    :param X:   input tensor
+    :return X2: 
     '''
 
     if X.ndim!=3:
@@ -89,12 +184,41 @@ def reshape_tensor(X):
     X2 = X2[:,np.argsort(pos)]
     return X2
 
-def add_spike_history(X,y):
-    B = make_bases(2, [1, 4])[0]
-    yy = apply_bases(y,B,delay=1)
+
+def add_spike_history(X, y, B=None):
+    '''
+    Underdeveloped function which concatenates spike history to a design matrix X. The spike history is mapped to a set of basis functions.
+    :param X: A design matrix of [observations x dimensions]
+    :param y: A vector of spikes. If boolean dtype, map to int
+    :param B: [Optional] basis functions as returned by make_bases
+    
+    :return XX: A concatenated design matrix with the spike history as the last columns 
+    '''
+    if B is None:
+        B = make_bases(2, [1, 4])[0]
+        yy = apply_bases(y, B, lag=0)
+    elif B is -1:
+        yy = np.concatenate([[[0]],y[:-1]],axis=0)
+
+
     XX = np.concatenate([X,yy],axis=1)
     return XX
 
+
+def split_pos_neg(var):
+    '''
+    Takes a matrix and doubles the number of dimensions by splitting the positive and negative values into separate dimensions
+    :param var:         A matrix [num_obs x num_dims] of input feature values.
+    :return var_out:    A matrix [num_obs x num_dims*2] with positive and negative values split.
+    
+    '''
+    var_out = np.zeros([var.shape[0],(var.shape[1])*2])
+    for ii in range(var.shape[1]):
+        idx_pos = var[: ,ii] > 0.
+        idx_neg = var[:, ii] < 0.
+        var_out[idx_pos, ii] = var[idx_pos,ii]
+        var_out[idx_neg, (ii+var.shape[1])] = var[idx_neg, ii]
+    return var_out
 
 
 def run_GLM(X,y,family=None,link=None):
@@ -106,6 +230,8 @@ def run_GLM(X,y,family=None,link=None):
         link = sm.genmod.families.links.logit
     if family==None:
         family=sm.families.Binomial(link=link)
+    else:
+        family = family(link=link)
 
     # make y a column vector
     if y.ndim==1:
@@ -159,6 +285,27 @@ def run_GAM(X,y,n_splines=15,distr='binomial',link='logit'):
     return yhat,gam
 
 
+def run_STM(X,y,num_components=3,num_features=20):
+    if X.shape[0]>X.shape[1]:
+        X = X.T
+
+    if y.ndim==1:
+        y = y[:,np.newaxis]
+
+    if y.shape[0]>y.shape[1]:
+        y = y.T
+
+    model = STM(X.shape[0], 0, num_components, num_features, LogisticFunction, Bernoulli)
+
+    model.train(X,y, parameters={
+        'verbosity':1,
+        'threshold':1e-7
+            }
+                )
+    yhat = model.predict(X).ravel()
+    return yhat, model
+
+
 def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.arange(2, 100, 2)):
     '''
     Takes a predict spike rate and smooths the
@@ -204,15 +351,69 @@ def evaluate_correlation(yhat,sp,Cbool=None,kernel_mode='box',sigma_vals=np.aran
     return rr
 
 
-def split_pos_neg(var):
-    var_out = np.zeros([var.shape[0],(var.shape[1])*2])
-    for ii in range(var.shape[1]):
-        idx_pos = var[: ,ii] > 0.
-        idx_neg = var[:, ii] < 0.
-        var_out[idx_pos, ii] = var[idx_pos,ii]
-        var_out[idx_neg, (ii+var.shape[1])] = var[idx_neg, ii]
-    return var_out
+def create_design_matrix(blk,varlist,window=1,binsize=1,deriv_tgl=False,bases=None):
+    '''
+    Takes a list of variables and turns it into a matrix.
+    Sets the non-contact mechanics to zero, but keeps all the kinematics as NaN
+    You can append the derivative or apply the pillow bases, or both.
+    Scales, but does not center the output
+    '''
+    X = []
+    if type(window)==pq.quantity.Quantity:
+        window = int(window)
 
+    if type(binsize)==pq.quantity.Quantity:
+        binsize = int(binsize)
+    Cbool = neoUtils.get_Cbool(blk,-1)
+    use_flags = neoUtils.concatenate_epochs(blk)
+
+    # ================================ #
+    # GET THE CONCATENATED DESIGN MATRIX OF REQUESTED VARS
+    # ================================ #
+
+    for varname in varlist:
+        if varname in ['MB','FB']:
+            var = neoUtils.get_var(blk,varname[0],keep_neo=False)[0]
+            var = neoUtils.get_MB_MD(var)[0]
+            var[np.invert(Cbool)]=0
+        elif varname in ['MD','FD']:
+            var = neoUtils.get_var(blk,varname[0],keep_neo=False)[0]
+            var = neoUtils.get_MB_MD(var)[1]
+            var[np.invert(Cbool)]=0
+        elif varname in ['ROT','ROTD']:
+            TH = neoUtils.get_var(blk,'TH',keep_neo=False)[0]
+            PH = neoUtils.get_var(blk,'PHIE',keep_neo=False)[0]
+            TH = neoUtils.center_var(TH,use_flags=use_flags)
+            PH = neoUtils.center_var(PH,use_flags=use_flags)
+            TH[np.invert(Cbool)] = 0
+            PH[np.invert(Cbool)] = 0
+            if varname=='ROT':
+                var = np.sqrt(TH**2+PH**2)
+            else:
+                var = np.arctan2(PH,TH)
+        else:
+            var = neoUtils.get_var(blk,varname, keep_neo=False)[0]
+
+        if varname in ['M','F']:
+            var[np.invert(Cbool),:]=0
+        if varname in ['TH','PHIE']:
+            var = neoUtils.center_var(var,use_flags)
+            var[np.invert(Cbool),:]=0
+
+        var = neoUtils.replace_NaNs(var,'pchip')
+        var = neoUtils.replace_NaNs(var,'interp')
+
+        X.append(var)
+    X = np.concatenate(X, axis=1)
+
+    return X
+
+def bin_design_matrix(X,binsize):
+    idx = np.arange(0,X.shape[0],binsize)
+    return(X[idx,:])
+
+def get_deriv(fname,varlist,smoothing):
+    pass
 if keras_tgl:
     def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):
         # set y
@@ -269,76 +470,22 @@ if keras_tgl:
             yhat[timestep,:]=is_spike
         return yhat
 
-def make_bases(num_bases,endpoints,b=1):
-    ''' ported from the neuroGLM toolbox. 
-    returns:
-        Bases,centers,and time vector    
-    '''
-    binsize=1
-    endpoints = np.asarray(endpoints)
-    nlin = lambda x: np.log(x+1e-20)
-    invnl = lambda x: np.exp(x)-1e-20
-
-    yrange = nlin(endpoints+b)
-    db = np.diff(yrange)/(num_bases-1)
-    ctrs = np.arange(yrange[0],yrange[1]+.1,db)
-    mxt = invnl(yrange[-1]+2*db)-b
-    iht = np.arange(0,mxt,binsize)
-    bases = []
-
-    def f_t(x,c,dc):
-        a1 = (x-c)*np.pi/dc/2
-        a1[a1>np.pi]=np.pi
-        a1[a1<-np.pi]=-np.pi
-        return (np.cos(a1)+1)/2
-
-    xx = matlib.repmat(nlin(iht + b)[:, np.newaxis], 1, num_bases)
-    cc = matlib.repmat(ctrs[np.newaxis,:], len(iht), 1)
-
-    return(f_t(xx,cc,db),ctrs,iht)
-
-
-def apply_bases(X,bases,delay=0):
-    if np.any(np.isnan(X)):
-        raise Warning('input contains NaNs. some timepoints will lose data')
-
-    X_out = np.zeros([X.shape[0],X.shape[1]*bases.shape[1]])
-
-    for ii in xrange(X.shape[1]):
-        for jj in xrange(bases.shape[1]):
-            temp = np.convolve(X[:,ii],bases[:,jj],mode='full')
-            zero_pad = np.zeros(delay)
-            temp = np.concatenate([zero_pad,temp[:-delay]])
-            X_out[:,ii*bases.shape[1]+jj] = temp[:X.shape[0]]
-    return(X_out)
-
-
-def map_bases(weights,bases):
-    '''takes the fitted weights from the GLM and maps them back into time space
-    columns of ww are the basis, rows are the inputs
-    '''
-
-    ww = weights.reshape([-1,bases[0].shape[1]])
-    filters = np.dot(bases[0],ww.T)
-
-    return filters,ww
-
-def run_STM(X,y,num_components=3,num_features=20):
-    if X.shape[0]>X.shape[1]:
-        X = X.T
-
-    if y.ndim==1:
-        y = y[:,np.newaxis]
-
-    if y.shape[0]>y.shape[1]:
-        y = y.T
-
-    model = STM(X.shape[0], 0, num_components, num_features, LogisticFunction, Bernoulli)
-
-    model.train(X,y, parameters={
-        'verbosity':1,
-        'threshold':1e-6
-            }
-                )
-    yhat = model.predict(X).ravel()
-    return yhat, model
+def sim(yhat, y,num_sims=100,lim=500):
+    ISI = np.diff(np.where(y)[0])
+    prob,time=np.histogram(ISI[ISI<lim],lim,density=True)
+    cum_prob = np.cumsum(prob)
+    cum_prob[cum_prob>1]=1
+    h = np.ones(num_sims,dtype='int')*lim-1
+    sim_out=[]
+    bar = progressbar.ProgressBar(max_value=len(yhat))
+    for ii,p in enumerate(yhat):
+        if ii%10000==0:
+            bar.update(ii)
+        p = np.repeat(p,num_sims)*cum_prob[h]
+        sim_temp = np.random.binomial(1,p)
+        h+=1
+        h[sim_temp.astype('bool')] = 0
+        h[h>=lim]=lim-1
+        sim_out.append(sim_temp)
+    sim_out = np.array(sim_out)
+    return sim_out

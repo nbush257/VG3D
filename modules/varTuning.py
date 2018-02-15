@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import neoUtils
 sns.set()
 
 
@@ -55,7 +56,7 @@ def get_PD_from_hist(theta_k,rate):
     return theta,L_dir
 
 
-def angular_response_hist(angular_var, sp, nbins=100,min_obs=5):
+def angular_response_hist(angular_var, sp, use_flags, nbins=100,min_obs=5):
     '''Given an angular variable (like MD that varies on -pi:pi,
     returns the probability of observing a spike (or gives a spike rate) normalized by
     the number of observations of that angular variable.
@@ -78,8 +79,8 @@ def angular_response_hist(angular_var, sp, nbins=100,min_obs=5):
     if type(nbins)==int:
         bins = np.linspace(-np.pi,np.pi,nbins+1,endpoint=True)
     # not nan is a list of finite sample indices, rather than a boolean mask. This is used in computing the posterior
-    not_nan = np.where(np.isfinite(angular_var))[0]
-    prior,prior_edges = np.histogram(angular_var[np.isfinite(angular_var)], bins=bins)
+    not_nan = np.where(np.logical_and(np.isfinite(angular_var),use_flags))[0]
+    prior,prior_edges = np.histogram(angular_var[not_nan], bins=bins)
     prior[prior < min_obs] = 0
     # allows the function to take a spike train or a continuous rate to get the posterior
     if type(sp)==neo.core.spiketrain.SpikeTrain:
@@ -96,7 +97,7 @@ def angular_response_hist(angular_var, sp, nbins=100,min_obs=5):
     return rate,theta_k,theta,L_dir
 
 
-def stim_response_hist(var, sp, nbins=100, min_obs=5):
+def stim_response_hist(var, sp, use_flags, nbins=100, min_obs=5):
     ''' Return the histograms for a single variable normalized by the number of observations of that variable
     INPUTS: var -- either a numpy array or a neo analog signal. Should be unambiguously converted to a vector
             sp -- either a neo spike train, or a numpy array. The numpy array can be a continuous rate estimate
@@ -115,12 +116,14 @@ def stim_response_hist(var, sp, nbins=100, min_obs=5):
             var = var.ravel()
         else:
             raise Exception('var must be able to be unambiguously converted into a vector')
+    if type(use_flags) is neo.core.epoch.Epoch:
+        raise ValueError('use_flags has to be a boolean vector')
 
     # grab indicies of finite variable observations
-    not_nan = np.where(np.isfinite(var))[0]
+    not_nan = np.where(np.logical_and(np.isfinite(var).ravel(),use_flags))[0]
 
     # compute prior
-    prior, stim_edges = np.histogram(var[np.isfinite(var)], bins=nbins)
+    prior, stim_edges = np.histogram(var[not_nan], bins=nbins)
 
     # compute posterior
     if type(sp)==neo.core.spiketrain.SpikeTrain:
@@ -138,7 +141,7 @@ def stim_response_hist(var, sp, nbins=100, min_obs=5):
 
     return response,stim_edges
 
-def joint_response_hist(var1, var2, sp, bins=None, min_obs=5):
+def joint_response_hist(var1, var2, sp, cbool, bins=None, min_obs=5):
     ''' Returns the noramlized response histogram of two variables
     INPUTS:     var1,var2 -- the two variables on which to plot the joint histogram. Must be either 1D numpy or column vector
                 sp -- either a neo spike train, or a numpy array. The numpy array can be a continuous rate estimate
@@ -150,12 +153,12 @@ def joint_response_hist(var1, var2, sp, bins=None, min_obs=5):
     '''
     # handle bins -- could probably be cleaned up NEB
     if type(bins)==int:
-        nbins = bins
-        bins=None
+        bins = [bins,bins]
     elif type(bins)==list:
         pass
     else:
-        nbins = 50
+        bins = [50,50]
+
     if type(var1)==neo.core.analogsignal.AnalogSignal:
         var1 = var1.magnitude.ravel()
     if type(var2)==neo.core.analogsignal.AnalogSignal:
@@ -173,23 +176,24 @@ def joint_response_hist(var1, var2, sp, bins=None, min_obs=5):
 
     # use only observations where both vars are finite
     not_nan_mask = np.logical_and(np.isfinite(var1), np.isfinite(var2))
+    not_nan_mask = np.logical_and(not_nan_mask,cbool)
     not_nan = np.where(not_nan_mask)[0]
 
     # handle bins -- NEB may want to make this more flexible/clean.
-    if bins == None:
-        bins = []
-        max_var1 = np.nanmax(var1)
-        min_var1 = np.nanmin(var1)
-        step = round(max_var1 / nbins, abs(np.floor(math.log10(max_var1)).astype('int64')) + 2)
-        bins.append(np.arange(min_var1, max_var1, step))
-        # bins.append(np.arange(min_var1,max_var1,bin_size))
-
-        max_var2 = np.nanmax(var2)
-        min_var2 = np.nanmin(var2)
-
-        step = round(max_var2 / nbins, abs(np.floor(math.log10(max_var2)).astype('int64')) + 2)
-        bins.append(np.arange(min_var2, max_var2, step))
-        # bins.append(np.arange(min_var2, max_var2, bin_size))
+    # if bins == None:
+    #     bins = []
+    #     max_var1 = np.nanmax(var1)
+    #     min_var1 = np.nanmin(var1)
+    #     step = round(max_var1 / nbins, abs(np.floor(math.log10(max_var1)).astype('int64')) + 2)
+    #     bins.append(np.arange(min_var1, max_var1, step))
+    #     # bins.append(np.arange(min_var1,max_var1,bin_size))
+    #
+    #     max_var2 = np.nanmax(var2)
+    #     min_var2 = np.nanmin(var2)
+    #
+    #     step = round(max_var2 / nbins, abs(np.floor(math.log10(max_var2)).astype('int64')) + 2)
+    #     bins.append(np.arange(min_var2, max_var2, step))
+    #     # bins.append(np.arange(min_var2, max_var2, bin_size))
 
 
     prior,var1_edges,var2_edges= np.histogram2d(var1[not_nan_mask],var2[not_nan_mask],bins=bins)
@@ -197,9 +201,9 @@ def joint_response_hist(var1, var2, sp, bins=None, min_obs=5):
     if type(sp)==neo.core.spiketrain.SpikeTrain:
         spt = sp.times.magnitude.astype('int')
         idx = [x for x in spt if x in not_nan]
-        post = np.histogram2d(var1[idx], var2[idx], bins=bins,)[0]
+        post = np.histogram2d(var1[idx], var2[idx], bins=[var1_edges,var2_edges],)[0]
     else:
-        post = np.histogram2d(var1[not_nan_mask], var2[not_nan_mask], bins=bins, weights = sp[not_nan_mask])[0]
+        post = np.histogram2d(var1[not_nan_mask], var2[not_nan_mask], bins=[var1_edges,var2_edges], weights = sp[not_nan_mask])[0]
 
     bayes = np.divide(post,prior,dtype='float32')
     bayes = bayes.T
