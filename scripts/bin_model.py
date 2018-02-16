@@ -3,6 +3,7 @@ This is a script to run an STM on the binned version of
 the input variables. It will incorporate derivatives, but no spike
 history.
 It will implement cross validation
+It will implement variable dropout
 """
 import GLM
 import neoUtils
@@ -54,7 +55,7 @@ def get_Xc_yc(fname,p_smooth,unit_num,binsize):
 
     cbool = neoUtils.get_Cbool(blk)
     X = GLM.create_design_matrix(blk,varlist)
-    Xdot = GLM.get_deriv(blk,blk_smooth,varlist,[0,5,9])
+    Xdot = GLM.get_deriv(blk,blk_smooth,varlist,[0,5,9]) #maybe only want one derivative?
 
     X = np.concatenate([X,Xdot],axis=1)
     X = neoUtils.replace_NaNs(X,'pchip')
