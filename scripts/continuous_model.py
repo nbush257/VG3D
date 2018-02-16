@@ -119,17 +119,43 @@ def run_dropout(fname,p_smooth,unit_num):
     yhat['noR'], yhat_sim['noR'] = run_STM_CV(X_noR,yc,cbool)
 
     return(yhat,yhat_sim)
+def get_correlations(y,yhat,yhat_sim,kernels=np.power(2,range(1,10))):
+    spt = neo.SpikeTrain(np.where(y)[0]*pq.ms,sampling_rate=pq.kHz,t_stop=y.shape[0]*pq.ms)
+
+    rate = [elephant.statistics.instantaneous_rate(spt,
+                                                   sampling_period=pq.ms,
+                                                   kernel=elephant.kernels.GaussianKernel(x*pq.ms))
+            for x in kernels]
+    R = {}
+    R['yhat'] = [scipy.corrcoef(x.magnitude.ravel()[cbool],yhat.ravel()[cbool])[0,1] for x in rate]
+    sim_rate = np.mean(yhat_sim,axis=1)
+    R['yhat_sim'] = [scipy.corrcoef(x.magnitude.ravel()[cbool], sim_rate.ravel()[cbool])[0, 1] for x in rate]
+    return(R,kernels)
 
 if __name__=='__main__':
     fname = sys.argv[1]
     p_smooth = r'/projects/p30144/_VG3D/deflections/_NEO'
+    p_save = r'/projects/p30144/_VG3D/deflections/_NEO/results'
     blk = neoUtils.get_blk(fname)
     df_head = pd.DataFrame(columns=['id','full','noD','noM','noF','noR'])
     csv_file = os.path.join(p_smooth,'continuous_model.csv')
     df_head.to_csv(csv_file,index=None)
     for unit_num in range(len(blk.channel_indexes[-1].units)):
+        R = {}
         yhat,yhat_sim = run_dropout(fname,p_smooth,unit_num)
+        y = neoUtils.get_rate_b(blk,unit_num)[1]
+        for key in yhat.iterkeys():
+            R['key'],kernel_sizes = get_correlations(y,yhat[key],yhat_sim[key])
+        X, y, cbool = get_X_y(fname, p_smooth, unit_num)
         root = neoUtils.get_root(blk,unit_num)
-        df = pd.DataFrame([R],columns=['id','full','noD','noM','noF','noR'])
-        with open(csv_file,'a') as f:
-            df.to_csv(f,header=False,index=False)
+        npz.save(os.path.join(p_save,'{}_STM_continuous.npz'),
+                 X=X,
+                 y=y,
+                 yhat=yhat,
+                 yhat_sim=yhat_sim,
+                 cbool=cbool,
+                 R = R,
+                 kernel_sizes=kernel_sizes)
+
+
+
