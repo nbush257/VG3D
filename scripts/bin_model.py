@@ -1,5 +1,4 @@
-"""
-This is a script to run an STM on the binned version of
+""" This is a script to run an STM on the binned version of
 the input variables. It will incorporate derivatives, but no spike
 history.
 It will implement cross validation
@@ -30,7 +29,7 @@ import pandas as pd
 def get_params():
     params = {'verbosity':0,
               'threshold':1e-9,
-              'max_iter':1e2}
+              'max_iter':1e6}
     return(params)
 
 
@@ -77,8 +76,8 @@ def get_Xc_yc(fname,p_smooth,unit_num,binsize):
 
 
 def run_STM_CV(Xc,yc,cbool_bin,yhat):
-    num_components = 3
-    num_features = 20
+    num_components = 4
+    num_features = 5
     k = 10
 
     KF = sklearn.model_selection.KFold(k)
@@ -134,13 +133,13 @@ def run_dropout(fname,p_smooth,unit_num,binsize=10):
 
 if __name__=='__main__':
     binsize=10
-    unit_num = 0
-    fname = r'/media/nbush257/5446399F46398332/Users/nbush257/Box Sync/__VG3D/_deflection_trials/_NEO/rat2017_08_FEB15_VG_D1_NEO.h5'
-    p_smooth = r'/media/nbush257/5446399F46398332/Users/nbush257/Box Sync/__VG3D/_deflection_trials/_NEO/smooth'
-    R = run_dropout(fname,p_smooth,unit_num,binsize)
+    fname = sys.argv[1]
+    p_smooth = r'/projects/p30144/_VG3D/deflections/_NEO'
     blk = neoUtils.get_blk(fname)
-    root = neoUtils.get_root(blk,unit_num)
-    df = pd.DataFrame(R,index=[root])
-    csv_file = '/media/nbush257/5446399F46398332/Users/nbush257/Box Sync/__VG3D/_deflection_trials/_NEO/201708D1c0.correlations.csv'
-    with open(csv_file,'a') as f:
-        df.to_csv(f,header=False)
+    for unit_num in range(len(blk.channel_indexes[-1].units)):
+        R = run_dropout(fname,p_smooth,unit_num,binsize)
+        root = neoUtils.get_root(blk,unit_num)
+        df = pd.DataFrame(R,index=[root])
+        csv_file = os.path.join(p_smooth,'{}_bin_model_correlations.csv'.format(binsize))
+        with open(csv_file,'a') as f:
+            df.to_csv(f,header=False)
