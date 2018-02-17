@@ -81,7 +81,7 @@ def run_STM_CV(Xc,yc,cbool_bin,yhat):
     num_features = 24
     k = 20
 
-    KF = sklearn.model_selection.KFold(k)
+    KF = sklearn.model_selection.KFold(k,shuffle=True)
 
     yhat_model = np.zeros(yc.shape[0])
     MODELS =[]
@@ -94,7 +94,7 @@ def run_STM_CV(Xc,yc,cbool_bin,yhat):
                                num_features,
                                cmt.nonlinear.ExponentialFunction,
                                cmt.models.Poisson)
-        retval = model.train(Xc[train_index].T,yc[train_index].T,parameters=get_params())
+        retval = model.train(Xc[train_index,:].T,yc[train_index,:].T,parameters=get_params())
         if not retval:
             print('Max_iter ({:.0f}) reached'.format(get_params()['max_iter']))
         MODELS.append(model)
