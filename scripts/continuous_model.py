@@ -18,6 +18,8 @@ import os
 import sys
 import glob
 import pandas as pd
+import cmt.tools
+import neo
 def get_X_y(fname,p_smooth,unit_num):
     varlist = ['M', 'F', 'TH', 'PHIE']
     blk = neoUtils.get_blk(fname)
@@ -43,7 +45,7 @@ def run_STM_CV(X, y, cbool):
     num_components = 4
     num_features = 5
     n_sims=10
-    k = 10
+    k = 5
     KF = sklearn.model_selection.KFold(k,shuffle=True)
     yhat = np.zeros(y.shape[0])
     MODELS=[]
@@ -51,9 +53,9 @@ def run_STM_CV(X, y, cbool):
     y = y.astype('f8')
     y[np.invert(cbool),:]=0
     yhat_sim = np.zeros([y.shape[0],n_sims])
-    params = {'verbosity':1,
+    params = {'verbosity':0,
               'threshold':1e-7,
-              'max_iter':1e3,
+              'max_iter':1e2,
               'regularize_weights':{
                   'strength': 0,
                   'norm':'L2'}
@@ -71,7 +73,7 @@ def run_STM_CV(X, y, cbool):
         retval = model.train(X[train_index].T, y[train_index].T, parameters=params)
 
         if not retval:
-            print('Max_iter ({:.0f}) reached'.format(get_params()['max_iter']))
+            print('Max_iter ({:.0f}) reached'.format(params['max_iter']))
         MODELS.append(model)
         yhat[test_index] = model.predict(X[test_index].T)
 
@@ -89,7 +91,6 @@ def run_STM_CV(X, y, cbool):
 
     yhat = yhat.T
 
-    print('\t\t corrcoef = {}'.format(r))
     return(yhat,yhat_sim)
 
 def run_dropout(fname,p_smooth,unit_num):
@@ -114,12 +115,12 @@ def run_dropout(fname,p_smooth,unit_num):
     print('Running No Moment')
     yhat['noM'], yhat_sim['noM'] = run_STM_CV(X_noM,y,cbool)
     print('Running No Force')
-    yhat['noF'], yhat_sim['noF'] = run_STM_CV(X_noF,yc,cbool)
+    yhat['noF'], yhat_sim['noF'] = run_STM_CV(X_noF,y,cbool)
     print('Running No Rotation')
-    yhat['noR'], yhat_sim['noR'] = run_STM_CV(X_noR,yc,cbool)
+    yhat['noR'], yhat_sim['noR'] = run_STM_CV(X_noR,y,cbool)
 
     return(yhat,yhat_sim)
-def get_correlations(y,yhat,yhat_sim,kernels=np.power(2,range(1,10))):
+def get_correlations(y,yhat,yhat_sim,cbool,kernels=np.power(2,range(1,10))):
     spt = neo.SpikeTrain(np.where(y)[0]*pq.ms,sampling_rate=pq.kHz,t_stop=y.shape[0]*pq.ms)
 
     rate = [elephant.statistics.instantaneous_rate(spt,
@@ -144,9 +145,10 @@ if __name__=='__main__':
         R = {}
         yhat,yhat_sim = run_dropout(fname,p_smooth,unit_num)
         y = neoUtils.get_rate_b(blk,unit_num)[1]
-        for key in yhat.iterkeys():
-            R['key'],kernel_sizes = get_correlations(y,yhat[key],yhat_sim[key])
         X, y, cbool = get_X_y(fname, p_smooth, unit_num)
+        for key in yhat.iterkeys():
+            R[key],kernel_sizes = get_correlations(y,yhat[key],yhat_sim[key],cbool)
+
         root = neoUtils.get_root(blk,unit_num)
         npz.save(os.path.join(p_save,'{}_STM_continuous.npz'),
                  X=X,
