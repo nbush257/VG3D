@@ -77,9 +77,9 @@ def get_Xc_yc(fname,p_smooth,unit_num,binsize):
 
 
 def run_STM_CV(Xc,yc,cbool_bin,yhat):
-    num_components = 4
-    num_features = 5
-    k = 10
+    num_components = 3
+    num_features = 24
+    k = 20
 
     KF = sklearn.model_selection.KFold(k)
 
@@ -133,13 +133,13 @@ def run_dropout(fname,p_smooth,unit_num,binsize=10):
 
 
 if __name__=='__main__':
-    binsize=10
     fname = sys.argv[1]
+    binsize = int(sys.argv[2])
     p_smooth = r'/projects/p30144/_VG3D/deflections/_NEO'
     blk = neoUtils.get_blk(fname)
-    df_head = pd.DataFrame(columns=['id','full','noD','noM','noF','noR'])
+    #df_head = pd.DataFrame(columns=['id','full','noD','noM','noF','noR'])
     csv_file = os.path.join(p_smooth,'{}_bin_model_correlations.csv'.format(binsize))
-    df_head.to_csv(csv_file,index=None)
+    #df_head.to_csv(csv_file,index=None)
     for unit_num in range(len(blk.channel_indexes[-1].units)):
         R = run_dropout(fname,p_smooth,unit_num,binsize)
         root = neoUtils.get_root(blk,unit_num)
