@@ -42,14 +42,16 @@ sns.factorplot(x='model_type',y='Pearson_Correlation',data=df2,
                hue='kernels',
                kind='box',
                palette='Greens',
-               legend=False)
+               legend=False,
+               whis=1)
 f = plt.gcf()
 f.set_size_inches(wd,ht)
+plt.legend(bbox_to_anchor=(1,1.1))
 plt.xlabel('')
 plt.ylabel('Pearson Correlation (R)')
 plt.title('Temporal accuracy of models')
 plt.tight_layout()
-plt.savefig(os.path.join(p_save,'STM_all_models_kernels.{}'.format(ext)),dpi=dpi_res)
+plt.savefig(os.path.join(p_save,'STM_all_models_kernels.{}'.format(ext)),dpi=dpi_res,bbox_inches='tight')
 # ==============================
 # Only at one smmothing param
 wd = fig_width/2
