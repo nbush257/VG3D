@@ -45,7 +45,7 @@ def run_STM_CV(X, y, cbool,params):
     num_components = 4
     num_features = 5
     n_sims=10
-    k = 5
+    k = 10 
     KF = sklearn.model_selection.KFold(k,shuffle=True)
     yhat = np.zeros(y.shape[0])
     MODELS=[]
@@ -54,7 +54,6 @@ def run_STM_CV(X, y, cbool,params):
     y[np.invert(cbool),:]=0
     yhat_sim = np.zeros([y.shape[0],n_sims])
 
-    # TODO: simulate all!! DO we want to crossvalidate it?
     for train_index,test_index in KF.split(X):
         count+=1
         print('\t{} of {} crossvalidations'.format(count,k))
@@ -92,17 +91,26 @@ def run_dropout(fname,p_smooth,unit_num,params):
     no_M = np.array([0,0,0,1,1,1,1,1]*4,dtype='bool')
     no_F = np.array([1,1,1,0,0,0,1,1]*4,dtype='bool')
     no_R = np.array([1,1,1,1,1,1,0,0]*4,dtype='bool')
-    # TODO: remove c
+    
+    just_M = np.array([1,1,1,0,0,0,0,0]*4,dtype='bool')
+    just_F = np.array([0,0,0,1,1,1,0,0]*4,dtype='bool')
+    just_R = np.array([0,0,0,0,0,0,1,1]*4,dtype='bool')
 
     X_noM = X[:,no_M]
     X_noF = X[:,no_F]
     X_noR = X[:,no_R]
+    
+    X_just_M = X[:,just_M]
+    X_just_F = X[:,just_F]
+    X_just_R = X[:,just_R]
 
     # save outputs
     yhat={} # cross validated
     yhat_sim = {} # not cross validated
     print('Running Full')
     yhat['full'],yhat_sim['full'] = run_STM_CV(X,y,cbool,params)
+
+    # Run one drops
     print('Running No Derivative')
     yhat['noD'], yhat_sim['noD'] = run_STM_CV(X[:,:8],y,cbool,params)
     print('Running No Moment')
@@ -110,7 +118,16 @@ def run_dropout(fname,p_smooth,unit_num,params):
     print('Running No Force')
     yhat['noF'], yhat_sim['noF'] = run_STM_CV(X_noF,y,cbool,params)
     print('Running No Rotation')
-    yhat['noR'], yhat_sim['noR'] = run_STM_CV(X_noR,y,cbool,,params)
+    yhat['noR'], yhat_sim['noR'] = run_STM_CV(X_noR,y,cbool,params)
+    # Run two drops
+    print('Running just Derivative') 
+    yhat['justD'], yhat_sim['justD'] = run_STM_CV(X[:,8:],y,cbool,params)
+    print('Running just Moment')
+    yhat['justM'], yhat_sim['justM'] = run_STM_CV(X_just_M,y,cbool,params)
+    print('Running just Force')
+    yhat['justF'], yhat_sim['justF'] = run_STM_CV(X_just_F,y,cbool,params)
+    print('Running just Rotation')
+    yhat['justR'], yhat_sim['justR'] = run_STM_CV(X_just_R,y,cbool,params)
 
     return(yhat,yhat_sim)
 def get_correlations(y,yhat,yhat_sim,cbool,kernels=np.power(2,range(1,10))):
@@ -131,14 +148,11 @@ if __name__=='__main__':
     p_smooth = r'/projects/p30144/_VG3D/deflections/_NEO'
     p_save = r'/projects/p30144/_VG3D/deflections/_NEO/results'
     blk = neoUtils.get_blk(fname)
-    df_head = pd.DataFrame(columns=['id','full','noD','noM','noF','noR'])
-    csv_file = os.path.join(p_smooth,'continuous_model.csv')
-    df_head.to_csv(csv_file,index=None)
     params = {'verbosity': 0,
-              'threshold': 1e-7,
-              'max_iter': 1e2,
+              'threshold': 1e-8,
+              'max_iter': 1e5,
               'regularize_weights': {
-                  'strength': 0,
+                  'strength': 1e-3,
                   'norm': 'L2'}
               }
     for unit_num in range(len(blk.channel_indexes[-1].units)):
@@ -146,12 +160,13 @@ if __name__=='__main__':
         yhat,yhat_sim = run_dropout(fname,p_smooth,unit_num,params)
         y = neoUtils.get_rate_b(blk,unit_num)[1]
         X, y, cbool = get_X_y(fname, p_smooth, unit_num)
+        root = neoUtils.get_root(blk,unit_num)
         for key in yhat.iterkeys():
             R[key],kernel_sizes = get_correlations(y,yhat[key],yhat_sim[key],cbool)
 
 
         root = neoUtils.get_root(blk,unit_num)
-        npz.save(os.path.join(p_save,'{}_STM_continuous.npz'),
+        np.savez(os.path.join(p_save,'{}_STM_continuous.npz'.format(root)),
                  X=X,
                  y=y,
                  yhat=yhat,
