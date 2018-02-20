@@ -23,6 +23,7 @@ def run_dropout(fname,p_smooth,unit_num,params):
     yhat_sim = {} # not cross validated
     print('Running Full')
     yhat['full'],yhat_sim['full'] = run_STM_CV(X,y,cbool,params)
+    print('Running no derivative')
     yhat['noD'],yhat_sim['noD'] = run_STM_CV(X[:,:3],y,cbool,params)
 
     return(yhat,yhat_sim)
