@@ -17,7 +17,7 @@ import cmt.tools
 import neo
 
 def run_dropout(fname,p_smooth,unit_num,params):
-    X,y,cbool = get_X_y(fname,p_smooth,pca_tgl=True,n_pcs=3)
+    X,y,cbool = get_X_y(fname,p_smooth,unit_num,pca_tgl=True,n_pcs=3)
 
     yhat={} # cross validated
     yhat_sim = {} # not cross validated
