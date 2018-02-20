@@ -442,7 +442,8 @@ def get_deriv(blk,blk_smooth,varlist,smoothing=range(10)):
     zero_pad = np.zeros([1,X.shape[1],X.shape[2]])
     Xdot = np.diff(np.concatenate([zero_pad,X],axis=0),axis=0)
     Xdot = np.reshape(Xdot,[Xdot.shape[0],Xdot.shape[1]*Xdot.shape[2]])
-    return(Xdot)
+    X = np.reshape(X,[X.shape[0],X.shape[1]*X.shape[2]])
+    return(Xdot,X)
 
 if keras_tgl:
     def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):

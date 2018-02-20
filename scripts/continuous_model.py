@@ -20,21 +20,47 @@ import glob
 import pandas as pd
 import cmt.tools
 import neo
-def get_X_y(fname,p_smooth,unit_num):
+def get_X_y(fname,p_smooth,unit_num,pca_tgl=False,n_pcs=3):
     varlist = ['M', 'F', 'TH', 'PHIE']
     blk = neoUtils.get_blk(fname)
     blk_smooth = get_blk_smooth(fname,p_smooth)
 
     cbool = neoUtils.get_Cbool(blk)
     X = GLM.create_design_matrix(blk,varlist)
-    Xdot = GLM.get_deriv(blk,blk_smooth,varlist,[0,5,9])
+    Xdot,Xsmooth = GLM.get_deriv(blk,blk_smooth,varlist,[0,5,9])
+    # if using the PCA decomposition of the inputs:
+    if pca_tgl:
 
-    X = np.concatenate([X,Xdot],axis=1)
-    X = neoUtils.replace_NaNs(X,'pchip')
-    X = neoUtils.replace_NaNs(X,'interp')
+        X = neoUtils.replace_NaNs(X,'pchip')
+        X = neoUtils.replace_NaNs(X,'interp')
 
-    scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
-    X = scaler.fit_transform(X)
+        Xsmooth = neoUtils.replace_NaNs(Xsmooth,'pchip')
+        Xsmooth = neoUtils.replace_NaNs(Xsmooth,'interp')
+
+        scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
+        X = scaler.fit_transform(X)
+
+        scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
+        Xsmooth = scaler.fit_transform(Xsmooth)
+
+        pca = sklearn.decomposition.PCA()
+        X_pc = pca.fit_transform(X)[:,:n_pcs]
+        pca = sklearn.decomposition.PCA()
+        Xs_pc = pca.fit_transform(Xsmooth)[:,:n_pcs]
+        zero_pad = np.zeros([1,3])
+        Xd_pc = np.diff(np.concatenate([zero_pad,Xs_pc],axis=0),axis=0)
+        X = np.concatenate([X_pc,Xd_pc],axis=1)
+
+        scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
+        X = scaler.fit_transform(X)
+    else:
+        X = np.concatenate([X,Xdot],axis=1)
+        X = neoUtils.replace_NaNs(X,'pchip')
+        X = neoUtils.replace_NaNs(X,'interp')
+        scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
+        X = scaler.fit_transform(X)
+
+
     y = neoUtils.get_rate_b(blk,unit_num)[1][:,np.newaxis]
     # Xc = X[cbool,:]
     # yc = y[cbool]
