@@ -2,9 +2,14 @@ import neoUtils
 import neo
 import sys
 import numpy as np
+import os
 if __name__=='__main__':
-    file = sys.argv[1]
-    fid = neo.io.NixIO(file)
+    fname = sys.argv[1]
+    new_filename = os.path.splitext(fname)[0]+'_smoothed.h5'
+    print('Old file:{}'.format(fname))
+    print('new file:{}'.format(new_filename))
+    fid = neo.io.NixIO(fname,mode='ro')
+    fid2 = neo.io.NixIO(new_filename)
     blk = fid.read_block()
     root = neoUtils.get_root(blk,0)[:-2]
     print('Working on {}'.format(root))
@@ -29,6 +34,7 @@ if __name__=='__main__':
                                              sampling_rate=sig.sampling_rate,
                                              name='{}_smoothed'.format(sig.name))
             seg.analogsignals.append(sig_smoothed)
-    fid.write_block(blk)
+    fid2.write_block(blk)
     fid.close()
+    fid2.close()
 

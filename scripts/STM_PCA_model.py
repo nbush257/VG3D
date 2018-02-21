@@ -22,12 +22,12 @@ def run_dropout(fname,p_smooth,unit_num,params,n_pcs=6):
     yhat={} # cross validated
     yhat_sim = {} # not cross validated
     model={}
-    print('Running Full')
     for ii in range(n_pcs):
+        print('Running Full{}'.format(ii))
         idx = range(ii,X.shape[1],n_pcs) 
-        yhat['full{}'.format(ii)],yhat_sim['full{}'.format(ii)],model['full{}'.format(ii)] = run_STM_CV(X,y,cbool,params,n_sims=10)
-        print('Running no derivative')
-        yhat['noD{}'.format(ii)],yhat_sim['noD{}'.format(ii)],model['noD{}'.format(ii)] = run_STM_CV(X[:,:ii],y,cbool,params,n_sims=10)
+        yhat['full{}'.format(ii)],yhat_sim['full{}'.format(ii)],model['full{}'.format(ii)] = run_STM_CV(X,y,cbool,params,n_sims=1000)
+        print('Running no derivative{}'.format(ii))
+        yhat['noD{}'.format(ii)],yhat_sim['noD{}'.format(ii)],model['noD{}'.format(ii)] = run_STM_CV(X[:,:ii],y,cbool,params,n_sims=1000)
 
     return(yhat,yhat_sim,model)
 if __name__=='__main__':
@@ -44,9 +44,10 @@ if __name__=='__main__':
               }
     for unit_num in range(len(blk.channel_indexes[-1].units)):
         R = {}
-        yhat,yhat_sim,models = run_dropout(fname,p_smooth,unit_num,params)
+        yhat,yhat_sim,model = run_dropout(fname,p_smooth,unit_num,params)
         y = neoUtils.get_rate_b(blk,unit_num)[1]
-        X, y, cbool = get_X_y(fname, p_smooth, unit_num,pca_tgl=True,n_pcs=3)
+        X, y, cbool = get_X_y(fname, p_smooth,
+                              unit_num,pca_tgl=True,n_pcs=6)#change to 6postest
         root = neoUtils.get_root(blk,unit_num)
         for key in yhat.iterkeys():
             R[key],kernel_sizes = get_correlations(y,yhat[key],yhat_sim[key],cbool)
@@ -60,7 +61,7 @@ if __name__=='__main__':
                  cbool=cbool,
                  R = R,
                  kernel_sizes=kernel_sizes,
-                 params=params,
-                 models=models)
+                 params=params)
 
-
+        np.savez(os.path.join(p_save,'{}_STM_PCA_models.npz'.format(root)),
+                 models=model)

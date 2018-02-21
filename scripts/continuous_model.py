@@ -70,7 +70,7 @@ def get_X_y(fname,p_smooth,unit_num,pca_tgl=False,n_pcs=3):
 def run_STM_CV(X, y, cbool,params,n_sims=1000):
     num_components = 4
     num_features = 5
-    k = 10 
+    k =10  
     KF = sklearn.model_selection.KFold(k,shuffle=True)
     yhat = np.zeros(y.shape[0])
     MODELS=[]
@@ -134,7 +134,7 @@ def run_dropout(fname,p_smooth,unit_num,params):
     yhat_sim = {} # not cross validated
     model={}
     print('Running Full')
-    yhat['full'],yhat_sim['full'] = run_STM_CV(X,y,cbool,params)
+    yhat['full'],yhat_sim['full'],model['full'] = run_STM_CV(X,y,cbool,params)
 
     # Run one drops
     print('Running No Derivative')
@@ -200,8 +200,8 @@ if __name__=='__main__':
                  cbool=cbool,
                  R = R,
                  kernel_sizes=kernel_sizes,
-                 params=params,
+                 params=params)
+
+        np.savez(os.path.join(p_save,'{}_STM_continuous_models.npz'.format(root)),
                  models=model)
-
-
 
