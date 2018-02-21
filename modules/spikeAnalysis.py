@@ -182,13 +182,8 @@ def get_CV_LV(ISI):
     :return CV_array:   Array of CV values for each contact interval
     :return LV_array:   Array of LV values for each contact interval
     '''
-    CV_array = np.array([])
-    LV_array = np.array([])
-    for interval in ISI:
-        if np.all(np.isfinite(interval)):
-            CV_array = np.concatenate([CV_array, [elephant.statistics.cv(interval)]])
-            LV_array = np.concatenate([LV_array, [elephant.statistics.lv(interval)]])
-
+    CV_array = np.array([elephant.statistics.cv(x) for x in ISI])
+    LV_array = np.array([elephant.statistics.lv(x) if len(x)>1 else np.nan for x in ISI] )
     return CV_array,LV_array
 
 
