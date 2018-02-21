@@ -47,7 +47,7 @@ def get_X_y(fname,p_smooth,unit_num,pca_tgl=False,n_pcs=3):
         X_pc = pca.fit_transform(X)[:,:n_pcs]
         pca = sklearn.decomposition.PCA()
         Xs_pc = pca.fit_transform(Xsmooth)[:,:n_pcs]
-        zero_pad = np.zeros([1,3])
+        zero_pad = np.zeros([1,n_pcs])
         Xd_pc = np.diff(np.concatenate([zero_pad,Xs_pc],axis=0),axis=0)
         X = np.concatenate([X_pc,Xd_pc],axis=1)
 
