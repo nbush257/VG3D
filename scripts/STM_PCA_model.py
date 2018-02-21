@@ -16,17 +16,20 @@ import pandas as pd
 import cmt.tools
 import neo
 
-def run_dropout(fname,p_smooth,unit_num,params):
-    X,y,cbool = get_X_y(fname,p_smooth,unit_num,pca_tgl=True,n_pcs=3)
+def run_dropout(fname,p_smooth,unit_num,params,n_pcs=6):
+    X,y,cbool = get_X_y(fname,p_smooth,unit_num,pca_tgl=True,n_pcs=n_pcs)
 
     yhat={} # cross validated
     yhat_sim = {} # not cross validated
+    model={}
     print('Running Full')
-    yhat['full'],yhat_sim['full'] = run_STM_CV(X,y,cbool,params)
-    print('Running no derivative')
-    yhat['noD'],yhat_sim['noD'] = run_STM_CV(X[:,:3],y,cbool,params)
+    for ii in range(n_pcs):
+        idx = range(ii,X.shape[1],n_pcs) 
+        yhat['full{}'.format(ii)],yhat_sim['full{}'.format(ii)],model['full{}'.format(ii)] = run_STM_CV(X,y,cbool,params,n_sims=10)
+        print('Running no derivative')
+        yhat['noD{}'.format(ii)],yhat_sim['noD{}'.format(ii)],model['noD{}'.format(ii)] = run_STM_CV(X[:,:ii],y,cbool,params,n_sims=10)
 
-    return(yhat,yhat_sim)
+    return(yhat,yhat_sim,model)
 if __name__=='__main__':
     fname = sys.argv[1]
     p_smooth = r'/projects/p30144/_VG3D/deflections/_NEO'
@@ -41,7 +44,7 @@ if __name__=='__main__':
               }
     for unit_num in range(len(blk.channel_indexes[-1].units)):
         R = {}
-        yhat,yhat_sim = run_dropout(fname,p_smooth,unit_num,params)
+        yhat,yhat_sim,models = run_dropout(fname,p_smooth,unit_num,params)
         y = neoUtils.get_rate_b(blk,unit_num)[1]
         X, y, cbool = get_X_y(fname, p_smooth, unit_num,pca_tgl=True,n_pcs=3)
         root = neoUtils.get_root(blk,unit_num)
@@ -57,6 +60,7 @@ if __name__=='__main__':
                  cbool=cbool,
                  R = R,
                  kernel_sizes=kernel_sizes,
-                 params=params)
+                 params=params,
+                 models=models)
 
 

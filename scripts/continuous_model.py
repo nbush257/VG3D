@@ -67,10 +67,9 @@ def get_X_y(fname,p_smooth,unit_num,pca_tgl=False,n_pcs=3):
     yhat = np.zeros_like(y)
     return(X,y,cbool)
 
-def run_STM_CV(X, y, cbool,params):
+def run_STM_CV(X, y, cbool,params,n_sims=1000):
     num_components = 4
     num_features = 5
-    n_sims=10
     k = 10 
     KF = sklearn.model_selection.KFold(k,shuffle=True)
     yhat = np.zeros(y.shape[0])
@@ -109,7 +108,7 @@ def run_STM_CV(X, y, cbool,params):
 
     yhat = yhat.T
 
-    return(yhat,yhat_sim)
+    return(yhat,yhat_sim,model)
 
 def run_dropout(fname,p_smooth,unit_num,params):
     X,y,cbool = get_X_y(fname,p_smooth,unit_num)
@@ -133,29 +132,30 @@ def run_dropout(fname,p_smooth,unit_num,params):
     # save outputs
     yhat={} # cross validated
     yhat_sim = {} # not cross validated
+    model={}
     print('Running Full')
     yhat['full'],yhat_sim['full'] = run_STM_CV(X,y,cbool,params)
 
     # Run one drops
     print('Running No Derivative')
-    yhat['noD'], yhat_sim['noD'] = run_STM_CV(X[:,:8],y,cbool,params)
+    yhat['noD'], yhat_sim['noD'],model['noD'] = run_STM_CV(X[:,:8],y,cbool,params)
     print('Running No Moment')
-    yhat['noM'], yhat_sim['noM'] = run_STM_CV(X_noM,y,cbool,params)
+    yhat['noM'], yhat_sim['noM'],model['noM'] = run_STM_CV(X_noM,y,cbool,params)
     print('Running No Force')
-    yhat['noF'], yhat_sim['noF'] = run_STM_CV(X_noF,y,cbool,params)
+    yhat['noF'], yhat_sim['noF'],model['noF'] = run_STM_CV(X_noF,y,cbool,params)
     print('Running No Rotation')
-    yhat['noR'], yhat_sim['noR'] = run_STM_CV(X_noR,y,cbool,params)
+    yhat['noR'], yhat_sim['noR'],model['noR'] = run_STM_CV(X_noR,y,cbool,params)
     # Run two drops
     print('Running just Derivative') 
-    yhat['justD'], yhat_sim['justD'] = run_STM_CV(X[:,8:],y,cbool,params)
+    yhat['justD'], yhat_sim['justD'],model['justD'] = run_STM_CV(X[:,8:],y,cbool,params)
     print('Running just Moment')
-    yhat['justM'], yhat_sim['justM'] = run_STM_CV(X_just_M,y,cbool,params)
+    yhat['justM'], yhat_sim['justM'],model['justD'] = run_STM_CV(X_just_M,y,cbool,params)
     print('Running just Force')
-    yhat['justF'], yhat_sim['justF'] = run_STM_CV(X_just_F,y,cbool,params)
+    yhat['justF'], yhat_sim['justF'],model['justF'] = run_STM_CV(X_just_F,y,cbool,params)
     print('Running just Rotation')
-    yhat['justR'], yhat_sim['justR'] = run_STM_CV(X_just_R,y,cbool,params)
+    yhat['justR'], yhat_sim['justR'],model['justR'] = run_STM_CV(X_just_R,y,cbool,params)
 
-    return(yhat,yhat_sim)
+    return(yhat,yhat_sim,model)
 def get_correlations(y,yhat,yhat_sim,cbool,kernels=np.power(2,range(1,10))):
     spt = neo.SpikeTrain(np.where(y)[0]*pq.ms,sampling_rate=pq.kHz,t_stop=y.shape[0]*pq.ms)
 
@@ -183,7 +183,7 @@ if __name__=='__main__':
               }
     for unit_num in range(len(blk.channel_indexes[-1].units)):
         R = {}
-        yhat,yhat_sim = run_dropout(fname,p_smooth,unit_num,params)
+        yhat,yhat_sim,model = run_dropout(fname,p_smooth,unit_num,params)
         y = neoUtils.get_rate_b(blk,unit_num)[1]
         X, y, cbool = get_X_y(fname, p_smooth, unit_num)
         root = neoUtils.get_root(blk,unit_num)
@@ -200,7 +200,8 @@ if __name__=='__main__':
                  cbool=cbool,
                  R = R,
                  kernel_sizes=kernel_sizes,
-                 params=params)
+                 params=params,
+                 models=model)
 
 
 
