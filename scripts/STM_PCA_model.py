@@ -25,9 +25,9 @@ def run_dropout(fname,p_smooth,unit_num,params,n_pcs=6):
     for ii in range(n_pcs):
         print('Running Full{}'.format(ii))
         idx = range(ii,X.shape[1],n_pcs) 
-        yhat['full{}'.format(ii)],yhat_sim['full{}'.format(ii)],model['full{}'.format(ii)] = run_STM_CV(X,y,cbool,params,n_sims=1000)
+        yhat['full{}'.format(ii)],yhat_sim['full{}'.format(ii)],model['full{}'.format(ii)]= run_STM_CV(X,y,cbool,params,n_sims=1)
         print('Running no derivative{}'.format(ii))
-        yhat['noD{}'.format(ii)],yhat_sim['noD{}'.format(ii)],model['noD{}'.format(ii)] = run_STM_CV(X[:,:ii],y,cbool,params,n_sims=1000)
+        yhat['noD{}'.format(ii)],yhat_sim['noD{}'.format(ii)],model['noD{}'.format(ii)] = run_STM_CV(X[:,:ii],y,cbool,params,n_sims=1)
 
     return(yhat,yhat_sim,model)
 if __name__=='__main__':
@@ -61,7 +61,5 @@ if __name__=='__main__':
                  cbool=cbool,
                  R = R,
                  kernel_sizes=kernel_sizes,
-                 params=params)
-
-        np.savez(os.path.join(p_save,'{}_STM_PCA_models.npz'.format(root)),
+                 params=params,
                  models=model)

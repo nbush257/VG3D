@@ -1,5 +1,5 @@
 """
-This is a script to run the STM without binning of the input.
+This is a script to run the STM on the 2D data 
 It will incorporate derivatives, and spike history.
 It will implement crossvalidation
 It will implement variable dropout
@@ -20,50 +20,20 @@ import glob
 import pandas as pd
 import cmt.tools
 import neo
-def get_X_y(fname,p_smooth,unit_num,pca_tgl=False,n_pcs=3):
-    varlist = ['M', 'F', 'TH', 'PHIE']
+    
+def get_X_y(fname,unit_num=0):
+    varlist = ['M','FX','FY','TH']
     blk = neoUtils.get_blk(fname)
-    blk_smooth = get_blk_smooth(fname,p_smooth)
-
     cbool = neoUtils.get_Cbool(blk)
     X = GLM.create_design_matrix(blk,varlist)
-    Xdot,Xsmooth = GLM.get_deriv(blk,blk_smooth,varlist,[0,5,9])
-    # if using the PCA decomposition of the inputs:
-    if pca_tgl:
+    Xdot,Xsmooth = GLM.get_deriv(blk,blk,varlist,[0,5,9])
 
-        X = neoUtils.replace_NaNs(X,'pchip')
-        X = neoUtils.replace_NaNs(X,'interp')
-
-        Xsmooth = neoUtils.replace_NaNs(Xsmooth,'pchip')
-        Xsmooth = neoUtils.replace_NaNs(Xsmooth,'interp')
-
-        scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
-        X = scaler.fit_transform(X)
-
-        scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
-        Xsmooth = scaler.fit_transform(Xsmooth)
-
-        pca = sklearn.decomposition.PCA()
-        X_pc = pca.fit_transform(X)[:,:n_pcs]
-        pca = sklearn.decomposition.PCA()
-        Xs_pc = pca.fit_transform(Xsmooth)[:,:n_pcs]
-        zero_pad = np.zeros([1,n_pcs])
-        Xd_pc = np.diff(np.concatenate([zero_pad,Xs_pc],axis=0),axis=0)
-        X = np.concatenate([X_pc,Xd_pc],axis=1)
-
-        scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
-        X = scaler.fit_transform(X)
-    else:
-        X = np.concatenate([X,Xdot],axis=1)
-        X = neoUtils.replace_NaNs(X,'pchip')
-        X = neoUtils.replace_NaNs(X,'interp')
-        scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
-        X = scaler.fit_transform(X)
-
-
+    X = np.concatenate([X,Xdot],axis=1)
+    X = neoUtils.replace_NaNs(X,'pchip')
+    X = neoUtils.replace_NaNs(X,'interp')
+    scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
+    X = scaler.fit_transform(X)
     y = neoUtils.get_rate_b(blk,unit_num)[1][:,np.newaxis]
-    # Xc = X[cbool,:]
-    # yc = y[cbool]
     yhat = np.zeros_like(y)
     return(X,y,cbool)
 
@@ -109,53 +79,54 @@ def run_STM_CV(X, y, cbool,params,n_sims=1):
     yhat = yhat.T
 
     return(yhat,yhat_sim,model)
-
-def run_dropout(fname,p_smooth,unit_num,params):
-    X,y,cbool = get_X_y(fname,p_smooth,unit_num)
-
-    no_M = np.array([0,0,0,1,1,1,1,1]*4,dtype='bool')
-    no_F = np.array([1,1,1,0,0,0,1,1]*4,dtype='bool')
-    no_R = np.array([1,1,1,1,1,1,0,0]*4,dtype='bool')
-    
-    just_M = np.array([1,1,1,0,0,0,0,0]*4,dtype='bool')
-    just_F = np.array([0,0,0,1,1,1,0,0]*4,dtype='bool')
-    just_R = np.array([0,0,0,0,0,0,1,1]*4,dtype='bool')
-
-    X_noM = X[:,no_M]
-    X_noF = X[:,no_F]
-    X_noR = X[:,no_R]
-    
-    X_just_M = X[:,just_M]
-    X_just_F = X[:,just_F]
-    X_just_R = X[:,just_R]
+def run_dropout(fname,unit_num,params):
+    X,y,cbool = get_X_y(fname,unit_num)
+    num_derivs = 3 # this is a hardcoded numer of derivative smoothings to use 
+    M = np.tile(np.array([1,0,0,0],dtype='bool'),num_derivs+1)
+    F = np.tile(np.array([0,1,1,0],dtype='bool'),num_derivs+1)
+    R = np.tile(np.array([0,0,0,1],dtype='bool'),num_derivs+1)
 
     # save outputs
     yhat={} # cross validated
     yhat_sim = {} # not cross validated
     model={}
+
+    # =========== #
+    # =========== #
+    # Run Full
     print('Running Full')
     yhat['full'],yhat_sim['full'],model['full'] = run_STM_CV(X,y,cbool,params)
+    # =========== #
+    # =========== #
+    # Run one Drop
+    # Run noM
+    print('Running no derivative')
+    yhat['noD'],yhat_sim['noD'],model['noD'] = run_STM_CV(X[:,:4],y,cbool,params)
+    # Run noM
+    print('Running no moment')
+    yhat['noM'],yhat_sim['noM'],model['noM'] = run_STM_CV(X[:,np.invert(M)],y,cbool,params)
+    # Run noF
+    print('Running no force')
+    yhat['noF'],yhat_sim['noF'],model['noF'] = run_STM_CV(X[:,np.invert(F)],y,cbool,params)
+    # Run noR
+    print('Running no rotation')
+    yhat['noR'],yhat_sim['noR'],model['noR'] = run_STM_CV(X[:,np.invert(R)],y,cbool,params)
 
-    # Run one drops
-    print('Running No Derivative')
-    yhat['noD'], yhat_sim['noD'],model['noD'] = run_STM_CV(X[:,:8],y,cbool,params)
-    print('Running No Moment')
-    yhat['noM'], yhat_sim['noM'],model['noM'] = run_STM_CV(X_noM,y,cbool,params)
-    print('Running No Force')
-    yhat['noF'], yhat_sim['noF'],model['noF'] = run_STM_CV(X_noF,y,cbool,params)
-    print('Running No Rotation')
-    yhat['noR'], yhat_sim['noR'],model['noR'] = run_STM_CV(X_noR,y,cbool,params)
-    # Run two drops
-    print('Running just Derivative') 
-    yhat['justD'], yhat_sim['justD'],model['justD'] = run_STM_CV(X[:,8:],y,cbool,params)
+    # =========== #
+    # =========== #
+    # Run 2 Drops
+
+    print('Running just Derivative')
+    yhat['justD'], yhat_sim['justD'],model['justD'] = run_STM_CV(X[:,4:],y,cbool,params)
     print('Running just Moment')
-    yhat['justM'], yhat_sim['justM'],model['justD'] = run_STM_CV(X_just_M,y,cbool,params)
+    yhat['justM'],yhat_sim['justM'],model['justM'] = run_STM_CV(X[:,M],y,cbool,params)
     print('Running just Force')
-    yhat['justF'], yhat_sim['justF'],model['justF'] = run_STM_CV(X_just_F,y,cbool,params)
+    yhat['justF'], yhat_sim['justF'],model['justF'] = run_STM_CV(X[:,F],y,cbool,params)
     print('Running just Rotation')
-    yhat['justR'], yhat_sim['justR'],model['justR'] = run_STM_CV(X_just_R,y,cbool,params)
+    yhat['justR'],yhat_sim['justR'],model['justR'] = run_STM_CV(X[:,R],y,cbool,params)
 
     return(yhat,yhat_sim,model)
+
 def get_correlations(y,yhat,yhat_sim,cbool,kernels=np.power(2,range(1,10))):
     spt = neo.SpikeTrain(np.where(y)[0]*pq.ms,sampling_rate=pq.kHz,t_stop=y.shape[0]*pq.ms)
 
@@ -171,8 +142,7 @@ def get_correlations(y,yhat,yhat_sim,cbool,kernels=np.power(2,range(1,10))):
 
 if __name__=='__main__':
     fname = sys.argv[1]
-    p_smooth = r'/projects/p30144/_VG3D/deflections/_NEO'
-    p_save = r'/projects/p30144/_VG3D/deflections/_NEO/results'
+    p_save = r'/projects/p30144/_VG3D/deflections/_NEO_2D/results'
     blk = neoUtils.get_blk(fname)
     params = {'verbosity': 0,
               'threshold': 1e-8,
@@ -181,18 +151,19 @@ if __name__=='__main__':
                   'strength': 1e-3,
                   'norm': 'L2'}
               }
+
     for unit_num in range(len(blk.channel_indexes[-1].units)):
         R = {}
-        yhat,yhat_sim,model = run_dropout(fname,p_smooth,unit_num,params)
+        yhat,yhat_sim,model = run_dropout(fname,unit_num,params)
         y = neoUtils.get_rate_b(blk,unit_num)[1]
-        X, y, cbool = get_X_y(fname, p_smooth, unit_num)
-        root = neoUtils.get_root(blk,unit_num)
+        X, y, cbool = get_X_y(fname,  unit_num)
+        root = neoUtils.get_root(blk, unit_num)
         for key in yhat.iterkeys():
             R[key],kernel_sizes = get_correlations(y,yhat[key],yhat_sim[key],cbool)
 
 
         root = neoUtils.get_root(blk,unit_num)
-        np.savez(os.path.join(p_save,'{}_STM_continuous.npz'.format(root)),
+        np.savez(os.path.join(p_save,'{}_STM_continuous_2D.npz'.format(root)),
                  X=X,
                  y=y,
                  yhat=yhat,
@@ -202,4 +173,11 @@ if __name__=='__main__':
                  kernel_sizes=kernel_sizes,
                  params=params,
                  models=model)
+
+
+
+
+
+
+
 
