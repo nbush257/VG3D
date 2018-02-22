@@ -1,4 +1,5 @@
 import glob
+import sys
 import pandas as pd
 import neoUtils
 import numpy as np
@@ -22,7 +23,7 @@ def np_to_pd(fname):
 
 def batch_to_pd(p_load):
     first=True
-    for f in glob.glob(os.path.join(p_load,'*STM*.npz')):
+    for f in glob.glob(p_load):
         try:
             print('Working on {}'.format(os.path.basename(f)))
             hist,no_hist = np_to_pd(f)
@@ -40,9 +41,14 @@ def batch_to_pd(p_load):
     return(df_hist,df_no_hist)
 
 
+if __name__=='__main__':
+    # p_load is the wildcard sting specification that gets
+    # passed to glob
+    p_load = sys.argv[1]
+    # out_name is the string prefix to give the csvs.
+    out_name = sys.argv[2]
+    hist, no_hist = batch_to_pd(p_load)
+    p_save = os.path.split(p_load)[0]
 
-p_load = '/projects/p30144/_VG3D/deflections/_NEO/results'
-hist, no_hist = batch_to_pd(p_load)
-
-hist.to_csv(os.path.join(p_load,'hist_correlations.csv'),index=False)
-no_hist.to_csv(os.path.join(p_load,'no_hist_correlations.csv'),index=False)
+    hist.to_csv(os.path.join(p_save,'{}_sim_correlations.csv'.format(out_name)),index=False)
+    no_hist.to_csv(os.path.join(p_save,'{}_correlations.csv'.format(out_name)),index=False)
