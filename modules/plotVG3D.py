@@ -28,3 +28,24 @@ def polar_histogram(vals, nbins=20, kind='bar'):
         plt.plot(theta[:-1], R,'ko--')
 def arclength_group_colors():
     return(sns.color_palette('Blues',4)[1:])
+def set_fig_style():
+    '''
+    standard set of values to use when making plots
+    :return:
+    '''
+    plt.rcParams['svg.fonttype'] = 'none'
+    plt.rcParams['axes.titlesize'] = 12
+    plt.rcParams['figure.titlesize'] = 12
+    plt.rcParams['axes.labelsize'] = 10
+    plt.rcParams['xtick.labelsize'] = 8
+    plt.rcParams['ytick.labelsize'] = 8
+    plt.rcParams['font.sans-serif'] = 'Arial'
+    sns.set()
+    sns.set_style('ticks')
+    dpi_res = 600
+    fig_width = 6.9 # in
+    fig_height = 9 # in
+    figsize=(fig_width,fig_height)
+    ext = 'png'
+
+    return(dpi_res,figsize,ext)

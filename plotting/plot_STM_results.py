@@ -3,29 +3,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-sns.set()
-sns.set_style('ticks')
-# ===================== # 
-plt.rcParams['svg.fonttype'] = 'none'
-plt.rcParams['axes.titlesize'] = 12
-plt.rcParams['figure.titlesize'] = 12
-plt.rcParams['axes.labelsize'] = 10
-plt.rcParams['xtick.labelsize'] = 8
-plt.rcParams['ytick.labelsize'] = 8
-plt.rcParams['font.sans-serif'] = 'Arial'
-dpi_res = 600
-fig_width = 6.9 # in
-sns.set_style('ticks')
-fig_height = 9 # in
-ext = 'png'
-p_save = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results'
+import plotVG3D
+# ===================== #
+dpi_res,figsize,ext=plotVG3D.set_fig_style()
+p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+fname = os.path.join(p_save,r'no_hist_correlations.csv')
+is_stim = pd.read_csv(os.path.join(p_save,r'cell_id_stim_responsive.csv'))
 # ============================= #
 # ============================= #
 # 
-# ========= No Hist =========== #
-# fname = '/projects/p30144/_VG3D/deflections/_NEO/results/no_hist_correlations.csv'
-fname = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results\no_hist_correlations.csv'
-is_stim = pd.read_csv(r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results\cell_id_stim_responsive.csv')
+# ========= make long =========== #
 df = pd.read_csv(fname)
 df = df.merge(is_stim,on='id')
 df = df[df.stim_responsive]
@@ -36,8 +23,8 @@ df2 =df.melt(id_vars=['id','kernels'],value_vars=cols,var_name='model_type',valu
 
 # ======================
 # Temporal accuracy of all models
-wd = fig_width
-ht = fig_width/3
+wd = figsize[0]
+ht = figsize[0]/3
 sns.factorplot(x='model_type',y='Pearson_Correlation',data=df2,
                hue='kernels',
                kind='box',
@@ -54,7 +41,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(p_save,'STM_all_models_kernels.{}'.format(ext)),dpi=dpi_res,bbox_inches='tight')
 # ==============================
 # Only at one smmothing param
-wd = fig_width/2
+wd = figsize[0]/2
 ht = wd/1.2
 kernel=16
 cmap = [sns.palettes.color_palette('Paired',8)[ii] for ii in[1,3,5,7,0,2,4,6]]
@@ -74,7 +61,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(p_save,'all_models_{}_ms.{}'.format(kernel,ext)),dpi=dpi_res,bbox_inches='tight')
 # ============================
 # Derivative information improves temporal accuracy
-wd = fig_width/2
+wd = figsize[0]/2
 ht = wd/.8
 plt.figure(figsize=(wd,ht))
 df_full = pd.pivot_table(df[['full','kernels','id']],columns='kernels',index='id',values='full')
@@ -94,8 +81,8 @@ plt.title('Derivative information improves\ntemporal accuracy of models')
 plt.tight_layout()
 plt.savefig(os.path.join(p_save,'derivative_temporal_accuracy_hist.{}'.format(ext)),dpi=dpi_res,bbox_inches='tight')
 #
-wd = fig_width/2
-ht = fig_width/2
+wd = figsize[0]/2
+ht = figsize[0]/2
 df3 =df.melt(id_vars=['id','kernels'],value_vars=['full','noD'],var_name='model_type',value_name='Pearson_Correlation')
 sns.factorplot(x='model_type',y='Pearson_Correlation',data=df3,
               hue='kernels',
@@ -112,7 +99,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(p_save,'derivative_temporal_accuracy.{}'.format(ext)),dpi=dpi_res)
 # =======================================
 # Difference from full
-wd = fig_width/3
+wd = figsize[0]/3
 ht = wd/.5
 f = plt.figure(figsize=(wd,ht))
 
@@ -135,7 +122,7 @@ plt.savefig(os.path.join(p_save,'percent_diff_full_drops.{}'.format(ext)),dpi=dp
 # TODO: Is the percent difference correlated? For neurons that need M, can they do without R?
 # =================================
 # Single Types
-wd = fig_width/2
+wd = figsize[0]/2
 ht=wd
 f = plt.figure(figsize=(wd,ht))
 
