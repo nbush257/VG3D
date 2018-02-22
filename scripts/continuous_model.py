@@ -157,6 +157,10 @@ def run_dropout(fname,p_smooth,unit_num,params):
 
     return(yhat,yhat_sim,model)
 def get_correlations(y,yhat,yhat_sim,cbool,kernels=np.power(2,range(1,10))):
+    if yhat.ndim==1:
+        yhat = yhat[np.newaxis]
+    if yhat_sim.ndim==1:
+        yhat_sim = yhat_sim[:,np.newaxis]
     spt = neo.SpikeTrain(np.where(y)[0]*pq.ms,sampling_rate=pq.kHz,t_stop=y.shape[0]*pq.ms)
 
     rate = [elephant.statistics.instantaneous_rate(spt,
