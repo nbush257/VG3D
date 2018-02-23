@@ -7,7 +7,7 @@ import plotVG3D
 # ===================== #
 dpi_res,figsize,ext=plotVG3D.set_fig_style()
 p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
-fname = os.path.join(p_save,r'no_hist_correlations.csv')
+fname = os.path.join(p_save,r'STM_3D_correlations.csv')
 is_stim = pd.read_csv(os.path.join(p_save,r'cell_id_stim_responsive.csv'))
 # ============================= #
 # ============================= #
@@ -49,12 +49,17 @@ cmap = [(.6,.6,.6)]+cmap
 order=['full','justM','justF','justR','justD','noM','noF','noR','noD']
 plt.figure(figsize=(wd,ht))
 sns.boxplot(x='model_type',y='Pearson_Correlation',data=df2[df2.kernels==kernel],fliersize=0,whis=1,palette=cmap,order=order)
-sns.swarmplot(x='model_type',y='Pearson_Correlation',data=df2[df2.kernels==kernel],color='k',alpha=0.6,size=2,order=order)
+sns.stripplot(x='model_type',y='Pearson_Correlation',data=df2[df2.kernels==kernel],
+              color='k',
+              alpha=0.6,
+              size=2,
+              order=order,
+              jitter=True)
 ax = plt.gca()
 ax.set_ylim(-0.05,1)
 plt.ylabel('Pearson Correlation (R)')
 plt.xlabel('')
-sns.despine(offset=10)
+sns.despine(offset=5)
 plt.xticks(range(9),['Full','Only Bending','Only Lateral','Only Rotation','Only Derivative',
                      'Drop Bending','Drop Lateral','Drop Rotation','Drop Derivative'],rotation=45,horizontalalignment='right')
 plt.tight_layout()
@@ -107,7 +112,11 @@ sub_df = df[df.kernels==kernel]
 df_diff = sub_df[['noM','noF','noR','noD']].subtract(sub_df['full'],axis=0)
 df_pct_diff = df_diff.div(sub_df['full'],axis=0)
 sns.boxplot(data=df_pct_diff[['noM','noF','noR']],fliersize=0)
-sns.swarmplot(data=df_pct_diff[['noM','noF','noR']],color='k',size=2.5,alpha=0.5)
+sns.stripplot(data=df_pct_diff[['noM','noF','noR']],
+              color='k',
+              size=2.5,
+              alpha=0.5,
+              jitter=True)
 sns.despine()
 ax =plt.gca()
 y_anot =ax.get_ylim()[1]
@@ -116,7 +125,7 @@ plt.annotate('n.s.',xy=(0,y_anot),horizontalalignment='center')
 plt.annotate('n.s.',xy=(1,y_anot),horizontalalignment='center')
 plt.annotate('*',xy=(2,y_anot),horizontalalignment='center')
 plt.ylabel('$\\frac{R_{full}-R_{subset}}{R_{full}}$')
-plt.xticks([0,1,2],['Drop Bending','Drop Lateral','Drop Rotation'],rotation=60)
+plt.xticks([0,1,2],['Drop Bending','Drop Lateral','Drop Rotation'],rotation=60,horizontalalignment='right')
 plt.tight_layout()
 plt.savefig(os.path.join(p_save,'percent_diff_full_drops.{}'.format(ext)),dpi=dpi_res)
 # TODO: Is the percent difference correlated? For neurons that need M, can they do without R?
@@ -133,6 +142,8 @@ sns.despine()
 plt.axis('square')
 plt.ylim(0,1)
 plt.xlim(0,1)
+plt.xticks([0,0.5,1])
+plt.yticks([0,0.5,1])
 plt.ylabel('Just Force')
 plt.subplot(223)
 plt.plot(sub_df['justM'],sub_df['justR'],'.',color='k',alpha=0.75)
@@ -141,6 +152,8 @@ sns.despine()
 plt.axis('square')
 plt.ylim(0,1)
 plt.xlim(0,1)
+plt.xticks([0,0.5,1])
+plt.yticks([0,0.5,1])
 plt.ylabel('Just Rotation')
 plt.xlabel('Just Moment')
 plt.subplot(224)
@@ -150,6 +163,8 @@ sns.despine()
 plt.axis('square')
 plt.ylim(0,1)
 plt.xlim(0,1)
+plt.xticks([0,0.5,1])
+plt.yticks([0,0.5,1])
 plt.xlabel('Just Force')
 plt.tight_layout()
 plt.savefig(os.path.join(p_save,'single_type_model_compare.{}'.format(ext)),dpi=dpi_res)

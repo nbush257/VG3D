@@ -8,7 +8,9 @@ import plotVG3D
 # ===================
 dpi_res,figsize,ext=plotVG3D.set_fig_style()
 p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+is_stim = pd.read_csv(os.path.join(p_save,r'cell_id_stim_responsive.csv'))
 df = pd.read_csv(os.path.join(p_save,'regularity_by_contact.csv'))
+df = df.merge(is_stim,on='id')
 df = df[df.stim_responsive]
 cell_list = ['201708D1c0']
 # =======================================
@@ -34,6 +36,7 @@ for cell in cell_list:
     plt.fill_between(theta,lower_CV,upper_CV,alpha=0.5,color='k')
     plt.title('CV by direction\n{}'.format(cell))
     plt.tight_layout()
+    plotVG3D.savefig(p_save,'{}_CV_by_dir.{}'.format(cell,ext))
     # ==================
     plt.figure(figsize=(wd,ht))
     med_LV = df_dir.LV.quantile(0.5)
@@ -46,6 +49,7 @@ for cell in cell_list:
     plt.fill_between(theta,lower_LV,upper_LV,alpha=0.5,color='k')
     plt.title('LV by direction\n{}'.format(cell))
     plt.tight_layout()
+    plotVG3D.savefig(p_save,'{}_LV_by_dir.{}'.format(cell,ext))
 # ====================================================
 # Get DSI of CV regularity for all cells
 wd = figsize[0]/2.5
@@ -73,10 +77,12 @@ plt.title('Most cells regularity\nis not direction dependant')
 plt.ylabel('Number of Cells')
 plt.xlabel('Direction Selectivity of ISI CV')
 plt.tight_layout()
+plotVG3D.savefig(p_save,'DSI(CV)_all_cells.{}'.format(ext))
 # plot CV vs DSI(cv)
 f = plt.figure(figsize=(wd,ht))
 sns.jointplot(x='med_CV',y='DSI',data=df_dsi,color='k')
 plt.tight_layout()
+plotVG3D.savefig(p_save,'DSI(CV)_vs_CV.{}'.format(ext))
 # There is only a weak relatioship between the CV and the directionality of the CV
 # =============================================================
 # Get DSI of LV,CV, and pct_finite for all cells
@@ -126,33 +132,25 @@ plt.title('Maybe 3 clusters of LV')
 plt.ylabel('Number of Cells')
 plt.xlabel('Direction Selectivity of ISI LV')
 plt.tight_layout()
+plotVG3D.savefig(p_save,'DSI(LV)_all_cells.{}'.format(ext))
 # plot LV vs DSI(LV)
 sns.jointplot(x='med_LV',y='DSI_LV',data=df_dsi,color='k')
 plt.tight_layout()
+plotVG3D.savefig(p_save,'DSI(CV)_vs_CV.{}'.format(ext))
+
 # There is no relationship between the LV and the directionality of the LV
 # =============================================================
-
-# Plot DSI by CV
-wd = figsize[0]/2.5
-ht = wd
-f = plt.figure(figsize=(wd,ht))
-sns.distplot(df_dsi.DSI_CV[np.isfinite(df_dsi.DSI_CV)],20,kde=False,color='k')
-sns.despine()
-plt.title('Distribution of DSI(CV)')
-plt.ylabel('Number of Cells')
-plt.xlabel('Direction Selectivity of ISI CV')
-plt.tight_layout()
-# plot CV vs DSI(cv)
-sns.jointplot(x='med_CV',y='DSI_CV',data=df_dsi,color='k')
-plt.tight_layout()
-# There is no relationship between the LV and the directionality of the LV
-# =================================================
 # Plot distribution of regularity for all cells (as horizontal box plots)
-wd = figsize[0]/2
-ht = wd/0.33
+ht = figsize[1]
+wd = ht/3
 f = plt.figure(figsize=(wd,ht))
 df_by_id =pd.pivot_table(df,columns='dir_idx',values=['CV','LV'],index='id')
-sns.boxplot(data=df_by_id['LV'].T,orient='h',order=df_by_id['LV'].median(axis=1).sort_values().index,whis=1,fliersize=3) #probably doesn't need color
+cmap = sns.cubehelix_palette(start=3,light=0.85,dark=0.15)
+sns.boxplot(data=df_by_id['LV'].T,
+            orient='h',
+            order=df_by_id['LV'].median(axis=1).sort_values().index,
+            whis=1,
+            fliersize=3) #probably doesn't need color
 sns.despine(trim=True)
 plt.grid('on',axis='x')
 plt.xlabel('Regularity (LV)')
@@ -160,6 +158,7 @@ plt.ylabel('Cell (ordered by LV)')
 ax = plt.gca()
 ax.set_yticklabels('')
 plt.tight_layout()
+plotVG3D.savefig(p_save,'all_cells_LV_dist.{}'.format(ext),dpi=dpi_res)
 # ==================================================
 # Plot polar of pct of deflections with >2 spikes
 wd = figsize[0]/2
@@ -179,6 +178,7 @@ for cell in cell_list:
     ax.set_rlim(0,1)
     ax.set_rticks([0.5,1])
     plt.tight_layout()
+    plotVG3D.savefig(p_save,'{}_spikethresh_by_direction.{}'.format(cell,ext),dpi=dpi_res)
 
 # =================================
 # Plot DSI of percentage of contacts with less than 3 spikes by direction
@@ -209,3 +209,5 @@ f = plt.gcf()
 f.set_size_inches(wd,ht)
 sns.despine()
 plt.tight_layout()
+plotVG3D.savefig(p_save,'DSI(probability_of_spike)_all_cells.{}'.format(ext),dpi=dpi_res)
+plt.close('all')

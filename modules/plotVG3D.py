@@ -7,6 +7,7 @@ import worldGeometry
 import numpy as np
 import matplotlib.gridspec as gridspec
 import quantities as pq
+import os
 sns.set()
 
 def plot3():
@@ -16,7 +17,8 @@ def polar():
     f = plt.figure()
     return(f.add_subplot(111,projection='polar'))
 
-
+def savefig(p_save,name,dpi=600):
+    plt.savefig(os.path.join(p_save,name),dpi=dpi)
 
 def polar_histogram(vals, nbins=20, kind='bar'):
     R,theta = np.histogram(vals,nbins)

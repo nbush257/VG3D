@@ -57,6 +57,7 @@ plt.ylabel('Pearson Correlation')
 plt.xlabel('Number of components (original dim=8)')
 plt.title('PCA models')
 plt.tight_layout()
+plotVG3D.savefig(p_save,'PCA_model_dropout.{}'.format(ext),dpi=dpi_res)
 # plot full model
 wd = ht
 
@@ -75,11 +76,11 @@ sns.stripplot(df2_raw[(df2_raw.model_type=='full') & (df2_raw.kernels==kernel)].
 wd = figsize[0]/2.5
 ht = wd/0.5
 f= plt.figure(figsize=(wd,ht))
-df2.append(df2_raw[df2_raw.model_type=='full'])
+df2 = df2.append(df2_raw[df2_raw.model_type=='full'])
 df_pivot = pd.pivot_table(df2,index='id',columns='model_type',values='Pearson_Correlation')
 pct_diff = df_pivot.subtract(df_pivot.full,axis=0).divide(df_pivot.full,axis=0)*100
 sub_pct_diff = pct_diff[['full6','full5','full4','full3','full2','full1']]
-sns.boxplot(sub_pct_diff,
+sns.boxplot(data=sub_pct_diff,
             palette='Reds_r',
             whis=1,
             fliersize=0)
@@ -100,4 +101,4 @@ plt.xlabel('')
 plt.title('Percent difference\nfrom full model',y=1.1)
 # plt.ylabel('$\\frac{R_{PCA}-R_{full}}{R_{full}}$')
 plt.tight_layout()
-
+plotVG3D.savefig(p_save,'pct_diff_PCA_drops_v_full.{}'.format(ext),dpi=dpi_res)

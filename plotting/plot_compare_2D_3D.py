@@ -50,7 +50,7 @@ f.set_size_inches((wd,ht))
 sns.despine(offset=5,trim=True)
 
 plt.tight_layout()
-
+plotVG3D.savefig(p_save,'2D_vs_3D_all_types.{}'.format(ext),dpi=dpi_res)
 plt.figure(figsize=(wd,ht))
 sns.violinplot(data=DF[DF.kernels==kernel],
                x='model_type',
@@ -59,23 +59,24 @@ sns.violinplot(data=DF[DF.kernels==kernel],
                split=True,
                palette='Set2',
                bw=0.3,
-               inner='quartile'
                )
 plt.ylim(0,1)
 sns.despine(offset=5,trim=True)
 plt.tight_layout()
+plt.close('all')
 # ==============================================================
-compare = pd.pivot_table(DF_full_16,index='id',columns='model',values='Pearson_Correlation')
+DF_kernel = DF[DF.kernels==kernel]
+compare = pd.pivot_table(DF_kernel,index='id',columns='model',values='Pearson_Correlation')
 compare['pct_improve'] = (compare['3D']-compare['2D'])/compare['2D']*100
 
 wd = figsize[0]/3
 ht = figsize[0]/3
 f = plt.figure(figsize=(wd,ht))
-DF_full_16 = DF[(DF.kernels==kernel) & (DF.model_type=='full')]
-sns.barplot(x='model',y='Pearson_Correlation',data=DF_full_16,
+DF_kernel = DF[(DF.kernels==kernel) & (DF.model_type=='full')]
+sns.barplot(x='model',y='Pearson_Correlation',data=DF_kernel,
             estimator=np.median,
             palette='Set2')
-sns.stripplot(x='model',y='Pearson_Correlation',data=DF_full_16,
+sns.stripplot(x='model',y='Pearson_Correlation',data=DF_kernel,
               color='k',
               alpha=0.3,
               jitter=True)
@@ -90,17 +91,19 @@ plt.xlabel('')
 plt.grid('on',axis='y')
 sns.despine(trim=True,offset=5)
 plt.tight_layout()
+plotVG3D.savefig(p_save,'2D_3D_full_{}kernel.{}'.format(kernel,ext),dpi=dpi_res)
 # ===================================================
 # plot percent difference full
 # sns.distplot(compare['pct_improve'],kde=False,bins=20)
-wd = figsize[0]/3
-ht = wd/0.75
+wd = figsize[0]/4
+ht = wd/0.5
 f = plt.figure(figsize=(wd,ht))
-# sns.barplot(compare['pct_improve'],orient='v')
+plt.bar(0,np.mean(compare['pct_improve']),width=0.4,color='k',alpha=0.3)
 sns.stripplot(compare['pct_improve'],orient='v',jitter=0.05,color='k',alpha=0.6,edgecolor='w')
-plt.title('Percent improvement')
+plt.title('% improvement')
 # plt.ylabel('$\\frac{R_{3D}-R_{2D}}{R_{3D}}$')
 plt.ylabel('')
 plt.xticks([])
 sns.despine(offset=5)
 plt.tight_layout()
+plotVG3D.savefig(p_save,'2D_3D_{}full_percent_improvement.{}'.format(kernel,ext),dpi=dpi_res)
