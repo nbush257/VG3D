@@ -79,39 +79,74 @@ sns.jointplot(x='med_CV',y='DSI',data=df_dsi,color='k')
 plt.tight_layout()
 # There is only a weak relatioship between the CV and the directionality of the CV
 # =============================================================
-# Get DSI of LV regularity for all cells
-wd = figsize[0]/2.5
-ht = wd
+# Get DSI of LV,CV, and pct_finite for all cells
 df_dsi = pd.DataFrame()
-DSI = []
+DSI_LV = []
+DSI_CV = []
+DSI_pct_finite = []
 ID = []
 med_LV_all = []
+med_CV_all = []
+pct_finite_all = []
 for cell in df.id.unique():
     sub_df = df[df.id==cell]
+    sub_df['did_spike'] = np.isfinite(sub_df['mean_ISI'])
     df_dir = sub_df.groupby('dir_idx')
     theta = df_dir.med_dir.mean()
-    med_LV = df_dir.LV.quantile(0.5)
-    DSI.append(varTuning.get_PD_from_hist(theta,med_LV)[1])
-    ID.append(cell)
-    med_LV_all.append(np.nanmedian((med_LV)))
-df_dsi['id'] = ID
-df_dsi['DSI_med_LV'] = DSI
-df_dsi['med_LV'] = med_LV_all
 
+    med_LV = df_dir.LV.quantile(0.5)
+    med_CV = df_dir.CV.quantile(0.5)
+    pct_finite = df_dir.did_spike.mean()
+
+    DSI_pct_finite.append(varTuning.get_PD_from_hist(theta,pct_finite)[1])
+    DSI_LV.append(varTuning.get_PD_from_hist(theta,med_LV)[1])
+    DSI_CV.append(varTuning.get_PD_from_hist(theta,med_CV)[1])
+
+    med_CV_all.append(np.nanmedian((med_CV)))
+    med_LV_all.append(np.nanmedian((med_LV)))
+    pct_finite_all.append(np.nanmean(pct_finite))
+
+    ID.append(cell)
+
+df_dsi['id'] = ID
+df_dsi['DSI_LV'] = DSI_LV
+df_dsi['med_LV'] = med_LV_all
+df_dsi['DSI_CV'] = DSI_CV
+df_dsi['med_CV'] = med_CV_all
+df_dsi['DSI_pct_finite'] = DSI_pct_finite
+df_dsi['pct_finite'] = pct_finite_all
+# ===========================
+# Plot DSI by LV
+wd = figsize[0]/2.5
+ht = wd
 f = plt.figure(figsize=(wd,ht))
-sns.distplot(df_dsi.DSI_med_LV[np.isfinite(df_dsi.DSI_med_LV)],20,kde=False,color='k')
+sns.distplot(df_dsi.DSI_LV[np.isfinite(df_dsi.DSI_LV)],20,kde=False,color='k')
 sns.despine()
 plt.title('Maybe 3 clusters of LV')
 plt.ylabel('Number of Cells')
 plt.xlabel('Direction Selectivity of ISI LV')
 plt.tight_layout()
-# plot LV vs DSI(cv)
-f = plt.figure(figsize=(wd,ht))
-sns.jointplot(x='med_LV',y='DSI_med_LV',data=df_dsi,color='k')
+# plot LV vs DSI(LV)
+sns.jointplot(x='med_LV',y='DSI_LV',data=df_dsi,color='k')
 plt.tight_layout()
 # There is no relationship between the LV and the directionality of the LV
 # =============================================================
 
+# Plot DSI by CV
+wd = figsize[0]/2.5
+ht = wd
+f = plt.figure(figsize=(wd,ht))
+sns.distplot(df_dsi.DSI_CV[np.isfinite(df_dsi.DSI_CV)],20,kde=False,color='k')
+sns.despine()
+plt.title('Distribution of DSI(CV)')
+plt.ylabel('Number of Cells')
+plt.xlabel('Direction Selectivity of ISI CV')
+plt.tight_layout()
+# plot CV vs DSI(cv)
+sns.jointplot(x='med_CV',y='DSI_CV',data=df_dsi,color='k')
+plt.tight_layout()
+# There is no relationship between the LV and the directionality of the LV
+# =================================================
 # Plot distribution of regularity for all cells (as horizontal box plots)
 wd = figsize[0]/2
 ht = wd/0.33
@@ -125,6 +160,7 @@ plt.ylabel('Cell (ordered by LV)')
 ax = plt.gca()
 ax.set_yticklabels('')
 plt.tight_layout()
+# ==================================================
 # Plot polar of pct of deflections with >2 spikes
 wd = figsize[0]/2
 ht=wd
@@ -138,26 +174,15 @@ for cell in cell_list:
     f = plt.figure(figsize=(wd,ht))
     plt.polar(theta,pct_finite,alpha=0.8,color='k',linestyle=':')
     plt.fill_between(theta,np.zeros(len(theta)),pct_finite,alpha=0.4,color='k')
-    plt.title('Percent of deflections\nwith more than 2 spikes'.format(cell))
+    plt.title('{}\nPercent of deflections\nwith more than 2 spikes\nDSI={:0.2f}'.format(cell,df_dsi[df_dsi.id==cell].DSI_pct_finite.values[0]))
     ax = plt.gca()
     ax.set_rlim(0,1)
     ax.set_rticks([0.5,1])
     plt.tight_layout()
-# Plot DSI of percentage of contacts with less than 3 spikes by direction
-for cell in df.id.unique():
-    DSI = []
-    pct_finite_all = []
-    for cell in df.id.unique():
-        sub_df = df[df.id==cell]
-        sub_df['mean_ISI'] = np.isfinite(sub_df['mean_ISI'])
-        df_dir = sub_df.groupby('dir_idx')
-        pct_finite = df_dir['mean_ISI'].mean()
-        theta = df_dir.med_dir.mean()
-        DSI.append(varTuning.get_PD_from_hist(theta,pct_finite)[1])
-        pct_finite_all.append(np.nanmean(pct_finite))
-    df_dsi['DSI_pct_finite'] = DSI
-    df_dsi['pct_finite'] = pct_finite_all
 
+# =================================
+# Plot DSI of percentage of contacts with less than 3 spikes by direction
+# working on removing this part
 f = plt.figure(figsize=(wd,ht))
 sns.distplot(df_dsi.DSI_pct_finite[np.isfinite(df_dsi.DSI_pct_finite)],20,kde=False,color='k')
 sns.despine()
@@ -167,4 +192,20 @@ plt.xlabel('Direction selectivity of probability of >1 spike')
 plt.tight_layout()
 # plot pct finite vs DSI(pct finite)
 sns.jointplot(x='pct_finite',y='DSI_pct_finite',data=df_dsi,color='k')
+plt.tight_layout()
+# =================================
+# is there a relationship between regularity directionality and threshold directionality?
+# Yes
+wd = figsize[0]/1.5
+ht = figsize[0]/1.5
+f = (sns.jointplot(df_dsi['DSI_LV'],df_dsi['DSI_pct_finite'],
+              kind='scatter',
+              color='k',
+              size=2,
+              edgecolor='w',
+              alpha=0.6,
+              marginal_kws=dict(bins=20, kde=False))).set_axis_labels('Directionality of regularity(LV)','Directionality of threshold')
+f = plt.gcf()
+f.set_size_inches(wd,ht)
+sns.despine()
 plt.tight_layout()
