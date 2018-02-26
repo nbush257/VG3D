@@ -69,7 +69,7 @@ def get_X_y(fname,p_smooth,unit_num,pca_tgl=False,n_pcs=3):
 
 def run_STM_CV(X, y, cbool,params,n_sims=1):
     num_components = 4
-    num_features = 5
+    num_features = 20
     k =10  
     KF = sklearn.model_selection.KFold(k,shuffle=True)
     yhat = np.zeros(y.shape[0])
@@ -196,7 +196,7 @@ if __name__=='__main__':
 
 
         root = neoUtils.get_root(blk,unit_num)
-        np.savez(os.path.join(p_save,'{}_STM_continuous.npz'.format(root)),
+        np.savez(os.path.join(p_save,'{}_STM_continuous_20feats.npz'.format(root)),
                  X=X,
                  y=y,
                  yhat=yhat,
