@@ -1,3 +1,7 @@
+import quantities as pq
+import neo
+import varTuning
+import elephant
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -17,6 +21,7 @@ fig_width = 6.9 # in
 sns.set_style('ticks')
 fig_height = 9 # in
 ext = 'png'
+kernel=16
 try:
     p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
 except KeyError:
@@ -24,10 +29,12 @@ except KeyError:
 
 fname =os.path.join(p_save,r'201708D1c0_STM_continuous.npz')
 dat = np.load(fname)
-yhat = dat['yhat'].item()
+root = os.path.basename(fname)[:10]
+yhat = dat['yhat'].item()['full']
 y = dat['y']
+cbool = dat['cbool']
 X = dat['X']
-model  = dat['models'].item()['full']
+# model  = dat['models'].item()['full']
 
 def make_gridpace(X,col1,col2,nbins=100):
     var1= X[:,col1]
@@ -35,7 +42,7 @@ def make_gridpace(X,col1,col2,nbins=100):
     X1 = np.linspace(np.nanmin(var1),np.nanmax(var1),nbins)[:,np.newaxis]
     X2 = np.linspace(np.nanmin(var2),np.nanmax(var2),nbins)[:,np.newaxis]
     return(np.concatenate([X1,X2],axis=1))
-def apply_models(X,model,col1,col2)
+def apply_models(X,model,col1,col2):
     u = model.features
     v = model.linear_predictor
     g = model.nonlinearity
@@ -43,4 +50,39 @@ def apply_models(X,model,col1,col2)
     b = model.weights
     a = model.biases
     Xout = make_gridspace(X,col1,col2)
+
+spt = neo.SpikeTrain(np.where(y)[0]*pq.ms,sampling_rate=pq.kHz,t_stop=y.shape[0]*pq.ms)
+if kernel is not None:
+    kernel = elephant.kernels.GaussianKernel(kernel*pq.ms)
+    rate = elephant.statistics.instantaneous_rate(spt,sampling_period=pq.ms,kernel=kernel).magnitude.ravel()
+    rate = rate/1000.
+else:
+    rate = y
+
+pred_response,edges1,edges2 = varTuning.joint_response_hist(X[:,6],X[:,7],yhat,cbool)
+obs_response,edges1,edges2 = varTuning.joint_response_hist(X[:,6],X[:,7],rate,cbool)
+max_r = np.max([np.max(pred_response),np.max(obs_response)])
+# ==================
+plt.figure()
+plt.subplot(121)
+h=plt.pcolormesh(edges1[:-1],edges2[:-1],pred_response,vmin=0,vmax=max_r)
+plt.ylabel('$\\Delta\\phi$')
+plt.xlabel('$\\Delta\\theta$')
+plt.axvline(color='k')
+plt.axhline(color='k')
+plt.axis('square')
+plt.title('Predicted')
+plt.subplot(122)
+plt.pcolormesh(edges1[:-1],edges2[:-1],obs_response,vmin=0,vmax=max_r)
+plt.axis('square')
+plt.axvline(color='k')
+plt.axhline(color='k')
+plt.title('Observed')
+plt.xlabel('$\\Delta\\theta$')
+plt.suptitle('{}'.format(root))
+fig = plt.gcf()
+fig.subplots_adjust(right=0.85)
+cbar_ax = fig.add_axes([0.9,0.25,0.02,0.5])
+fig.colorbar(h,cax=cbar_ax)
+plt.show()
 
