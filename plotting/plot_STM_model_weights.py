@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set()
@@ -16,11 +17,11 @@ fig_width = 6.9 # in
 sns.set_style('ticks')
 fig_height = 9 # in
 ext = 'png'
-p_save = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results'
+p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
 
-fname =r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results\201708C3c0_STM_continuous.npz'
+fname =os.path.join(p_save,r'201708D1c0_STM_continuous.npz')
 dat = np.load(fname)
 yhat = dat['yhat'].item()
 y = dat['y']
-
+models = dat['models'].item()
 

@@ -136,7 +136,7 @@ plotVG3D.savefig(p_save,'DSI(LV)_all_cells.{}'.format(ext))
 # plot LV vs DSI(LV)
 sns.jointplot(x='med_LV',y='DSI_LV',data=df_dsi,color='k')
 plt.tight_layout()
-plotVG3D.savefig(p_save,'DSI(CV)_vs_CV.{}'.format(ext))
+plotVG3D.savefig(p_save,'DSI(LV)_vs_LV.{}'.format(ext))
 
 # There is no relationship between the LV and the directionality of the LV
 # =============================================================
