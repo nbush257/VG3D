@@ -95,3 +95,54 @@ cbar_ax = fig.add_axes([0.9,0.25,0.02,0.5])
 fig.colorbar(h,cax=cbar_ax)
 plt.show()
 
+# =================================
+# reshape some weight data
+cell_list = ['201708D1c0']
+fname = os.path.join(p_save,'STM_3D_weights.csv')
+df = pd.read_csv(fname)
+varnames=model_id_to_name()
+vardict=dict(enumerate(varnames))
+df['dim_id'] = df['dim_id'].map(vardict)
+is_stim = pd.read_csv(os.path.join(p_save,'cell_id_stim_responsive.csv'))
+df = df.merge(is_stim,on='id')
+df = df[df.stim_responsive]
+df[['wnl','w']] = np.abs(df[['wnl','w']])
+df_deriv_all = pd.DataFrame()
+cell_list = df.id.unique()
+# get the maximum weight for each cell at each derivative smoothing level
+for cell in df.id.unique():
+    df_deriv = pd.DataFrame()
+    sub_df = df[df.id==cell]
+    m_sub_df = sub_df.groupby('dim_id').max()
+    bounds = np.arange(0,33,8)
+    max_weight_nl = [m_sub_df.ix[varnames[ii:jj]]['wnl'].max() for ii,jj in zip(bounds[:-1],bounds[1:])]
+    max_weight_l = [m_sub_df.ix[varnames[ii:jj]]['w'].max() for ii,jj in zip(bounds[:-1],bounds[1:])]
+    df_deriv['wnl'] = max_weight_nl
+    df_deriv['w'] = max_weight_l
+    df_deriv['d_smoothing'] = [0,1,2,3]
+    df_deriv['id']=cell
+    df_deriv_all = df_deriv_all.append(df_deriv)
+
+# plot the max weight values of each smoothing level
+plt.figure()
+sns.boxplot(data=df_deriv_all,x='d_smoothing',y='wnl')
+plt.figure()
+sns.boxplot(data=df_deriv_all,x='d_smoothing',y='w')
+# plot histogram across cells which smoothing value has largest weight
+df_pivot = pd.pivot_table(df_deriv_all,values='wnl',index='id',columns=['d_smoothing'])
+largest_weight = df_pivot.idxmax(axis=1)
+largest_weight_d_only = df_pivot[[1,2,3]].idxmax(axis=1)
+plt.hist(largest_weight_d_only)
+# ==================
+# plot all weights for one cell
+for cell in cell_list:
+    sub_df = df[df.id==cell]
+    sns.boxplot(data=sub_df,x='dim_id',y='wnl',whis=1,fliersize=0)
+    sns.stripplot(data=sub_df,x='dim_id',y='wnl',color='k',alpha=0.4)
+    plt.fill_between([0,8],0,1,color='k',alpha=0.1)
+    plt.fill_between([8,16],0,1,color='k',alpha=0.2)
+    plt.fill_between([16,24],0,1,color='k',alpha=0.3)
+    plt.fill_between([24,32],0,1,color='k',alpha=0.4)
+    sns.despine()
+    plt.xticks(rotation=60)
+    plt.title('Non-linear weights for each variable\n(absolute value)\n{}'.format(cell))
