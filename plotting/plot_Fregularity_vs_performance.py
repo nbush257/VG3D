@@ -21,18 +21,18 @@ df_FR = df_FR.groupby('id').mean()
 df_sub = df[df.kernels==kernel][['id','full']]
 df_sub = df_sub.merge(df_FR,left_on='id',right_index=True)
 df_sub = df_sub.merge(df_reg[['LV','CV']],left_on='id',right_index=True)
-sns.pairplot(df_sub[['full','Firing_Rate','LV']].dropna(),
-             diag_kind='kde',
-             diag_kws={'shade':True,
-                       'color':'k'},
-             plot_kws={'color':'k',
-                       'alpha':0.6})
-
-plt.suptitle('Kernel Smoothing = {} ms'.format(kernel))
-plt.savefig(os.path.join(p_save,'regularity_performance_pairplot.{}'.format(ext)),dpi=dpi_res)
+# sns.pairplot(df_sub[['full','Firing_Rate','LV']].dropna(),
+#              diag_kind='kde',
+#              diag_kws={'shade':True,
+#                        'color':'k'},
+#              plot_kws={'color':'k',
+#                        'alpha':0.6})
+#
+# plt.suptitle('Kernel Smoothing = {} ms'.format(kernel))
+# plt.savefig(os.path.join(p_save,'regularity_performance_pairplot.{}'.format(ext)),dpi=dpi_res)
 # ==========================
 plt.figure(figsize=(figsize[0]/2.5,figsize[0]/2.5))
-cmap = sns.cubehelix_palette(light=0.8,as_cmap=True)
+cmap = sns.cubehelix_palette(light=0.9,as_cmap=True)
 plt.scatter(df_sub.Firing_Rate,df_sub.full,c=df_sub.LV,edgecolor='k',cmap=cmap)
 cbar = plt.colorbar(pad=0.2)
 cbar.set_clim(vmin=-0.1)
