@@ -51,6 +51,14 @@ def apply_models(X,model,col1,col2):
     a = model.biases
     Xout = make_gridspace(X,col1,col2)
 
+def model_id_to_name():
+    'assumes the 32 length full model'
+    var_names = ['Mx','My','Mz','Fx','Fy','Fz','TH','PHI']
+    vard_names = [[y+'_d{}'.format(x) for y in var_names] for x in [0,1,2]]
+    vard_names = [item for sublist in vard_names for item in sublist]
+    return(var_names+vard_names)
+
+
 spt = neo.SpikeTrain(np.where(y)[0]*pq.ms,sampling_rate=pq.kHz,t_stop=y.shape[0]*pq.ms)
 if kernel is not None:
     kernel = elephant.kernels.GaussianKernel(kernel*pq.ms)
