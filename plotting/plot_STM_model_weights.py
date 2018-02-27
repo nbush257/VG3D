@@ -27,7 +27,7 @@ try:
 except KeyError:
     p_save = '/projects/p30144/_VG3D/deflections/_NEO/results/'
 
-fname =os.path.join(p_save,r'201708D1c0_STM_continuous.npz')
+fname =os.path.join(p_save,r'201702C3c0_STM_continuous.npz')
 dat = np.load(fname)
 root = os.path.basename(fname)[:10]
 yhat = dat['yhat'].item()['full']
@@ -42,14 +42,15 @@ def make_gridpace(X,col1,col2,nbins=100):
     X1 = np.linspace(np.nanmin(var1),np.nanmax(var1),nbins)[:,np.newaxis]
     X2 = np.linspace(np.nanmin(var2),np.nanmax(var2),nbins)[:,np.newaxis]
     return(np.concatenate([X1,X2],axis=1))
-def apply_models(X,model,col1,col2):
+def weight_investigate(model):
     u = model.features
     v = model.linear_predictor
     g = model.nonlinearity
     w = model.predictors
     b = model.weights
     a = model.biases
-    Xout = make_gridspace(X,col1,col2)
+    wnl = np.dot(b,u.T**2)
+    return(wnl,w)
 
 spt = neo.SpikeTrain(np.where(y)[0]*pq.ms,sampling_rate=pq.kHz,t_stop=y.shape[0]*pq.ms)
 if kernel is not None:
