@@ -51,3 +51,6 @@ def set_fig_style():
     ext = 'png'
 
     return(dpi_res,figsize,ext)
+def rotate_3D_plot(X):
+    ax = plot3()
+    ax.plot(X[:,0],X[:,1],X[:,2],'.')

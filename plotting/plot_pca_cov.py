@@ -3,7 +3,7 @@ from analyze_by_deflection import *
 # edit here #
 # ============================ #
 save_loc = os.path.join(os.environ['BOX_PATH'],r'__VG3D/_deflection_trials/_NEO/results')
-cell_list = ['201711B2']
+cell_list = ['201711B2','201708D1']
 plt.rcParams['svg.fonttype'] = 'none'
 plt.rcParams['axes.titlesize'] = 12
 plt.rcParams['figure.titlesize'] = 12

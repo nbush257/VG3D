@@ -102,3 +102,38 @@ plt.title('Percent difference\nfrom full model',y=1.1)
 # plt.ylabel('$\\frac{R_{PCA}-R_{full}}{R_{full}}$')
 plt.tight_layout()
 plotVG3D.savefig(p_save,'pct_diff_PCA_drops_v_full.{}'.format(ext),dpi=dpi_res)
+
+## =====================================================
+# plot versus
+dat = np.load(os.path.join(p_save,'cov_exp_var.npz'))
+e =dat['exp_var']
+var_sum = np.cumsum(e,axis=0)
+df_pca = pd.read_csv(os.path.join(p_save,'STM_3D_PCA_correlations.csv'))
+
+eigenvalues = pd.DataFrame()
+eigenvalues['whisker'] = dat['id']
+for ii in range(8):
+    eigenvalues['cum_var_{}pcs'.format(ii)] = var_sum[ii, :]
+
+df_pca['whisker'] = [id[:-2] for id in df_pca['id']]
+df = df_pca.merge(eigenvalues,on='whisker')
+df = df.merge(is_stim, on='id')
+df = df[df.stim_responsive]
+
+df_sub = df[df.kernels==16]
+def reshape_pcs(df_sub):
+    mdl_list = ['full{}'.format(ii) for ii in range(1,7)]
+    eigenvalue_list = ['cum_var_{}pcs'.format(ii) for ii in range(0,6)]
+    id_list = df_sub.id.unique()
+    DF = pd.DataFrame()
+    for id in id_list:
+        df_temp = pd.DataFrame()
+        pc = df_sub[df_sub.id == id][eigenvalue_list]
+        accuracy = df_sub[df_sub.id == id][mdl_list]
+        df_temp['Pearson_Correlation']=accuracy.values.ravel()
+        df_temp['var_accounted_for']=pc.values.ravel()
+        df_temp['id'] = id
+        DF = DF.append(df_temp)
+    return(DF)
+df_long = reshape_pcs(df_sub)
+sns.tsplot(x='var_accounted_for',y='Pearson_Correlation',data=df_long,condition='id')
