@@ -121,6 +121,7 @@ df = df.merge(is_stim, on='id')
 df = df[df.stim_responsive]
 
 df_sub = df[df.kernels==16]
+id_list = df_sub.id.unique()
 def reshape_pcs(df_sub):
     mdl_list = ['full{}'.format(ii) for ii in range(1,7)]
     eigenvalue_list = ['cum_var_{}pcs'.format(ii) for ii in range(0,6)]
@@ -136,4 +137,21 @@ def reshape_pcs(df_sub):
         DF = DF.append(df_temp)
     return(DF)
 df_long = reshape_pcs(df_sub)
-sns.tsplot(x='var_accounted_for',y='Pearson_Correlation',data=df_long,condition='id')
+wd = figsize[0]/2
+ht = wd
+f =  plt.figure(figsize=(wd,ht))
+for id in id_list:
+    plt.plot(df_long[df_long.id==id].var_accounted_for,df_long[df_long.id==id].Pearson_Correlation,'k',alpha=0.3)
+
+df_pivot = pd.pivot_table(df_long.reset_index(),columns='index',index='id')
+plt.plot(df_pivot['var_accounted_for'].mean(),df_pivot['Pearson_Correlation'].mean(),'ro-',linewidth=3)
+
+plt.xlabel('Variance Accounted For')
+plt.ylabel('Model Accurracy\n(Pearson Correlation)')
+plt.xlim(0,1)
+plt.ylim(0,1)
+plt.yticks([0,.5,1])
+plt.xticks([0,.5,1])
+sns.despine()
+plt.tight_layout()
+plt.savefig(os.path.join(p_save,'STM_PCA_vs_vraiance_accounted_for.{}'.format(ext)),dpi=dpi_res)
