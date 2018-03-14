@@ -415,4 +415,30 @@ def calc_adaptation(df,binsize=10):
         df_all = df_all.append(adaptation_df)
     return(df_all)
 
+def ISI_by_deflection(blk,unit_num=0):
+    unit = blk.channel_indexes[-1].units[unit_num]
+    ISI = spikeAnalysis.get_contact_sliced_trains(blk, unit)[1]
+    CV,LV = spikeAnalysis.get_CV_LV(ISI)
+    mean_ISI= np.array([np.mean(x) for x in ISI])
+    idx, med_angle = worldGeometry.get_contact_direction(blk, plot_tgl=False)
+    df = pd.DataFrame()
+    df['id'] = [neoUtils.get_root(blk,unit_num) for x in range(len(ISI))]
+    df['mean_ISI'] = mean_ISI
+    df['CV'] = CV
+    df['LV'] = LV
+    df['dir_idx'] = idx
+    df['med_dir'] = [med_angle[x] for x in idx]
 
+    return(df)
+
+def batch_ISI_by_deflection(p_load):
+    DF = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        blk = neoUtils.get_blk(f)
+        print('Working on {}'.format(os.path.basename(f)))
+        num_units = len(blk.channel_indexes[-1].units)
+        # _,med_dir = worldGeometry.get_contact_direction(blk,plot_tgl=False)
+        for unit_num in xrange(num_units):
+            df = ISI_by_deflection(blk,unit_num)
+            DF =  DF.append(df)
+    return(DF)

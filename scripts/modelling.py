@@ -61,7 +61,7 @@ def bin_model(X,y,cbool,binsize):
     yhat[cbool] = yhat_out.ravel()
 
 def continuous_model(X,y,cbool):
-
+  parse_args
 
 def main():
     # ================================ #

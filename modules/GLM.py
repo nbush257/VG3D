@@ -412,8 +412,39 @@ def bin_design_matrix(X,binsize):
     idx = np.arange(0,X.shape[0],binsize)
     return(X[idx,:])
 
-def get_deriv(fname,varlist,smoothing):
-    pass
+def get_deriv(blk,blk_smooth,varlist,smoothing=range(10)):
+    """
+
+    :param blk:
+    :param blk_smooth:
+    :param varlist:
+    :param smoothing: A list of indices of which smoothing parameter to use. Default is all 10
+    :return:
+    """
+    use_flags = neoUtils.concatenate_epochs(blk)
+    Cbool = neoUtils.get_Cbool(blk)
+    X =[]
+    for varname in varlist:
+        var = neoUtils.get_var(blk_smooth, varname+'_smoothed', keep_neo=False)[0]
+
+        if varname in ['M', 'F']:
+            var[np.invert(Cbool), :, :] = 0
+        if varname in ['TH', 'PHIE']:
+            for ii in smoothing:
+                var[:, :, ii] = neoUtils.center_var(var[:,:,ii], use_flags)
+            var[np.invert(Cbool), :, :] = 0
+        var = var[:, :, smoothing]
+        # var = neoUtils.replace_NaNs(var, 'pchip')
+        # var = neoUtils.replace_NaNs(var, 'interp')
+
+        X.append(var)
+    X = np.concatenate(X, axis=1)
+    zero_pad = np.zeros([1,X.shape[1],X.shape[2]])
+    Xdot = np.diff(np.concatenate([zero_pad,X],axis=0),axis=0)
+    Xdot = np.reshape(Xdot,[Xdot.shape[0],Xdot.shape[1]*Xdot.shape[2]])
+    X = np.reshape(X,[X.shape[0],X.shape[1]*X.shape[2]])
+    return(Xdot,X)
+
 if keras_tgl:
     def conv_model(X,y,num_filters,winsize,l2_penalty=1e-8,is_bool=True):
         # set y
