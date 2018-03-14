@@ -1,5 +1,6 @@
 from continuous_model import run_STM_CV,get_X_y,get_correlations
-from bin_model import get_params, get_blk_smooth
+from bin_model import get_params
+from GLM import get_blk_smooth
 import GLM
 import neoUtils
 import elephant

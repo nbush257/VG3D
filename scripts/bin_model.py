@@ -34,23 +34,10 @@ def get_params():
     return(params)
 
 
-def get_blk_smooth(fname,p_smooth):
-    root = os.path.splitext(os.path.basename(fname))[0]
-    smooth_file = glob.glob(os.path.join(p_smooth,root+'*smooth*.h5'))
-    if len(smooth_file)>1:
-        raise ValueError('More than one smooth file found')
-    elif len(smooth_file)==0:
-        raise ValueError('No Smooth file found')
-
-    blk = neoUtils.get_blk(smooth_file[0])
-
-    return(blk)
-
-
 def get_Xc_yc(fname,p_smooth,unit_num,binsize):
     varlist = ['M', 'F', 'TH', 'PHIE']
     blk = neoUtils.get_blk(fname)
-    blk_smooth = get_blk_smooth(fname,p_smooth)
+    blk_smooth = GLM.get_blk_smooth(fname,p_smooth)
 
     cbool = neoUtils.get_Cbool(blk)
     X = GLM.create_design_matrix(blk,varlist)

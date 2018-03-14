@@ -4,13 +4,13 @@ import numpy.matlib as matlib
 from pygam import GAM
 from pygam.utils import generate_X_grid
 import neo
-
+import os
 import elephant
 from scipy import corrcoef
 import quantities as pq
 import progressbar
 import neoUtils
-
+import glob
 try:
     import cmt
     from cmt.models import STM,Bernoulli
@@ -520,3 +520,15 @@ def sim(yhat, y,num_sims=100,lim=500):
         sim_out.append(sim_temp)
     sim_out = np.array(sim_out)
     return sim_out
+
+def get_blk_smooth(fname,p_smooth):
+    root = os.path.splitext(os.path.basename(fname))[0]
+    smooth_file = glob.glob(os.path.join(p_smooth,root+'*smooth*.h5'))
+    if len(smooth_file)>1:
+        raise ValueError('More than one smooth file found')
+    elif len(smooth_file)==0:
+        raise ValueError('No Smooth file found')
+
+    blk = neoUtils.get_blk(smooth_file[0])
+
+    return(blk)

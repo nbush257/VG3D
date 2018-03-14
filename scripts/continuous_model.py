@@ -4,8 +4,9 @@ It will incorporate derivatives, and spike history.
 It will implement crossvalidation
 It will implement variable dropout
 """
-from bin_model import get_params, get_blk_smooth
+from bin_model import get_params
 import GLM
+from GLM import get_blk_smooth
 import neoUtils
 import elephant
 import cmt.models
