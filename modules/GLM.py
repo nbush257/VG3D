@@ -196,9 +196,11 @@ def add_spike_history(X, y, B=None):
     '''
     if B is None:
         B = make_bases(2, [1, 4])[0]
-        yy = apply_bases(y, B, lag=0)
+        yy = apply_bases(y, B, lag=1)
     elif B is -1:
         yy = np.concatenate([[[0]],y[:-1]],axis=0)
+    else:
+        yy = apply_bases(y, B[0],lag=1)
 
 
     XX = np.concatenate([X,yy],axis=1)
