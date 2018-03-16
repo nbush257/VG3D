@@ -198,6 +198,8 @@ def replace_NaNs(var, mode='interp',pad=20):
         for ii in xrange(data.shape[1]):
             starts,stops = nan_bounds(data[:, ii])
             for start,stop in zip(starts,stops):
+                if (stop+pad)>data.shape[0]:
+                    continue
                 xi = np.concatenate([np.arange(start-pad,start),np.arange(stop,stop+pad)])
                 yi = data[xi, ii]
 
