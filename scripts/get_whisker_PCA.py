@@ -21,6 +21,50 @@ def get_components(fname):
     pca.fit_transform(X[cbool,:])
 
     return(pca,root)
+
+def analyze_first_eigenvector():
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    fname = os.path.join(p_load,'PCA_decompositions.csv')
+    df = pd.read_csv(fname,index_col=0)
+    df_leading = df[df.index=='Eigenvector0'][['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']]
+    leading_array = df_leading.as_matrix()
+    equal_weight = np.ones([1,8])/8
+    angles = [np.arccos(np.dot(equal_weight,leading_array[ii,:]))[0] for ii in range(leading_array.shape[0])]
+    id = df.id.unique()
+    df_new = pd.DataFrame()
+    df_new['angle']=np.rad2deg(angles)
+    df_new['id'] = id
+    df_new['whisker'] = [x[-2:] for x in id]
+    df_new['row'] = [x[-2] for x in id]
+    df_new['col'] = [x[-1] for x in id]
+    o = df_new.whisker.unique()
+    o.sort()
+
+    plt.figure()
+    sns.stripplot(x='row', y='angle', data=df_new, hue='col', jitter=True, palette='Blues',
+                  order=['A', 'B', 'C', 'D', 'E'],edgecolor='gray',linewidth=.5)
+    plt.title('Angle Between Leading Eigenvector and Equal Weighted vector')
+    sns.despine(trim=True)
+    plt.grid('on',axis='y')
+
+    plt.figure()
+    sns.stripplot(x='col', y='angle', data=df_new, hue='row',hue_order=['A','B','C','D','E'] ,jitter=True, palette='Reds',
+                  order=['0','1','2','3','4','5'],edgecolor='gray',linewidth=.5)
+    plt.title('Angle Between Leading Eigenvector and Equal Weighted vector')
+    sns.despine(trim=True)
+    plt.grid('on',axis='y')
+
+    plt.figure()
+    sns.stripplot(x='whisker', y='angle', data=df_new, jitter=True,
+                  order=o,color='gray',linewidth=.5)
+    plt.title('Angle Between Leading Eigenvector and Equal Weighted vector')
+    sns.despine(trim=True)
+    plt.grid('on',axis='y')
+
+
+
+
+
 if __name__=='__main__':
     p_load = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO'
     p_save = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results'
@@ -37,6 +81,6 @@ if __name__=='__main__':
         sub_df['ExplainedVarianceRatio'] = pc_decomp.explained_variance_ratio_
         sub_df['ExplainedVariance'] = pc_decomp.explained_variance_
         sub_df['id']=id
-        df.append(sub_df)
+        df = df.append(sub_df)
 
-    df.to_csv(os.path.join(p_save,'PCA_decompositions.csv'),index=False)
+    df.to_csv(os.path.join(p_save,'PCA_decompositions.csv'))
