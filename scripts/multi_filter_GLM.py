@@ -77,7 +77,7 @@ def X_to_pillow(X):
 def build_GLM_model(Xraw,yraw,nfilts=4,hist=False,learning_rate=1e-5,epochs=100,batch_size=256,family='p'):
 
     if hist:
-        B = GLM.make_bases(6,[0,10],2)
+        B = GLM.make_bases(8,[0,25],1)
         yhistraw = GLM.add_spike_history(Xraw,yraw,B)[:,Xraw.shape[1]:]
 
     # make data a multiple of batchsize and batch it
@@ -161,7 +161,7 @@ def run_model(fname,p_smooth,unit_num):
     X[np.invert(cbool),:] = 0
     y[np.invert(cbool),:] = 0
     Xb = X_to_pillow(X[:,:8])
-    return(build_GLM_model(X,y,family='p',hist=True,nfilts=4,learning_rate=1e-6,batch_size=256,epochs=40))
+    return(build_GLM_model(Xb,y,family='p',hist=True,nfilts=4,learning_rate=1e-7,batch_size=Xb.shape[0],epochs=10000))
 if __name__=='__main__': 
     fname =  '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO/rat2017_08_FEB15_VG_B3_NEO.h5'
     p_smooth = '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO/smooth'
