@@ -7,8 +7,11 @@ It will implement variable dropout
 import GLM
 import neoUtils
 import elephant
-import cmt.models
-import cmt.nonlinear
+try:
+    import cmt.models
+    import cmt.nonlinear
+except:
+    print('CMT not loaded. Some functions will not work')
 import sklearn
 import numpy as np
 import quantities as pq
