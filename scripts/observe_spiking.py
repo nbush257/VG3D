@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 sns.set()
+sns.set_style('ticks')
 
 blk = neoUtils.get_blk(sys.argv[1])
 M = neoUtils.get_var(blk).magnitude
