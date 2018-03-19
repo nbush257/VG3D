@@ -74,8 +74,9 @@ def X_to_pillow(X):
     scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
     return(scaler.fit_transform(Xb))
 
-def build_GLM_model(Xraw,yraw,nfilts=4,hist=False,learning_rate=1e-5,epochs=100,batch_size=256,family='p'):
-
+def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,epochs=100,batch_size=256,family='p'):
+    if batch_size is None:
+        batch_size=Xraw.shape[0]
     if hist:
         B = GLM.make_bases(8,[0,25],1)
         yhistraw = GLM.add_spike_history(Xraw,yraw,B)[:,Xraw.shape[1]:]
@@ -100,14 +101,17 @@ def build_GLM_model(Xraw,yraw,nfilts=4,hist=False,learning_rate=1e-5,epochs=100,
     # init weights
     if hist:
         H = tf.Variable(tf.zeros([yhist.shape[1],1]),name='HistoryFilters')
+        tf.add_to_collection('H',H)
 
     K = tf.Variable(
         tf.random_normal([X.shape[1],nfilts], stddev=0.003),
         name='StimFilters')
+    tf.add_to_collection('K',K)
 
     b = tf.Variable(
         tf.random_normal([1]),
         name = 'bias')
+    tf.add_to_collection('b',b)
 
     #### The model ###
     # Hidden Layer
@@ -132,38 +136,61 @@ def build_GLM_model(Xraw,yraw,nfilts=4,hist=False,learning_rate=1e-5,epochs=100,
 
     optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost)
     init = tf.global_variables_initializer()
+    sess = tf.Session()
+    sess.run(init)
+    # loop over entire dataset multiple times
+    for epoch in range(epochs):
+        # loop over sub_batches
+        avg_cost = 0.
+        for ii in range(n_batches):
+            if hist:
+                _,c = sess.run([optimizer,cost],
+                         feed_dict={mdl_input:batched_x[ii],mdl_output:batched_y[ii],mdl_yhist:batched_yhist[ii]})
+            else:
+                _,c = sess.run([optimizer,cost],
+                         feed_dict={mdl_input:batched_x[ii],mdl_output:batched_y[ii]})
+            avg_cost +=c/n_batches
+        print('Epoch:{}\t, Cost={}'.format(epoch,avg_cost))
+    print('Done!')
+    print('saving to {}'.format(savefile))
+    saver = tf.train.Saver()
+    saver.save(sess,savefile)
+    print('Saved session to {}'.format(savefile))
 
-    with tf.Session() as sess:
-        sess.run(init)
-        # loop over entire dataset multiple times
-        for epoch in range(epochs):
-            # loop over sub_batches
-            avg_cost = 0.
-            for ii in range(n_batches):
-                if hist:
-                    _,c = sess.run([optimizer,cost],
-                             feed_dict={mdl_input:batched_x[ii],mdl_output:batched_y[ii],mdl_yhist:batched_yhist[ii]})
-                else:
-                    _,c = sess.run([optimizer,cost],
-                             feed_dict={mdl_input:batched_x[ii],mdl_output:batched_y[ii]})
-                avg_cost +=c/n_batches
-#            if (epoch % (epochs/100)) ==0:
-            print('Epoch:{}\t, Cost={}'.format(epoch,avg_cost))
-        print('Done!')
-        if hist:
-            l =conditional_intensity.eval({mdl_input:Xraw,mdl_yhist:yhistraw})
-        else:
-            l =conditional_intensity.eval({mdl_input:Xraw})
-        return(l,conditional_intensity)
-
-def run_model(fname,p_smooth,unit_num):
+def run_model(fname,p_smooth,unit_num,savepath,param_dict):
     X,y,cbool = get_X_y(fname,p_smooth,unit_num)
+    blk = neoUtils.get_blk(fname)
+    root = neoUtils.get_root(blk,unit_num)
+    savefile = os.path.join(savepath,'{}_tensorflow.ckpt'.format(root))
     X[np.invert(cbool),:] = 0
     y[np.invert(cbool),:] = 0
     Xb = X_to_pillow(X[:,:8])
-    return(build_GLM_model(Xb,y,family='p',hist=True,nfilts=4,learning_rate=1e-7,batch_size=Xb.shape[0],epochs=10000))
+    print(param_dict)
+    build_GLM_model(Xb,y,savefile, **param_dict)
+
+def simulate(X,y,p_model):
+    sess = tf.Session()
+    new_saver = tf.train.import_meta_graph(p_model+'.meta')
+    new_saver.restore(sess,p_model)
+    K = tf.get_collection('K')[0]
+    H = tf.get_collection('H')[0]
+    b = tf.get_collection('b')[0]
+    K = sess.run(K)
+    H = sess.run(H)
+    b = sess.run(b)    
+    stim_curr = np.sum(np.dot(X,K),axis=1)+b
+    #TODO: here we iterate through the time step to get the individual spikes
+#    as in the pillow code 
+    sess.close()
+
 if __name__=='__main__': 
     fname =  '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO/rat2017_08_FEB15_VG_B3_NEO.h5'
     p_smooth = '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO/smooth'
-
-    l,cond = run_model(fname,p_smooth,0)
+    savepath = '/home/nbush/Desktop/models'
+    param_dict={'family':'p',
+                'hist':True,
+                'nfilts':4,
+                'learning_rate':1e-8,
+                'batch_size':None,
+                'epochs':100}
+    run_model(fname,p_smooth,0,savepath,param_dict)
