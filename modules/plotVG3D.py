@@ -35,7 +35,7 @@ def set_fig_style():
     standard set of values to use when making plots
     :return:
     '''
-    plt.rcParams['svg.fonttype'] = 'none'
+    plt.rcParams['pdf.fonttype'] = 'truetype'
     plt.rcParams['axes.titlesize'] = 12
     plt.rcParams['figure.titlesize'] = 12
     plt.rcParams['axes.labelsize'] = 10
@@ -48,7 +48,7 @@ def set_fig_style():
     fig_width = 6.9 # in
     fig_height = 9 # in
     figsize=(fig_width,fig_height)
-    ext = 'png'
+    ext = 'pdf'
 
     return(dpi_res,figsize,ext)
 def rotate_3D_plot(X):

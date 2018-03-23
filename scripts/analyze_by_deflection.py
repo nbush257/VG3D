@@ -220,6 +220,8 @@ def get_anova_pvals(p_load):
     :return:
     """
     df = pd.read_csv(os.path.join(p_load,'direction_arclength_FR_group_anova.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
     df= df[df.stim_responsive]
     df_pvt = pd.pivot_table(df,
                             values='PR(>F)',
@@ -298,7 +300,46 @@ def batch_peak_PSTH_time(p_load,p_save):
     df.to_csv(os.path.join(p_save,'peak_PSTH_time.csv'))
     print('done')
 
+def DSI_by_cell(p_load):
+    """
+    calculate the directional selectivity for all cells
+    collapsing across all other variables
+    :param p_load: location in which the input data live
+                    inputs data from direction_arclength_FR_data
+    :return: None, saves a csv
+    """
 
+    # load data in and use only good cells
+    df = pd.read_csv(os.path.join(p_load,r'direction_arclength_FR_group_data.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,r'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+    df= df[df.stim_responsive]
+
+    # init population list
+    theta_pref = []
+    DSI = []
+    id_idx=[]
+    cell_list = df.id.unique()
+
+    for cell in cell_list:
+        # get medians by cell
+        sub_df = df[df.id==cell]
+        medians = sub_df.groupby('Direction').median()
+        theta = medians.med_dir
+        FR = medians.Firing_Rate
+
+        # calculate the angular stats and append to population lists
+        theta_pref_sub, DSI_sub= varTuning.get_PD_from_hist(theta,FR)
+        DSI.append(DSI_sub)
+        theta_pref.append(theta_pref_sub)
+        id_idx.append(cell)
+    # map population lists to dataframe outpu and save
+    DF = pd.DataFrame()
+    DF['DSI']=DSI
+    DF['theta_pref']=theta_pref
+    DF['id']=id_idx
+    DF = DF.fillna(0)
+    DF.to_csv(os.path.join(p_load,'DSI_by_cell.csv'),index=False)
 def directional_selectivity_by_arclength(p_load):
     """
     takes a dataframe that has the arclength, direction, and FR data
@@ -307,7 +348,9 @@ def directional_selectivity_by_arclength(p_load):
     :return:
     """
     df = pd.read_csv(os.path.join(p_load,r'direction_arclength_FR_group_data.csv'))
-    df= df[df.stim_responsive]
+    # is_stim = pd.read_csv(os.path.join(p_load,r'cell_id_stim_responsive.csv'))
+    # df = df.merge(is_stim,on='id')
+    # df= df[df.stim_responsive]
     theta_pref = []
     DSI = []
     arclength_idx=[]
@@ -330,7 +373,6 @@ def directional_selectivity_by_arclength(p_load):
     DF_out['Arclength'] = arclength_idx
     DF_out['theta_pref'] = theta_pref
     DF_out['DSI'] = DSI
-    DF_out = DF_out.merge(df[['id','stim_responsive']],on='id')
 
     DF_out.to_csv(os.path.join(p_load, 'DSI_by_arclength.csv'), index=False)
 
@@ -368,6 +410,78 @@ def get_adaptation_df(p_load,max_t=20):
     return(df_all)
 
 
+def get_onset_and_duration_spikes(p_load,dur=10*pq.ms):
+    """
+    loops through all the data we have and gets the
+    number of spikes during an onset duration,
+    the total number of spikes during the contact duration,
+    and the length of the contact. This will allow us to calculate how much
+    the spiking occurs in the first interval
+
+    :param p_load: directory where the h5 files live
+    :param dur: a python quantity to determine the 'onset' epoch
+
+    :return: a dataframe with a summary of the relevant data
+    """
+    df_all = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        blk = neoUtils.get_blk(f)
+        num_units = len(blk.channel_indexes[-1].units)
+        for unit_num in range(num_units):
+            df = pd.DataFrame()
+            id = neoUtils.get_root(blk,unit_num)
+            print('Working on {}'.format(id))
+            _, _, trains = spikeAnalysis.get_contact_sliced_trains(blk, unit_num)
+
+            dir_idx, med_angle = worldGeometry.get_contact_direction(blk, plot_tgl=False)
+
+            dir = []
+            full=[]
+            contact_duration=[]
+            onset=[]
+            for train,direction in zip(trains,dir_idx):
+                onset.append(len(train.time_slice(
+                    train.t_start,
+                    train.t_start+dur)
+                ))
+                full.append(len(train))
+                dir.append(direction)
+                contact_duration.append(float(train.t_stop-train.t_start))
+
+            df_dir = pd.DataFrame()
+            df_dir['dir_idx'] = dir
+            df_dir['time'] = contact_duration
+            df_dir['total_spikes'] = full
+            df_dir['onset_spikes'] = onset
+            df_dir['med_angle'] = [med_dir[x] for x in df_dir.dir_idx]
+            df_dir['id'] = id
+        df_all = df_all.append(df_dir)
+        df_all['onset_period'] = dur
+    return(df_all)
+def get_adaptation_v2(p_load):
+    """
+    log(onset_rate/all_rate)
+    :param p_load:
+    :return:
+    """
+    df = pd.read_csv(os.path.join(p_load,'onset_spiking_10ms.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+    df = df[df.stim_responsive]
+    DF = pd.DataFrame()
+    for cell in df.id.unique():
+        sub_df = df[df.id==cell]
+        subdf_adaptation=pd.DataFrame()
+        totals = sub_df.groupby('dir_idx').sum()
+        onset_rate = totals.onset_spikes/totals.onset_period
+        duration_rate = totals.total_spikes/totals.time
+        adaptation = np.log(onset_rate/duration_rate)
+        subdf_adaptation['adaptation_index']=adaptation
+        subdf_adaptation['id']=cell
+        subdf_adaptation['med_angle'] = sub_df.groupby('dir_idx').mean()['med_angle']
+        DF = DF.append(subdf_adaptation)
+
+    DF.to_csv(os.path.join(p_load,'adapation_index_10ms_vs_all.csv'),index=False)
 def get_threshold_index(p_load):
     '''
     Return a dataframe with a binary telling you if a particular contact ellicited a spike for each cell
@@ -393,6 +507,7 @@ def get_threshold_index(p_load):
             df['med_dir'] = df['dir_idx'].map(dir_map)
             df_all = df_all.append(df)
     return(df_all)
+
 
 
 def calc_adaptation(df,binsize=10):
