@@ -53,7 +53,7 @@ def batch_thresh_response(p_load,p_save):
        print('Working on {}'.format(os.path.basename(f)))
        num_units = len(blk.channel_indexes[-1].units)
        for unit_num in range(num_units):
-           df = create_threshold_DF(blk,unit_num)
+           df = create_threshold_DF(blk,unit_num,time_win=10,max_spikes=10)
            if df is not -1:
                DF = DF.append(df)
     DF.to_csv(os.path.join(p_save,'threshold_variable_response.csv'),index=False)

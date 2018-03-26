@@ -453,10 +453,10 @@ def get_onset_and_duration_spikes(p_load,dur=10*pq.ms):
             df_dir['time'] = contact_duration
             df_dir['total_spikes'] = full
             df_dir['onset_spikes'] = onset
-            df_dir['med_angle'] = [med_dir[x] for x in df_dir.dir_idx]
+            df_dir['med_angle'] = [med_angle[x] for x in df_dir.dir_idx]
             df_dir['id'] = id
-        df_all = df_all.append(df_dir)
-        df_all['onset_period'] = dur
+            df_all = df_all.append(df_dir)
+            df_all['onset_period'] = dur
     return(df_all)
 def get_adaptation_v2(p_load):
     """
@@ -464,7 +464,7 @@ def get_adaptation_v2(p_load):
     :param p_load:
     :return:
     """
-    df = pd.read_csv(os.path.join(p_load,'onset_spiking_10ms.csv'))
+    df = pd.read_csv(os.path.join(p_load,'onset_spikes_10ms.csv'))
     is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
     df = df.merge(is_stim,on='id')
     df = df[df.stim_responsive]
