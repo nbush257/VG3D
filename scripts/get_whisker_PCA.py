@@ -62,7 +62,26 @@ def analyze_first_eigenvector():
     plt.grid('on',axis='y')
 
 
+def pairwise_first_eigenvector():
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    fname = os.path.join(p_load,'PCA_decompositions.csv')
+    df = pd.read_csv(fname,index_col=0)
+    df['whisker'] = [x[-2:] for x in df.id]
+    df['row'] = [x[-2] for x in df.id]
+    df['col'] = [x[-1] for x in df.id]
+    df = df.sort_values(['row','col'])
+    df_leading = df[df.index=='Eigenvector0'][['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']]
+    df_id = df[df.index=='Eigenvector0'][['whisker','row','col']]
+    leading_array = df_leading.as_matrix()
 
+    pairwise_matrix = np.empty([leading_array.shape[0],leading_array.shape[0]])
+    for ii in range(leading_array.shape[0]):
+        for jj in range(leading_array.shape[0]):
+           pairwise_matrix[ii,jj] = np.abs(np.dot(leading_array[ii,:],leading_array[jj,:]))
+    return(pairwise_matrix)
+
+def pairwise_canonical_angles(num_dims=2):
+    pass
 
 
 if __name__=='__main__':
