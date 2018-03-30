@@ -421,7 +421,7 @@ def get_deriv(blk,blk_smooth,varlist,smoothing=range(10)):
     :param blk_smooth:
     :param varlist:
     :param smoothing: A list of indices of which smoothing parameter to use. Default is all 10
-    :return:
+    :return: Xdot, X
     """
     use_flags = neoUtils.concatenate_epochs(blk)
     Cbool = neoUtils.get_Cbool(blk)
