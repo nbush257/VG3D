@@ -63,26 +63,74 @@ def analyze_first_eigenvector():
 
 
 def pairwise_first_eigenvector():
+    """
+    calculate the angle between each pair of leading eigen vectors
+    of the input space PCA decomposition. This functionalits is generalized
+    in the following (pairwise_canonical_angles) to more than one dimension
+    :return: a matrix of cosine(\theta) values between the eigenvectors
+    """
+
+    # load data in a hardcoded manner
     p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
     fname = os.path.join(p_load,'PCA_decompositions.csv')
     df = pd.read_csv(fname,index_col=0)
+
+    # extract the whisker information
     df['whisker'] = [x[-2:] for x in df.id]
     df['row'] = [x[-2] for x in df.id]
     df['col'] = [x[-1] for x in df.id]
     df = df.sort_values(['row','col'])
+
+    # extract a matrix which is size (n_whiskers, n_stim_dims) which represents the
+    # leading eigenvector of the PCA decomp for each whisker
     df_leading = df[df.index=='Eigenvector0'][['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']]
     df_id = df[df.index=='Eigenvector0'][['whisker','row','col']]
     leading_array = df_leading.as_matrix()
 
+    # perform the pairwise dot product
     pairwise_matrix = np.empty([leading_array.shape[0],leading_array.shape[0]])
     for ii in range(leading_array.shape[0]):
         for jj in range(leading_array.shape[0]):
-           pairwise_matrix[ii,jj] = np.abs(np.dot(leading_array[ii,:],leading_array[jj,:]))
+           pairwise_matrix[ii,jj] = np.dot(leading_array[ii,:],leading_array[jj,:])
     return(pairwise_matrix)
 
 def pairwise_canonical_angles(num_dims=2):
-    pass
+    """
+    calculate the angle between each PCA subspace covered by the desired number of PCS
 
+    :param num_dims: number of PCs to use in the subspace
+    :return: A (n_whiskers,n_stim_dims,n_pcs_used) array of canonical angles
+    """
+
+    # load data in a hardcoded manner
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    fname = os.path.join(p_load,'PCA_decompositions.csv')
+    df = pd.read_csv(fname,index_col=0)
+
+    # extract the whisker information
+    df['whisker'] = [x[-2:] for x in df.id]
+    df['row'] = [x[-2] for x in df.id]
+    df['col'] = [x[-1] for x in df.id]
+    df = df.sort_values(['row','col'])
+    num_whiskers = len(df.id.unique())
+
+    # create a list that can slice into the dataframe index
+    eigen_list = ['Eigenvector{}'.format(x) for x in range(num_dims)]
+    canonical_angles = np.empty([num_whiskers,num_whiskers,num_dims])
+
+    # calculate the canonical angles for each pairwise comparison
+    for ii in range(num_whiskers):
+        for jj in range(num_whiskers):
+            # slice into the dataframe
+            df1 = df[df.id == df.id.unique()[ii]]
+            df2 = df[df.id == df.id.unique()[jj]]
+            U = df1.loc[eigen_list][['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']].as_matrix().T
+            V = df2.loc[eigen_list][['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']].as_matrix().T
+
+            # perform inner product and svd
+            prod = np.dot(U.T,V)
+            canonical_angles[ii,jj,:] = np.linalg.svd(prod)[1]
+    return(canonical_angles)
 
 if __name__=='__main__':
     p_load = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO'
