@@ -40,7 +40,7 @@ def get_canonical_angles(fname):
     """
     dat = sio.loadmat(fname,struct_as_record=False,squeeze_me=True)
     X = dat['X']
-    cbool = dat['cbool']
+    cbool = dat['cbool'].astype('bool')
     weights = {}
     K = dat['ppcbf'].k
     Ko = scipy.linalg.orth(K)
