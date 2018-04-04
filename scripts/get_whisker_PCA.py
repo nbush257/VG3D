@@ -4,13 +4,19 @@ import GLM
 import sklearn
 import pandas as pd
 import neoUtils
-def get_components(fname):
+import numpy as np
+def get_components(fname,p_smooth=None):
     ''' Get the PCA comonents given a filename'''
     varlist = ['M', 'F', 'TH', 'PHIE']
     blk = neoUtils.get_blk(fname)
     cbool = neoUtils.get_Cbool(blk)
     root = neoUtils.get_root(blk,0)[:-2]
     X = GLM.create_design_matrix(blk,varlist)
+    if p_smooth is not None:
+        blk_smooth = GLM.get_blk_smooth(fname,p_smooth)
+        Xdot = GLM.get_deriv(blk,blk_smooth,varlist,smoothing=[9])[0]
+        X = np.concatenate([X,Xdot],axis=1)
+    X[np.invert(cbool),:]=0
     X = neoUtils.replace_NaNs(X,'pchip')
     X = neoUtils.replace_NaNs(X,'interp')
 
@@ -21,6 +27,7 @@ def get_components(fname):
     pca.fit_transform(X[cbool,:])
 
     return(pca,root)
+
 
 def analyze_first_eigenvector():
     p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
@@ -94,6 +101,7 @@ def pairwise_first_eigenvector():
            pairwise_matrix[ii,jj] = np.dot(leading_array[ii,:],leading_array[jj,:])
     return(pairwise_matrix)
 
+
 def pairwise_canonical_angles(num_dims=2):
     """
     calculate the angle between each PCA subspace covered by the desired number of PCS
@@ -132,14 +140,19 @@ def pairwise_canonical_angles(num_dims=2):
             canonical_angles[ii,jj,:] = np.linalg.svd(prod)[1]
     return(canonical_angles)
 
+
 if __name__=='__main__':
     p_load = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO'
     p_save = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results'
-    varlist=['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']
+    varlist = ['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']
+    p_smooth = r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
+    if p_smooth is not None:
+        varlistdot = ['{}dot'.format(x) for x in varlist ]
+        varlist += varlistdot
     df = pd.DataFrame()
     for f in glob.glob(os.path.join(p_load,'*.h5')):
         print('Getting PCs for {}'.format(os.path.splitext(os.path.basename(f))[0]))
-        pc_decomp,id = get_components(f)
+        pc_decomp,id = get_components(f,p_smooth=p_smooth)
         sub_df = pd.DataFrame()
         for ii,component in enumerate(pc_decomp.components_):
             for jj,var in enumerate(varlist):
