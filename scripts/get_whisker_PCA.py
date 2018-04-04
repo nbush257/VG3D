@@ -152,7 +152,11 @@ if __name__=='__main__':
     df = pd.DataFrame()
     for f in glob.glob(os.path.join(p_load,'*.h5')):
         print('Getting PCs for {}'.format(os.path.splitext(os.path.basename(f))[0]))
-        pc_decomp,id = get_components(f,p_smooth=p_smooth)
+        try:
+            pc_decomp,id = get_components(f,p_smooth=p_smooth)
+        except:
+            print('Problem with {}'.format(os.path.basename(f)))
+            continue
         sub_df = pd.DataFrame()
         for ii,component in enumerate(pc_decomp.components_):
             for jj,var in enumerate(varlist):
