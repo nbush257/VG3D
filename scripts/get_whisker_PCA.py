@@ -5,6 +5,7 @@ import sklearn
 import pandas as pd
 import neoUtils
 import numpy as np
+import numpy as np
 def get_components(fname,p_smooth=None):
     ''' Get the PCA comonents given a filename'''
     varlist = ['M', 'F', 'TH', 'PHIE']
@@ -125,16 +126,15 @@ def pairwise_canonical_angles(num_dims=2):
     # create a list that can slice into the dataframe index
     eigen_list = ['Eigenvector{}'.format(x) for x in range(num_dims)]
     canonical_angles = np.empty([num_whiskers,num_whiskers,num_dims])
-
+    drop_cols = ['ExplainedVarianceRatio','ExplainedVariance','id','whisker','row','col']
     # calculate the canonical angles for each pairwise comparison
     for ii in range(num_whiskers):
         for jj in range(num_whiskers):
             # slice into the dataframe
             df1 = df[df.id == df.id.unique()[ii]]
             df2 = df[df.id == df.id.unique()[jj]]
-            U = df1.loc[eigen_list][['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']].as_matrix().T
-            V = df2.loc[eigen_list][['Mx','My','Mz','Fx','Fy','Fz','Theta','Phi']].as_matrix().T
-
+            U = df1.loc[eigen_list].drop(drop_cols,axis=1).as_matrix().T
+            V = df2.loc[eigen_list].drop(drop_cols,axis=1).as_matrix().T
             # perform inner product and svd
             prod = np.dot(U.T,V)
             canonical_angles[ii,jj,:] = np.linalg.svd(prod)[1]
