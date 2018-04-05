@@ -67,6 +67,4 @@ for cell in cell_list:
     plt.savefig(os.path.join(save_loc,'var_covariance_{}.{}'.format(cell,ext)),dpi=dpi_res)
     plt.close('all')
 
-# ========================
-# Plot canonical angles
 
