@@ -124,7 +124,7 @@ def pairwise_canonical_angles(num_dims=2):
     num_whiskers = len(df.id.unique())
 
     # create a list that can slice into the dataframe index
-    eigen_list = ['Eigenvector{}'.format(x) for x in range(num_dims)]
+    eigen_list = ['Eigenvector{:02}'.format(x) for x in range(num_dims)]
     canonical_angles = np.empty([num_whiskers,num_whiskers,num_dims])
     drop_cols = ['ExplainedVarianceRatio','ExplainedVariance','id','whisker','row','col']
     # calculate the canonical angles for each pairwise comparison
