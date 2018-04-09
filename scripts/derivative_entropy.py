@@ -162,7 +162,7 @@ def get_min_entropy():
     df_entropy['id'] = df.id.unique()
     df_entropy_all = pd.DataFrame(np.array(min_smoothing),
                                   index=df.id.unique(),
-                                  columns=['Mxdt','Mydot','Mzdot','FXdot','FYdot','FZdot','THdot','PHdot'])
+                                  columns=['Mx dot','My dot','Mz dot','Fx dot','Fy dot','Fz dot','TH dot','PH dot'])
     df_entropy_all = df_entropy_all.reset_index()
     df_entropy_all = df_entropy_all.rename(columns={'index': 'id'})
     df_entropy_all.to_csv(os.path.join(p_load,'min_smoothing_entropy.csv'),index=False)
