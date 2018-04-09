@@ -132,28 +132,40 @@ def batch_calc_entropy():
     DF.to_csv(os.path.join(p_save,'entropy_by_smoothing.csv'),index=False)
 
 def get_min_entropy():
-   p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
-   df = pd.read_csv(os.path.join(p_load,'entropy_by_smoothing.csv'))
-   is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
-   df = df.merge(is_stim,on='id')
+    """
+    Get the minimum entropy smoothing for all variables.
+    Save a csv in results
+    :return:
+    """
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    df = pd.read_csv(os.path.join(p_load,'entropy_by_smoothing.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
 
-   min_smoothing = []
-   mean_smoothing = []
-   mode_smoothing = []
-   for cell in df.id.unique():
+    min_smoothing = []
+    mean_smoothing = []
+    mode_smoothing = []
+    for cell in df.id.unique():
        sub_df = df[df.id==cell]
        idx = sub_df.drop(['id', 'smoothing','stim_responsive'], axis=1).idxmin(0)
        min_smoothing.append(sub_df.smoothing[idx])
 
-   mean_smoothing = [np.mean(x) for x in min_smoothing]
-   mode_smoothing = [scipy.stats.mode(x)[0][0] for x in min_smoothing]
+    mean_smoothing = [np.mean(x) for x in min_smoothing]
+    mode_smoothing = [scipy.stats.mode(x)[0][0] for x in min_smoothing]
 
-   min_smoothing = np.concatenate(min_smoothing)
-   min_smoothing = np.reshape(min_smoothing,[len(df.id.unique()),8])
-   order = np.argsort(np.mean(min_smoothing,axis=1))
-
-
-
+    min_smoothing = np.concatenate(min_smoothing)
+    min_smoothing = np.reshape(min_smoothing,[len(df.id.unique()),8])
+    order = np.argsort(np.mean(min_smoothing,axis=1))
+    df_entropy =  pd.DataFrame()
+    df_entropy['mode_smoothing'] = mode_smoothing
+    df_entropy['mean_smoothing'] = mean_smoothing
+    df_entropy['id'] = df.id.unique()
+    df_entropy_all = pd.DataFrame(np.array(min_smoothing),
+                                  index=df.id.unique(),
+                                  columns=['Mxdt','Mydot','Mzdot','FXdot','FYdot','FZdot','THdot','PHdot'])
+    df_entropy_all = df_entropy_all.reset_index()
+    df_entropy_all = df_entropy_all.rename(columns={'index': 'id'})
+    df_entropy_all.to_csv(os.path.join(p_load,'min_smoothing_entropy.csv'),index=False)
 
 if __name__ == '__main__':
     batch_calc_entropy()
