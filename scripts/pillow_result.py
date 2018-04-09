@@ -42,7 +42,7 @@ def get_canonical_angles(fname):
     X = dat['X']
     cbool = dat['cbool'].astype('bool')
     weights = {}
-    K = dat['ppcbf'].k
+    K = dat['ppcbf_avg'].k
     Ko = scipy.linalg.orth(K)
     pc = sklearn.decomposition.PCA()
     pc.fit(X[cbool,:])
