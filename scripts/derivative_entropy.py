@@ -7,6 +7,7 @@ import pandas as pd
 import os
 import glob
 import GLM
+import scipy
 def joint_pr_given_s(var1,var2,sp,cbool,bins=None,min_obs=5):
 
     ''' Returns the noramlized response histogram of two variables
@@ -77,10 +78,13 @@ def pr_given_s(var_in,sp,cbool,bins=None,min_obs=5):
         idx = [x for x in spt if x in not_nan]
         ps_r1 = np.histogram(var[idx], bins=var1_edges)[0]/float(len(idx))
         keep = ps_r1>0
+        pr1_s = ps_r1[keep]/ps[keep]
         EDGES.append(var1_edges[keep])
         PS_R1.append(ps_r1[keep])
-        PR1_S.append(ps_r1[keep]/ps[keep])
+        PR1_S.append(pr1_s/np.sum(pr1_s))
+    # entropy = [-np.mean(np.log(PR1_S[x])) for x in range(var_in.shape[1])]
     entropy = [-np.mean(np.log(PR1_S[x])) for x in range(var_in.shape[1])]
+
     return(entropy)
 
 def calc_ent(fname,p_smooth,unit_num):
@@ -98,6 +102,7 @@ def calc_ent(fname,p_smooth,unit_num):
     for ii in range(Xdot.shape[1]):
         var_in = Xdot[:,ii,:].copy()
         entropy.append(pr_given_s(var_in,sp,cbool,bins=50))
+    return(entropy)
 
 def batch_calc_entropy():
     p_load =os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
@@ -105,24 +110,62 @@ def batch_calc_entropy():
     p_smooth = r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
 
     DF = pd.DataFrame()
-    for f in glob.glob(os.path.join(p_load,'*.h5')):
+    for ii,f in enumerate(glob.glob(os.path.join(p_load,'*.h5'))):
+        if ii==0:
+            continue
         blk = neoUtils.get_blk(f)
         num_units = len(blk.channel_indexes[-1].units)
         for unit_num in range(num_units):
             id =  neoUtils.get_root(blk,unit_num)
             print('Working on {}'.format(id))
-
             try:
                 entropy = calc_ent(f,p_smooth,unit_num)
+                df = pd.DataFrame()
+                for ii,var in enumerate(['Mx','My','Mz','Fx','Fy','Fz','TH','PHI']):
+                    df[var] = entropy[ii]
+                df['id'] = id
+                df['smoothing'] = np.arange(5,100,10)
+                DF = DF.append(df)
             except:
-                print('problem with {}'.format(id))
+                print('problem on {}'.format(id))
                 continue
-            df = pd.DataFrame()
-            for ii,var in enumerate(['Mx','My','Mz','Fx','Fy','Fz','TH','PHI']):
-                df[var] = entropy[ii]
-            df['id'] = id
-            df['smoothing'] = np.arange(5,100,10)
-            DF = DF.append(df)
     DF.to_csv(os.path.join(p_save,'entropy_by_smoothing.csv'),index=False)
+
+def get_min_entropy():
+    """
+    Get the minimum entropy smoothing for all variables.
+    Save a csv in results
+    :return:
+    """
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    df = pd.read_csv(os.path.join(p_load,'entropy_by_smoothing.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+
+    min_smoothing = []
+    mean_smoothing = []
+    mode_smoothing = []
+    for cell in df.id.unique():
+       sub_df = df[df.id==cell]
+       idx = sub_df.drop(['id', 'smoothing','stim_responsive'], axis=1).idxmin(0)
+       min_smoothing.append(sub_df.smoothing[idx])
+
+    mean_smoothing = [np.mean(x) for x in min_smoothing]
+    mode_smoothing = [scipy.stats.mode(x)[0][0] for x in min_smoothing]
+
+    min_smoothing = np.concatenate(min_smoothing)
+    min_smoothing = np.reshape(min_smoothing,[len(df.id.unique()),8])
+    order = np.argsort(np.mean(min_smoothing,axis=1))
+    df_entropy =  pd.DataFrame()
+    df_entropy['mode_smoothing'] = mode_smoothing
+    df_entropy['mean_smoothing'] = mean_smoothing
+    df_entropy['id'] = df.id.unique()
+    df_entropy_all = pd.DataFrame(np.array(min_smoothing),
+                                  index=df.id.unique(),
+                                  columns=['Mx dot','My dot','Mz dot','Fx dot','Fy dot','Fz dot','TH dot','PH dot'])
+    df_entropy_all = df_entropy_all.reset_index()
+    df_entropy_all = df_entropy_all.rename(columns={'index': 'id'})
+    df_entropy_all.to_csv(os.path.join(p_load,'min_smoothing_entropy.csv'),index=False)
+
 if __name__ == '__main__':
     batch_calc_entropy()
