@@ -2,6 +2,7 @@ import glob
 import os
 import neoUtils
 import numpy as np
+import pandas as pd
 import GLM
 import scipy.io.matlab as sio
 p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
