@@ -10,56 +10,123 @@ import scipy.io.matlab as sio
 import get_whisker_PCA
 import os
 
-def get_corr(fname,kernel_sizes):
-    """
-    Get the correlation between the model prection
-    and the observed spike rates
-    :param fname:
-    :return:
-    """
-    dat = sio.loadmat(fname,struct_as_record=False,squeeze_me=True)
-    y = dat['y'].ravel()
-    cbool = dat['cbool'].astype('bool').ravel()
-    X = dat['X']
-    yhat = dat['yhat'].ravel()
-    spt = spikeAnalysis.binary_to_neo_train(y)
 
+def get_corr(y,yhat,cbool,kernel_sizes=None):
+    """
+    :param y: the observed spike train as a binary vector
+    :param yhat: the predicted spike train as a float vector
+    :param cbool: a boolean vector of contact times
+    :param kernel_sizes: the sizes of the Gaussian smoothing kernel to test.
+                                Only pass an argument if you have a very good reason.
+    :return R, rates
+    """
+    if kernel_sizes==None:
+        kernel_sizes = np.power(2, np.arange(1, 10))
+
+    spt = spikeAnalysis.binary_to_neo_train(y)
     rates = [elephant.statistics.instantaneous_rate(spt,pq.ms,
                                                    elephant.kernels.GaussianKernel(sigma*pq.ms)
                                                    ) for sigma in kernel_sizes]
     R = [scipy.corrcoef(x.magnitude.ravel()[cbool],yhat[cbool])[0,1] for x in rates]
-    return(R,rates)
+
+    return(R,rates,kernel_sizes)
 
 
-def get_canonical_angles(fname):
+def best_deriv_drops_r(fname):
     """
-    Calculate the canonical angles between the PCA decomposition
-    of the input space and the Pillow filter vectors
-    :param fname: name of the pillow mid mat file
-    :return:
+    Takes a matfile that has fitted pillow drops,
+        calculates the correlation between the predicted spiking and the
+        observed rate at different smoothing, and outputs a pandas dataframe
+        with the rates and kernels
+    :param fname: a matfile with the pillow results
+    :return df: a dataframe where each column is a different model correlation,
+                    along with kernel sizes and id
     """
     dat = sio.loadmat(fname,struct_as_record=False,squeeze_me=True)
-    X = dat['X']
-    cbool = dat['cbool'].astype('bool')
-    weights = {}
-    K = dat['ppcbf_avg'].k
-    Ko = scipy.linalg.orth(K)
-    pc = sklearn.decomposition.PCA()
-    pc.fit(X[cbool,:])
-    eigenvectors = pc.components_[:3,:]
-    canonical_angles = np.linalg.svd(np.dot(eigenvectors,Ko))[1]
-    # Pack the vars
-    weights['K'] = K
-    weights['Ko'] = Ko
-    weights['pc'] = pc
-    weights['eigenvectors'] = eigenvectors
-    weights['canonical_angles']=canonical_angles
-    return(weights)
+    output = dat['output']
+    y = dat['y'].ravel()
+    cbool = dat['cbool'].astype('bool').ravel()
+    R = {}
+    model_map = {'Full':'full',
+                 'Drop_derivative':'noD',
+                 'Drop_force':'noF',
+                 'Drop_moment':'noM',
+                 'Drop_rotation':'noR',
+                 'Just_derivative':'justD',
+                 'Just_force':'justF',
+                 'Just_moment':'justM',
+                 'Just_rotation':'justR',
+                 }
+    for model in output._fieldnames:
+        print('\t'+model)
+        yhat = output.__getattribute__(model).yhat
+        R[model],_,kernels = get_corr(y,yhat,cbool)
+
+    R['kernels'] = kernels
+    df = pd.DataFrame(R)
+    df['id'] = os.path.basename(fname)[:10]
+    df = df.rename(columns=model_map)
+    return(df)
+
+
+def best_deriv_2D_r(fname):
+    """
+    Calculates the correlation between the 2D pillow models
+    and the observed spiking
+    :param fname:
+    :return df: Dataframe containinf the pearson correlation for the 2D models
+    """
+    dat = sio.loadmat(fname,struct_as_record=False,squeeze_me=True)
+    y = dat['y'].ravel()
+    cbool = dat['cbool'].astype('bool').ravel()
+    yhat = dat['yhat'].ravel()
+    df = pd.DataFrame()
+    df['2D'],_,df['kernels'] = get_corr(y,yhat,cbool)
+    df['id'] = os.path.basename(fname)[:10]
+
+    return(df)
+
+
+def batch_best_deriv_drops():
+    """
+    Get the Pearson correlations for the pillow drop analyses for all files
+    Saves to a csv in the results directory
+    :return None:
+
+    """
+
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv')
+    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    DF = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*drops.mat')):
+        print('Working on {}'.format(os.path.basename(f)[:10]))
+        df = best_deriv_drops_r(f)
+        DF = DF.append(df)
+    DF.to_csv(os.path.join(p_save,'pillow_best_deriv_drop_correlations.csv'),index=False)
+    return 0
+
+
+def batch_best_deriv_2D():
+    """
+    Get the Pearson correlations for the pillow 2D analyses for all files
+    Saves to a csv in the results directory
+    :return None:
+
+    """
+
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\2d_best_smoothing')
+    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    DF = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*MID.mat')):
+        print('Working on {}'.format(os.path.basename(f)[:10]))
+        df = best_deriv_2D_r(f)
+        DF = DF.append(df)
+    DF.to_csv(os.path.join(p_save,'pillow_best_deriv_2D_correlations.csv'),index=False)
+    return 0
 
 
 def batch_mat_to_dataframes():
-    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX')
-    kernel_sizes = np.power(2,np.arange(1,10))
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\55ms_smoothing_deriv')
     varnames = ['Mx','My','Mz','Fx','Fy','Fz','TH','PHI',
                 'Mxdot', 'Mydot', 'Mzdot', 'Fxdot', 'Fydot', 'Fzdot', 'THdot', 'PHIdot']
 
@@ -71,12 +138,20 @@ def batch_mat_to_dataframes():
     for f in glob.glob(os.path.join(p_load,'*MID.mat')):
         id = os.path.basename(f)[:10]
         print('Working on {}'.format(id))
-        R,rates = get_corr(f,kernel_sizes)
+
+        # Load data
+        dat = sio.loadmat(f,struct_as_record=False,squeeze_me=True)
+        y = dat['y'].ravel()
+        cbool = dat['cbool'].astype('bool').ravel()
+        yhat = dat['yhat'].ravel()
+
+        # calculate R
+        R,rates,kernels = get_corr(y,yhat,cbool)
         weight_dict = get_canonical_angles(f)
         canonical_angles = weight_dict['canonical_angles']
         df_r = pd.DataFrame()
         df_r['R'] = R
-        df_r['kernel_sizes'] = kernel_sizes
+        df_r['kernels'] = kernels
         df_r['id'] = id
 
         df_canonical = pd.DataFrame()
@@ -111,6 +186,32 @@ def batch_mat_to_dataframes():
     DF_pillow_weights_normed.to_csv(os.path.join(p_load,'pillow_MID_weights_orthogonalized.csv'))
 
     np.save(os.path.join(p_load,'input_pca.npy'),pca_all_whiskers)
+
+
+def get_canonical_angles(fname):
+    """
+    Calculate the canonical angles between the PCA decomposition
+    of the input space and the Pillow filter vectors
+    :param fname: name of the pillow mid mat file
+    :return:
+    """
+    dat = sio.loadmat(fname,struct_as_record=False,squeeze_me=True)
+    X = dat['X']
+    cbool = dat['cbool'].astype('bool')
+    weights = {}
+    K = dat['ppcbf_avg'].k
+    Ko = scipy.linalg.orth(K)
+    pc = sklearn.decomposition.PCA()
+    pc.fit(X[cbool,:])
+    eigenvectors = pc.components_[:3,:]
+    canonical_angles = np.linalg.svd(np.dot(eigenvectors,Ko))[1]
+    # Pack the vars
+    weights['K'] = K
+    weights['Ko'] = Ko
+    weights['pc'] = pc
+    weights['eigenvectors'] = eigenvectors
+    weights['canonical_angles']=canonical_angles
+    return(weights)
 
 if __name__=='__main__':
     batch_mat_to_dataframes()
