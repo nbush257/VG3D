@@ -42,6 +42,7 @@ def set_fig_style():
     plt.rcParams['xtick.labelsize'] = 8
     plt.rcParams['ytick.labelsize'] = 8
     plt.rcParams['font.sans-serif'] = 'Arial'
+    plt.rcParams['text.color'] = 'k'
     sns.set()
     sns.set_style('ticks')
     dpi_res = 600
