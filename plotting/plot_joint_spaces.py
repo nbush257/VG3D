@@ -1,4 +1,7 @@
 from analyze_by_deflection import *
+import sklearn
+import pandas as pd
+import GLM
 import varTuning
 import quantities as pq
 import matplotlib.ticker as mtick
@@ -119,6 +122,59 @@ def plot_joint_spaces(blk,unit_num=0,bin_stretch=False,p_save=None):
         plt.savefig(os.path.join(p_save,'{}_joint_spaces.png'.format(id)),dpi=dpi_res)
         plt.close('all')
     return(0)
+
+
+def plot_pca_spaces(fname,unit_num,p_smooth=None,deriv_smooth=[9],n_dims=3):
+    """
+    Plot the PCA tuning spaces
+    :param fname: Filename of the neo data
+    :param unit_num: unit number to use
+    :param p_smooth: [optional] If using derivative, this is where the smooth data live
+    :param deriv_smooth: If using derivative, tells us what derivative smoothing to use
+    :return:
+    """
+
+    # Get the standard data, from which the PCA will be computed
+    blk = neoUtils.get_blk(fname)
+    cbool = neoUtils.get_Cbool(blk)
+    varlist = ['M','F','TH','PHIE']
+    X = GLM.create_design_matrix(blk,varlist)
+    sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
+    r = neoUtils.get_rate_b(blk,unit_num)[0]
+
+    # If smoothing directory is given, then add the derivative data
+    if p_smooth is not None:
+        blk_smooth = GLM.get_blk_smooth(fname,p_smooth)
+        Xdot = GLM.get_deriv(blk,blk_smooth,varlist,deriv_smooth)[0]
+        X = np.concatenate([X,Xdot],axis=1)
+        X[np.isnan(X)]=0
+    else:
+        print('\tNot using derivative information')
+    scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
+    X_scale = np.zeros_like(X)
+    X_scale[cbool,:] = scaler.fit_transform(X[cbool,:])
+    pca = sklearn.decomposition.PCA()
+    X_pcs = np.zeros_like(X)
+    X_pcs[cbool,:] = pca.fit_transform(X_scale[cbool,:])
+    for ii in range(n_dims):
+        var = X_pcs[:,ii]
+        response,edges = varTuning.stim_response_hist(var,sp,cbool)
+
+    response,edges1,edges2 = varTuning.joint_response_hist(X_pcs[:,0],
+                                                           X_pcs[:,1],
+                                                           sp,
+                                                           cbool,
+                                                           40)
+
+    response,edges1,edges2 = varTuning.joint_response_hist(X_pcs[:,-1],
+                                                           X_pcs[:,-2],
+                                                           sp,
+                                                           cbool,
+                                                           40)
+
+
+
+
 
 def main(p_load,p_save):
     for f in glob.glob(os.path.join(p_load,'*.h5')):

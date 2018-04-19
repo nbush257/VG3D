@@ -42,29 +42,29 @@ def KL(p,q):
         q[np.isnan(q)]=0
 
     return(np.sum(np.where(p!=0,p*np.log(p/q),0)))
+if __name__=='__main__':
+    HX=[]
+    HXY=[]
+    I=[]
+    for ii in np.logspace(1,4,20):
+        print(ii)
+        var =F[:,0].magnitude
+        ENT = calc_ent(var,sp,use_flags,nbins=int(ii))
+        HX.append(ENT[0])
+        HXY.append(ENT[1])
+        I.append(ENT[2])
+    plt.plot(np.logspace(1,4,20),I)
 
-HX=[]
-HXY=[]
-I=[]
-for ii in np.logspace(1,4,20):
-    print(ii)
-    var =F[:,0].magnitude
-    ENT = calc_ent(var,sp,use_flags,nbins=int(ii))
-    HX.append(ENT[0])
-    HXY.append(ENT[1])
-    I.append(ENT[2])
-plt.plot(np.logspace(1,4,20),I)
-
-HX=[]
-HXY=[]
-I=[]
-HY =[]
-for ii in np.linspace(2,100,20):
-    print(ii)
-    var =F[:,1].magnitude
-    ENT = calc_ent(var,sp,use_flags,nbins=1000,sigma=ii*pq.ms)
-    HX.append(ENT[0])
-    HXY.append(ENT[1])
-    I.append(ENT[2])
-    HY.append(ENT[3].H['HY'])
-plt.plot(np.linspace(2,100,20),I,'.-')
+    HX=[]
+    HXY=[]
+    I=[]
+    HY =[]
+    for ii in np.linspace(2,100,20):
+        print(ii)
+        var =F[:,1].magnitude
+        ENT = calc_ent(var,sp,use_flags,nbins=1000,sigma=ii*pq.ms)
+        HX.append(ENT[0])
+        HXY.append(ENT[1])
+        I.append(ENT[2])
+        HY.append(ENT[3].H['HY'])
+    plt.plot(np.linspace(2,100,20),I,'.-')
