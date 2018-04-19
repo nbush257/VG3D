@@ -108,10 +108,10 @@ def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,e
         name='StimFilters')
     tf.add_to_collection('K',K)
 
-    b = tf.Variable(
-        tf.random_normal([1]),
-        name = 'bias')
-    tf.add_to_collection('b',b)
+#    b = tf.Variable(
+#        tf.random_normal([1]),
+#        name = 'bias')
+#    tf.add_to_collection('b',b)
 
     #### The model ###
     # Hidden Layer
@@ -122,7 +122,7 @@ def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,e
     if hist:
         H = tf.clip_by_value(H,-np.inf,0.)
         Ksum =tf.add(tf.squeeze(tf.matmul(mdl_yhist,H)),Ksum)
-    Ksum = tf.add(Ksum,b)
+    #Ksum = tf.add(Ksum,b)
 
     # define cost function as negative log liklihood of Poisson spiking
     if family=='p':
@@ -155,6 +155,7 @@ def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,e
     print('saving to {}'.format(savefile))
     saver = tf.train.Saver()
     saver.save(sess,savefile)
+    sess.close()
     print('Saved session to {}'.format(savefile))
 
 def run_model(fname,p_smooth,unit_num,savepath,param_dict):
@@ -168,29 +169,74 @@ def run_model(fname,p_smooth,unit_num,savepath,param_dict):
     print(param_dict)
     build_GLM_model(Xb,y,savefile, **param_dict)
 
-def simulate(X,y,p_model):
+def simulate(X,y,p_model,cbool,n_sims=50):
     sess = tf.Session()
     new_saver = tf.train.import_meta_graph(p_model+'.meta')
     new_saver.restore(sess,p_model)
     K = tf.get_collection('K')[0]
     H = tf.get_collection('H')[0]
-    b = tf.get_collection('b')[0]
+    #b = tf.get_collection('b')[0]
     K = sess.run(K)
     H = sess.run(H)
-    b = sess.run(b)    
-    stim_curr = np.sum(np.dot(X,K),axis=1)+b
-    #TODO: here we iterate through the time step to get the individual spikes
-#    as in the pillow code 
+    b = 0.#sess.run(b)
+    stim_curr = np.dot(X,K)
+    stim_curr[stim_curr<0.]=0.
+    stim_curr = np.sum(stim_curr,axis=1)+b
+    # Warning! The spike history basis is hard coded.
+    B = GLM.make_bases(8,[0,25],1)
+    H = GLM.map_bases(H,B)[0].ravel()
+    g = np.zeros([X.shape[0]+len(H),n_sims]) # total current?
+    ysim = np.zeros([X.shape[0],n_sims])# response vector (simulated spiketrains)
+    hcurr = np.zeros([X.shape[0]+len(H),n_sims])# history current
+    rsim = np.zeros_like(g)
+    refresh_rate=1000.
+    for runNum in range(n_sims):
+        print('Simulation number {}'.format(runNum))
+        g[:,runNum]=np.concatenate([stim_curr,np.zeros([len(H)])])
+        for t in xrange(stim_curr.shape[0]):
+            rsim[t,runNum] = np.exp(g[t,runNum])
+            if not cbool[t]:
+                continue
+            if np.random.rand()<(1-np.exp(-rsim[t,runNum]/refresh_rate)):
+                ysim[t,runNum]=1
+                g[t:t+len(H),runNum] += H
+                hcurr[t:t+len(H),runNum]+= H
+    hcurr = hcurr[:X.shape[0],:]
+    rsim = rsim[:X.shape[0],:]
     sess.close()
-
-if __name__=='__main__': 
-    fname =  '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO/rat2017_08_FEB15_VG_B3_NEO.h5'
+    return(rsim,ysim,hcurr)
+def main():
+    dat_file =  'rat2017_08_FEB15_VG_B3_NEO.h5'
+    p_save = '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO'
+    fname = os.path.join(p_save,dat_file)
     p_smooth = '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO/smooth'
     savepath = '/home/nbush/Desktop/models'
     param_dict={'family':'p',
                 'hist':True,
                 'nfilts':4,
-                'learning_rate':1e-8,
+                'learning_rate':1e-7,
                 'batch_size':None,
-                'epochs':100}
-    run_model(fname,p_smooth,0,savepath,param_dict)
+                'epochs':10000}
+    blk = neoUtils.get_blk(fname)
+    num_units = len(blk.channel_indexes[-1].units)
+    for unit_num in range(num_units):
+        X,y,cbool = get_X_y(fname,p_smooth,unit_num)
+        root = neoUtils.get_root(blk,unit_num)
+        model_fname = os.path.join(savepath,'{}_tensorflow.ckpt'.format(root))
+        X[np.invert(cbool),:] = 0
+        y[np.invert(cbool),:] = 0
+        #Xb = X_to_pillow(X[:,:8])
+        # Train
+        build_GLM_model(X,y,model_fname,**param_dict)
+        #Simulate
+        rsim,ysim,hcurr = simulate(X,y,model_fname,cbool,10)
+        np.savez(os.path.join(p_save,'{}_multi_filter.npz'.format(root)),
+                 X=X,
+                 y=y,
+                 cbool=cbool,
+                 rsim=rsim,
+                 ysim=ysim,
+                 param_dict=param_dict)
+
+if __name__=='__main__':
+    main()
