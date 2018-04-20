@@ -103,7 +103,7 @@ def pairwise_first_eigenvector():
     return(pairwise_matrix)
 
 
-def pairwise_canonical_angles(num_dims=2):
+def pairwise_canonical_angles(fname,num_dims=2):
     """
     calculate the angle between each PCA subspace covered by the desired number of PCS
 
@@ -111,9 +111,7 @@ def pairwise_canonical_angles(num_dims=2):
     :return: A (n_whiskers,n_stim_dims,n_pcs_used) array of canonical angles
     """
 
-    # load data in a hardcoded manner
-    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
-    fname = os.path.join(p_load,'PCA_decompositions.csv')
+    # load data in from a filename
     df = pd.read_csv(fname,index_col=0)
 
     # extract the whisker information
