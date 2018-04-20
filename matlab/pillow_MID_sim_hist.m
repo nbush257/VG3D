@@ -1,6 +1,11 @@
 function pillow_MID_sim_hist(fname)
 %% ====  Set model parameters ==== %
 disp(fname)
+outname = [fname(1:end-11) 'fitted_pillow_MID_sim.mat'];
+if exist(outname)
+	disp('File already has been created')
+	return
+end
 nkt = 1; % number of time bins to use for filter 
 neye = 1;
 neye_hist = 1;
@@ -164,12 +169,12 @@ end
 hcurr = hcurr(1:nTimePts,:);  % trim zero padding
 rsim = rsim(1:nTimePts,:);  % trim zero padding
 
-
+clear g
 %%
 r = smoothts(double(y)','g',length(y),16);
-R = corrcoef(r(cbool),rsim(cbool));
+R = corrcoef(r(cbool),mean(ysim(cbool,:),2));
 fprintf('Correlation between rate and prediction: %f\n',R(1,2))
 %%
-save([fname(1:end-4) 'fitted_pillow_MID_sim.mat'])
+save(outname,'-v7.3')
 end
 
