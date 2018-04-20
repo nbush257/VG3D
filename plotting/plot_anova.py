@@ -3,9 +3,9 @@ from analyze_by_deflection import *
 # ============================ #
 # edit here #
 # ============================ #
-save_loc = os.path.join(os.environ['BOX_PATH'],'__VG3D/_deflection_trials/_NEO/results')
-cell_list = [] # pass a list of ids here if you just want some of the plots, otherwise prints and saves all of them
-plt.rcParams['svg.fonttype'] = 'none'
+save_loc = os.path.join(os.environ['BOX_PATH'],r'___hartmann_lab\papers\VG3D\figures\Fig_B')
+cell_list = ['201708D1c0'] # pass a list of ids here if you just want some of the plots, otherwise prints and saves all of them
+plt.rcParams['pdf.fonttype'] = 'truetype'
 plt.rcParams['axes.titlesize'] = 12
 plt.rcParams['figure.titlesize'] = 12
 plt.rcParams['axes.labelsize'] = 10
@@ -41,41 +41,42 @@ for id in cell_list:
     ht = wd/2
     fig,ax = plt.subplots(figsize=(wd,ht))
     sns.boxplot(x='Direction', y='Firing_Rate',hue='Arclength',data=df,palette='Blues',notch=False,width=0.5)
-    ax.set_title('{}'.format(id))
+    plt.ylabel('Firing Rate')
+    # ax.set_title('{}'.format(id))
     ax.legend(bbox_to_anchor=(.9, 1.1))
     plt.draw()
     sns.despine(offset=10, trim=True)
     plt.tight_layout()
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_dir_box.png'.format(id)), dpi=dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_S_dir_box.pdf'.format(id)), dpi=dpi_res)
     plt.close('all')
 
     # plot just by direction
     wd = fig_width/2
     ht = wd/1.5
     fig, ax = plt.subplots(figsize=(wd,ht))
-    sns.boxplot(x='Direction',y='Firing_Rate',data=df,palette='husl',width=0.6)
+    sns.boxplot(x='Direction',y='Firing_Rate',data=df,palette='husl',width=0.6,whis=1,fliersize=2)
     ax.set_title('{}'.format(id))
     sns.despine(offset=10, trim=False)
-    plt.ylabel('Firing rate')
+    plt.ylabel('Firing rate (sp/s)')
     plt.tight_layout()
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_dir_box.png'.format(id)), dpi=dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_dir_box.pdf'.format(id)), dpi=dpi_res)
     plt.close('all')
 
     #plot just by arclength
     wd = fig_width / 3
     ht = wd /0.5
     fig, ax = plt.subplots(figsize=(wd, ht))
-    sns.boxplot(x='Arclength', y='Firing_Rate', data=df, palette='Blues',width=0.6)
-    ax.set_title('{}'.format(id))
+    sns.boxplot(x='Arclength', y='Firing_Rate', data=df,order=['Proximal','Medial','Distal'] ,palette='Blues_r',width=0.6,whis=1,fliersize=2)
+    # ax.set_title('{}'.format(id))
     plt.ylabel('Firing rate')
     sns.despine(offset=10, trim=False)
     plt.xticks(rotation=60)
     plt.tight_layout()
     plt.draw()
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_box.png'.format(id)), dpi=dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_S_box.pdf'.format(id)), dpi=dpi_res)
     plt.close('all')
 
     # Factor Plot
@@ -84,7 +85,7 @@ for id in cell_list:
     plt.ylabel('Firing rate')
     plt.tight_layout()
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_factor.png'.format(id)), dpi=dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_factor.pdf'.format(id)), dpi=dpi_res)
     plt.close('all')
 
     # Plot polar by arclength
@@ -110,7 +111,7 @@ for id in cell_list:
     tick_vals = np.round(np.linspace(0,np.max(mean_by_category),3),-1)
     ax.set_rticks(tick_vals)
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_polar.png'.format(id)), dpi=dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_S_polar.pdf'.format(id)), dpi=dpi_res)
     plt.close('all')
 
     # plot direction selectivity by arclength
@@ -127,13 +128,13 @@ for id in cell_list:
     sns.barplot(x=DSI.index, y=DSI, palette=cmap)
     ax.set_ylim(0,1)
     plt.xticks(rotation=0)
-    sns.despine(offset=5,trim=True)
+    sns.despine(offset=5)
     plt.ylabel('Direction Selectivity Index\n(1-Circular Variance)')
-    plt.title('{}\nDirection selectivity\nby arclength'.format(id))
+    # plt.title('Direction selectivity\nby arclength'.format(id))
     plt.xticks(rotation=60)
     plt.tight_layout()
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_dir_selectivity_by_S.png'.format(id)), dpi=dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_dir_selectivity_by_S.pdf'.format(id)), dpi=dpi_res)
     plt.close('all')
 
     # plot arclength selectivity by direction?
@@ -155,5 +156,5 @@ for id in cell_list:
     ax.spines['polar'].set_visible(False)
     ax.set_title('Arclength tuning\nby direction group {}'.format(id))
     if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_selectivity_by_dir.png'.format(id)), dpi=dpi_res)
+        plt.savefig(os.path.join(save_loc, '{}_S_selectivity_by_dir.pdf'.format(id)), dpi=dpi_res)
     plt.close('all')

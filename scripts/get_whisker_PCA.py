@@ -1,3 +1,4 @@
+import seaborn as sns
 import glob
 import os
 import GLM
@@ -46,6 +47,7 @@ def analyze_first_eigenvector():
     plt.title('Angle Between Leading Eigenvector and Equal Weighted vector')
     sns.despine(trim=True)
     plt.grid('on',axis='y')
+
 
     plt.figure()
     sns.stripplot(x='col', y='angle', data=df_new, hue='row',hue_order=['A','B','C','D','E'] ,jitter=True, palette='Reds',
