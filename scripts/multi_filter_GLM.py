@@ -1,14 +1,13 @@
 import sklearn
-import theano
 import neoUtils
 import os
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-import keras
 import tensorflow as tf
 from GLM import get_blk_smooth
 import GLM
+import glob
 
 def get_X_y(fname,p_smooth,unit_num,pca_tgl=False,n_pcs=6):
     varlist = ['M', 'F', 'TH', 'PHIE']
@@ -60,7 +59,7 @@ def logit(x):
 def neglogliklihood(z,y):
     z = tf.reshape(z,[-1,1])
     cost = -tf.matmul(tf.transpose(y),tf.log(z))+tf.reduce_sum(z)
-    return(cost)
+    return(cost[0][0])
 
 def neglogliklihood_bernoulli(z,y):
     z = tf.reshape(z,[-1,1])
@@ -74,11 +73,12 @@ def X_to_pillow(X):
     scaler = sklearn.preprocessing.StandardScaler(with_mean=False)
     return(scaler.fit_transform(Xb))
 
-def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,epochs=100,batch_size=256,family='p'):
+def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,epochs=100,batch_size=256,family='p',min_delta=0.1,patience=8):
+    tf.reset_default_graph()
     if batch_size is None:
         batch_size=Xraw.shape[0]
     if hist:
-        B = GLM.make_bases(8,[0,25],1)
+        B = GLM.make_bases(3, [0, 3], 1)
         yhistraw = GLM.add_spike_history(Xraw,yraw,B)[:,Xraw.shape[1]:]
 
     # make data a multiple of batchsize and batch it
@@ -108,21 +108,21 @@ def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,e
         name='StimFilters')
     tf.add_to_collection('K',K)
 
-#    b = tf.Variable(
-#        tf.random_normal([1]),
-#        name = 'bias')
-#    tf.add_to_collection('b',b)
+    b = tf.Variable(
+        tf.random_normal([1]),
+        name = 'bias')
+    tf.add_to_collection('b',b)
 
     #### The model ###
     # Hidden Layer
     hidden_out = tf.matmul(mdl_input,K)
-    hidden_out = tf.nn.relu(hidden_out)
+    # hidden_out = tf.nn.relu(hidden_out)
 
     Ksum = tf.reduce_sum(hidden_out,axis=1)
     if hist:
         H = tf.clip_by_value(H,-np.inf,0.)
         Ksum =tf.add(tf.squeeze(tf.matmul(mdl_yhist,H)),Ksum)
-    #Ksum = tf.add(Ksum,b)
+    Ksum = tf.add(Ksum,b)
 
     # define cost function as negative log liklihood of Poisson spiking
     if family=='p':
@@ -134,11 +134,18 @@ def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,e
         cost = neglogliklihood_bernoulli(conditional_intensity,mdl_output)
 
 
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost)
+    # optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(cost)
+    # optimizer = tf.train.AdagradOptimizer(learning_rate).minimize(cost)
+    optimizer = tf.train.RMSPropOptimizer(learning_rate).minimize(cost)
     init = tf.global_variables_initializer()
     sess = tf.Session()
+
     sess.run(init)
     # loop over entire dataset multiple times
+    all_cost = [np.Inf]
+
+
+    patience_cnt=0
     for epoch in range(epochs):
         # loop over sub_batches
         avg_cost = 0.
@@ -150,8 +157,25 @@ def build_GLM_model(Xraw,yraw,savefile, nfilts=4,hist=False,learning_rate=1e-5,e
                 _,c = sess.run([optimizer,cost],
                          feed_dict={mdl_input:batched_x[ii],mdl_output:batched_y[ii]})
             avg_cost +=c/n_batches
+
+            # Early Stopping
+        # print('AVG:{}, Most Recent:{}'.format(avg_cost, all_cost[-1]))
+
+        if epoch>0 and ((all_cost[-1]-avg_cost) > min_delta):
+            patience_cnt=0
+        else:
+            patience_cnt+=1
+
+
+        if patience_cnt>=patience:
+            print('Early Stopping...')
+            break
+        all_cost.append(avg_cost)
+
         print('Epoch:{}\t, Cost={}'.format(epoch,avg_cost))
     print('Done!')
+    # plt.plot(all_cost)
+    # plt.show()
     print('saving to {}'.format(savefile))
     saver = tf.train.Saver()
     saver.save(sess,savefile)
@@ -175,68 +199,111 @@ def simulate(X,y,p_model,cbool,n_sims=50):
     new_saver.restore(sess,p_model)
     K = tf.get_collection('K')[0]
     H = tf.get_collection('H')[0]
-    #b = tf.get_collection('b')[0]
+    b = tf.get_collection('b')[0]
+
     K = sess.run(K)
     H = sess.run(H)
-    b = 0.#sess.run(b)
+    b = sess.run(b)
+
     stim_curr = np.dot(X,K)
-    stim_curr[stim_curr<0.]=0.
     stim_curr = np.sum(stim_curr,axis=1)+b
+
     # Warning! The spike history basis is hard coded.
-    B = GLM.make_bases(8,[0,25],1)
+    B = GLM.make_bases(3,[0,3],1)
     H = GLM.map_bases(H,B)[0].ravel()
     g = np.zeros([X.shape[0]+len(H),n_sims]) # total current?
     ysim = np.zeros([X.shape[0],n_sims])# response vector (simulated spiketrains)
     hcurr = np.zeros([X.shape[0]+len(H),n_sims])# history current
     rsim = np.zeros_like(g)
-    refresh_rate=1000.
+
+
     for runNum in range(n_sims):
-        print('Simulation number {}'.format(runNum))
+        print('Simulation number {} of {}'.format(runNum+1,n_sims))
         g[:,runNum]=np.concatenate([stim_curr,np.zeros([len(H)])])
         for t in xrange(stim_curr.shape[0]):
             rsim[t,runNum] = np.exp(g[t,runNum])
             if not cbool[t]:
                 continue
-            if np.random.rand()<(1-np.exp(-rsim[t,runNum]/refresh_rate)):
+            if np.random.rand()<(1-np.exp(-rsim[t,runNum])):
                 ysim[t,runNum]=1
-                g[t:t+len(H),runNum] += H
-                hcurr[t:t+len(H),runNum]+= H
+                g[t+1:t+len(H)+1,runNum] += H
+                hcurr[t+1:t+len(H)+1,runNum]+= H
     hcurr = hcurr[:X.shape[0],:]
     rsim = rsim[:X.shape[0],:]
+
+    output = {}
+    output['K'] = K
+    output['H'] = H
+    output['ysim'] = ysim
+    output['rsim'] = rsim
+    output['b'] = b
+    output['Basis'] = B
+    output['stim_curr'] = stim_curr
+    output['hcurr'] = hcurr
     sess.close()
-    return(rsim,ysim,hcurr)
-def main():
-    dat_file =  'rat2017_08_FEB15_VG_B3_NEO.h5'
-    p_save = '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO'
-    fname = os.path.join(p_save,dat_file)
-    p_smooth = '/media/nbush/Dante/Users/NBUSH/Box Sync/Box Sync/__VG3D/_deflection_trials/_NEO/smooth'
-    savepath = '/home/nbush/Desktop/models'
+    return(output)
+
+def main(fname,p_smooth,p_save):
+    """
+    Run the multi-filter GLM on a given file
+    :param fname:
+    :param p_smooth:
+    :param p_save:
+    :return:  Saves a numpy file to p_save
+    """
+
     param_dict={'family':'p',
                 'hist':True,
-                'nfilts':4,
-                'learning_rate':1e-7,
-                'batch_size':None,
-                'epochs':10000}
+                'nfilts':3,
+                'learning_rate':3e-4,
+                'batch_size':4096,
+                'epochs':5000,
+                'min_delta':0.01,
+                'patience':8}
+    nsims=100
     blk = neoUtils.get_blk(fname)
     num_units = len(blk.channel_indexes[-1].units)
     for unit_num in range(num_units):
         X,y,cbool = get_X_y(fname,p_smooth,unit_num)
         root = neoUtils.get_root(blk,unit_num)
-        model_fname = os.path.join(savepath,'{}_tensorflow.ckpt'.format(root))
+        model_fname = os.path.join(p_save,'{}_tensorflow.ckpt'.format(root))
         X[np.invert(cbool),:] = 0
         y[np.invert(cbool),:] = 0
-        #Xb = X_to_pillow(X[:,:8])
         # Train
         build_GLM_model(X,y,model_fname,**param_dict)
         #Simulate
-        rsim,ysim,hcurr = simulate(X,y,model_fname,cbool,10)
+        output = simulate(X,y,model_fname,cbool,nsims)
+        print('Saving...')
         np.savez(os.path.join(p_save,'{}_multi_filter.npz'.format(root)),
                  X=X,
                  y=y,
                  cbool=cbool,
-                 rsim=rsim,
-                 ysim=ysim,
+                 model_out=output,
                  param_dict=param_dict)
+        print('Saved')
+
+def batch():
+    p_save = '/media/nbush/Dante/Users/NBUSH/Box Sync/__VG3D/_deflection_trials/_NEO/tensorflow'
+    p_load = '/media/nbush/Dante/Users/NBUSH/Box Sync/__VG3D/_deflection_trials/_NEO'
+    p_smooth ='/media/nbush/GanglionData/VG3D/_rerun_with_pad/_deflection_trials/_NEO/smooth'
+    badfiles=[]
+    for fname in glob.glob(os.path.join(p_load,'*.h5')):
+        print('working on {}'.format(os.path.basename(fname)))
+        # main(fname,p_smooth,p_save)
+        try:
+            main(fname,p_smooth,p_save)
+        except:
+            badfiles.append(fname)
+            continue
+    print(badfiles)
+    return 0
+
 
 if __name__=='__main__':
-    main()
+
+    if len(sys.argv)>1 and sys.argv[1] == 'test':
+        main('/media/nbush/GanglionData/VG3D/_rerun_with_pad/_deflection_trials/_NEO/rat2017_08_FEB15_VG_D1_NEO.h5',
+             '/media/nbush/GanglionData/VG3D/_rerun_with_pad/_deflection_trials/_NEO/smooth',
+             '/home/nbush/Desktop/models')
+    else:
+        batch()
