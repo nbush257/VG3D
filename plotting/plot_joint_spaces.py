@@ -160,6 +160,8 @@ def plot_pca_spaces(fname,unit_num,p_smooth=None,deriv_smooth=[9],n_dims=3):
         var = X_pcs[:,ii]
         response,edges = varTuning.stim_response_hist(var,sp,cbool)
 
+
+
     response,edges1,edges2 = varTuning.joint_response_hist(X_pcs[:,0],
                                                            X_pcs[:,1],
                                                            sp,

@@ -23,7 +23,9 @@ sns.set_style('ticks')
 # ============================= #
 wd = fig_width/3
 ht = wd/0.4
-df = pd.read_csv(os.path.join(os.environ['BOX_PATH'],'__VG3D/_deflection_trials/_NEO/results/peak_PSTH_time.csv'))
+df = pd.read_csv(os.path.join(os.environ['BOX_PATH'],r'__VG3D/_deflection_trials/_NEO/results/peak_PSTH_time.csv'))
+is_stim = pd.read_csv(os.path.join(os.environ['BOX_PATH'],r'__VG3D/_deflection_trials/_NEO/results/cell_id_stim_responsive.csv'))
+df = df.merge(is_stim,on='id')
 df = df[df.stim_responsive]
 order =df[['id','peak_time']].groupby('id').var().sort_values(by='peak_time')
 
