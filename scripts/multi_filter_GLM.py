@@ -243,7 +243,7 @@ def simulate(X,y,p_model,cbool,n_sims=50):
     sess.close()
     return(output)
 
-def main(fname,p_smooth,p_save):
+def main(fname,p_smooth,p_save,param_dict,mask=None,model_name='tensorflow'):
     """
     Run the multi-filter GLM on a given file
     :param fname:
@@ -252,27 +252,22 @@ def main(fname,p_smooth,p_save):
     :return:  Saves a numpy file to p_save
     """
 
-    param_dict={'family':'p',
-                'hist':True,
-                'nfilts':3,
-                'learning_rate':3e-4,
-                'batch_size':4096,
-                'epochs':5000,
-                'min_delta':0.01,
-                'patience':8}
-    nsims=100
     blk = neoUtils.get_blk(fname)
+    n_sims = param_dict.pop('n_sims')
     num_units = len(blk.channel_indexes[-1].units)
     for unit_num in range(num_units):
         X,y,cbool = get_X_y(fname,p_smooth,unit_num)
         root = neoUtils.get_root(blk,unit_num)
-        model_fname = os.path.join(p_save,'{}_tensorflow.ckpt'.format(root))
+        model_fname = os.path.join(p_save,'{}_{}.ckpt'.format(root,model_name))
         X[np.invert(cbool),:] = 0
         y[np.invert(cbool),:] = 0
+        # Drop some variables as indicated by mask
+        if mask is not None:
+            X = X[:,mask]
         # Train
         build_GLM_model(X,y,model_fname,**param_dict)
         #Simulate
-        output = simulate(X,y,model_fname,cbool,nsims)
+        output = simulate(X,y,model_fname,cbool,n_sims)
         print('Saving...')
         np.savez(os.path.join(p_save,'{}_multi_filter.npz'.format(root)),
                  X=X,
@@ -282,14 +277,10 @@ def main(fname,p_smooth,p_save):
                  param_dict=param_dict)
         print('Saved')
 
-def batch():
-    p_save = '/media/nbush/Dante/Users/NBUSH/Box Sync/__VG3D/_deflection_trials/_NEO/tensorflow'
-    p_load = '/media/nbush/Dante/Users/NBUSH/Box Sync/__VG3D/_deflection_trials/_NEO'
-    p_smooth ='/media/nbush/GanglionData/VG3D/_rerun_with_pad/_deflection_trials/_NEO/smooth'
+def batch(p_load,p_save,p_smooth,param_dict):
     badfiles=[]
     for fname in glob.glob(os.path.join(p_load,'*.h5')):
         print('working on {}'.format(os.path.basename(fname)))
-        # main(fname,p_smooth,p_save)
         try:
             main(fname,p_smooth,p_save)
         except:
@@ -298,12 +289,55 @@ def batch():
     print(badfiles)
     return 0
 
+def make_mask():
+    mask = {}
+    mask['full'] = np.ones(16,dtype='bool')
+    mask['no_M'] = np.array([0,0,0,1,1,1,1,1]*2,dtype='bool')
+    mask['no_F'] = np.array([1,1,1,0,0,0,1,1]*2,dtype='bool')
+    mask['no_R'] = np.array([1,1,1,1,1,1,0,0]*2,dtype='bool')
+    mask['no_D'] = np.concatenate([np.ones(8,dtype='bool'),np.zeros(8,dtype='bool')])
+
+    mask['just_M'] = np.array([1,1,1,0,0,0,0,0]*2,dtype='bool')
+    mask['just_F'] = np.array([0,0,0,1,1,1,0,0]*2,dtype='bool')
+    mask['just_R'] = np.array([0,0,0,0,0,0,1,1]*2,dtype='bool')
+    mask['just_D'] = np.concatenate([np.zeros(8,dtype='bool'),np.ones(8,dtype='bool')])
+    return(mask)
 
 if __name__=='__main__':
+    # Main will run a number of possibilities.
+    # TODO: make the main accept either: test, batch (run all files with same params), or drop (one file with multiple variable type--this is to be used on quest)
+    # system arguments:
+        # fname (or p_load), p_save, p_smooth
 
-    if len(sys.argv)>1 and sys.argv[1] == 'test':
+    param_dict={'family':'p',
+                'hist':True,
+                'nfilts':3,
+                'learning_rate':3e-4,
+                'batch_size':4096,
+                'epochs':5000,
+                'min_delta':0.01,
+                'patience':8,
+                'n_sims':100}
+
+    if sys.argv[1] == 'test':
         main('/media/nbush/GanglionData/VG3D/_rerun_with_pad/_deflection_trials/_NEO/rat2017_08_FEB15_VG_D1_NEO.h5',
              '/media/nbush/GanglionData/VG3D/_rerun_with_pad/_deflection_trials/_NEO/smooth',
-             '/home/nbush/Desktop/models')
+             '/home/nbush/Desktop/models',
+             param_dict)
+
+    elif sys.argv[1] == 'batch':
+        batch(sys.argv[2],
+              sys.argv[3],
+              sys.argv[4],
+              param_dict)
+
+    elif sys.argv[1]== 'drop':
+        masks = make_mask()
+        for model_name,mask in masks.iteritems():
+           main(sys.argv[2],
+                sys.argv[3],
+                sys.argv[4],
+                mask,
+                'tensorflow_'+model_name)
     else:
-        batch()
+        print('Invalid first argument passed')

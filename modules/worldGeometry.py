@@ -129,7 +129,7 @@ def get_radial_distance_group(blk,plot_tgl=False):
         ax.set_title('{}'.format(neoUtils.get_root(blk,0)))
         sns.despine()
 
-    return(idx_out)
+    return(idx_out,S_med)
 
 
 def get_contact_direction(blk,plot_tgl=True):
