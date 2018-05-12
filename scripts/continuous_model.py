@@ -9,8 +9,13 @@ import GLM
 from GLM import get_blk_smooth
 import neoUtils
 import elephant
-import cmt.models
-import cmt.nonlinear
+try:
+    import cmt.models
+    import cmt.nonlinear
+    import cmt.tools
+except ImportError:
+    print("Couldnt load CMT")
+
 import sklearn
 import numpy as np
 import quantities as pq
@@ -19,8 +24,8 @@ import os
 import sys
 import glob
 import pandas as pd
-import cmt.tools
 import neo
+import multi_filter_GLM
 def get_X_y(fname,p_smooth,unit_num,pca_tgl=False,n_pcs=3):
     varlist = ['M', 'F', 'TH', 'PHIE']
     blk = neoUtils.get_blk(fname)

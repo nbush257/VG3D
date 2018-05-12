@@ -166,4 +166,3 @@ if __name__=='__main__':
         df = df.append(sub_df)
 
     df.to_csv(os.path.join(p_save,'PCA_decompositions_with_deriv.csv'))
->>>>>>> 1dc317e5c9350329e0221ebe8a751780e9e7d960
