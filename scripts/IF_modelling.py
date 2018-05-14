@@ -54,27 +54,59 @@ def cost_function(y,yhat,tau=5*pq.ms):
     D = elephant.spike_train_dissimilarity.van_rossum_dist([y,yhat],tau)
 
 def init_params(X,nfilts):
-    params{'K':     np.random.rand(X.shape[1],nfilts),
-           'sigma': 1.,
-           'Vrest': -65.,
-           'Vthresh':-45.,
-           'tau':5.,
+    params = {'K':np,#free
+              'tau':0,#free
+              'A0':0,#free
+              'A1':0,#free
+              'a':0,#free
+              'b':10.,# 1/s
+              'C':150.,#pF
+              'Vrest':-70.,#mV
+              'THETA_inf':-30., # mV
+             }
+    return(params)
 
 def run_IF(I_inj,params):
     T = len(I_inj)
+    I_ind = np.zeros_like(I_inj)
+    i0 = np.zeros_like(I_inj)
+    i1 = np.zeros_like(I_inj)
+    tau_0 = 5 # in ms
+    tau_1 = 50 # in ms
 
     V = np.ones_like(I_inj)*params['Vrest']
     THETA = np.ones_like(I_inj)*params['THETA_inf']
     spikes=[]
     for t in range(1,T):
+        #calculate Iind
+        di0 = -i0[t]/tau_0
+        di1 = -i1[t]/tau_1
+
+        # update spike induced currents
+        i0[t] = i0[t-1]+di0
+        i1[t] = i1[t-1]+di1
+        I_ind[t] = i0[t]+i1[t]
+
+        # V'(t) = -1/tau[V(t)-V_rest]+(I(t)+I_ind(t))/C)
         dV = -np.divide(V[t]-params['Vrest'],params['tau']) + np.divide(np.sum(I_inj[t],I_ind[t]),params['C'])
+        # THETA'(t) = a[V(t)-V_rest]-b[THETA(t)-THETA_inf]
         dTHETA = np.multiply(params['a'],(V[t]-params['Vrest'])) - np.multiply(params['b'],THETA[t]- params['THETA_inf'])
-        #TODO: calculate Iind
+
+        # update voltge
         V[t] = V[t-1]+dV
+        # update Threshold?
         THETA[t] = THETA[t-1] + dTHETA
-        if V[t]>params['Vthresh']:
+
+           # If exceed threshold
+        if V[t]>THETA[t]:
+            i0[t] = i0[t]+A0
+            i1[t] = i1[t]+A1
+            I_ind[t] = i0[t]+i1[t]
             V[t] = params['Vrest']
+            THETA[t] = np.max(THETA[t],params['THETA_inf'])
             spikes.append(t)
+
+
     return(V,spikes)
 
 
