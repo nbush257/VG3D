@@ -37,7 +37,12 @@ def get_X_y(fname,p_smooth,unit_num=0):
 
 
 def calc_IInj(X,K):
-    return(np.dot(X,K))
+    if K.ndim==1:
+        return(np.dot(X,K))
+    else:
+        aa = np.dot(K,X.T)
+        aa[aa<0]=0
+        return(np.sum(aa,0))
 
 
 def saturation(I,I0):
@@ -60,7 +65,7 @@ def cost_function(y,yhat,tau=5*pq.ms):
 
 
 def init_free_params(X,nfilts):
-    params = {'K':np.random.uniform(-1.,1.,X.shape[1]),#free
+    params = {'K':np.random.uniform(-1.,1.,[nfilts,X.shape[1]]),#free
               'tau':5.,#free (ms) #as tau incresaes, the neuron integrates more over time
               'A0':-1e4,#free (current nA)
               'A1':-1e4,#free (current nA?)
@@ -134,7 +139,7 @@ def run_IF(I_inj,free_params,const_params):
     return(V,spikes,THETA,I_ind)
 
 
-def optim_func(free_params,X,y,const_params,plot_tgl=False):
+def optim_func(free_params,X,y,nfilts,const_params,plot_tgl=False):
     """
     This function is passed into the optimization
     in order to find the optimal values of the free parameters of the model
@@ -150,7 +155,7 @@ def optim_func(free_params,X,y,const_params,plot_tgl=False):
     """
 
     # map free params to dict
-    free_params_d = convert_free_params(free_params,X)
+    free_params_d = convert_free_params(free_params,X,nfilts)
 
     # calculate saturated injected current
     Iinj = calc_IInj(X,free_params_d['K'])
@@ -173,7 +178,7 @@ def optim_func(free_params,X,y,const_params,plot_tgl=False):
 
 
 
-def convert_free_params(params,X,out_type='dict'):
+def convert_free_params(params,X,nfilts,out_type='dict'):
     """
     A utility function that freely converts the free parameters between
     a list and a dictionary as hardcoded in the parameter list
@@ -186,7 +191,7 @@ def convert_free_params(params,X,out_type='dict'):
     :return out_params: the converted parameter data structure
     """
     param_list = ['K','tau','A0','A1','I0','a']
-    ndims = X.shape[1]
+    ndims = X.shape[1]*nfilts
     # convert a list to a dictionary
     if out_type=='dict':
         if type(params) is dict:
@@ -199,6 +204,7 @@ def convert_free_params(params,X,out_type='dict'):
                     out_params[param] = np.array([x for x in params[:ndims]])
                 else:
                     out_params[param] = params[ndims+ii-1]
+        out_params['K'] = out_params['K'].reshape([nfilts,-1])
 
     # convert a dictionary to a list
     elif out_type=='list':
@@ -228,30 +234,39 @@ def test_fake_input():
 
 
 def test_real_data():
+    nfilts=3
     p_smooth = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\smooth')
     fname = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\rat2017_08_FEB15_VG_D1_NEO.h5')
     X,y,cbool = get_X_y(fname,p_smooth)
-    free_params = init_free_params(X,1)
-    free_params = convert_free_params(free_params,X,out_type='list')
+    free_params = init_free_params(X,nfilts)
+    free_params = convert_free_params(free_params,X,nfilts,out_type='list')
     const_params = init_constrained_params()
 
-    bds = [None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,
-              [1.,np.inf],[-np.inf,0.],[-np.inf,0.],None,None]
     print('Beginning Optimization...')
 
     sol = scipy.optimize.minimize(optim_func,
                             x0=free_params,
-                            args=(X,y,const_params),
+                            args=(X,y,nfilts,const_params),
                             method='COBYLA',
-                            bounds=bds,
                             )
-    # scipy.optimize.fmin(optim_func,
-    #                         x0=free_params,
-    #                         args=(X,y,const_params)
-    #                         )
-        # need a way to minimize the cost and then break the while loop
+def init_constraints(free_params,X,nfilts):
+    constraints = []
+    for factor in range(len(free_params)):
+        if factor==nfilts*X.shape[1]:
+            l = {'type':'ineq','fun':lambda x:x}
+            constraints.append(l)
+        elif factor==(nfilts*X.shape[1]+1):
+            l = {'type':'ineq','fun':lambda x:-x}
+            constraints.append(l)
+        elif factor==(nfilts*X.shape[1]+2):
+            l = {'type':'ineq','fun':lambda x:-x}
+            constraints.append(l)
+        else:
+            l = {'type':'ineq','fun':lambda x:np.abs(x)}
+            constraints.append(l)
+    return(constraints)
 
-def main(fname,p_smooth):
+def main(fname,p_smooth,nfilts=3):
     print('loading in {}'.format(fname))
     blk = neoUtils.get_blk(fname)
     save_dir = os.path.split(fname)[0]
@@ -262,19 +277,19 @@ def main(fname,p_smooth):
         if os.path.isfile(save_file):
             print('File already found. Aborting...')
         X,y,cbool = get_X_y(fname,p_smooth,unit_num=unit_num)
-        free_params = init_free_params(X,1)
-        free_params = convert_free_params(free_params,X,out_type='list')
+        free_params = init_free_params(X,nfilts)
+        free_params = convert_free_params(free_params,X,nfilts,out_type='list')
         const_params = init_constrained_params()
+        cons = init_constraints(free_params,X,nfilts)
 
-        bds = [None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,None,
-                   [1.,np.inf],[-np.inf,0.],[-np.inf,0.],None,None]
+
         print('Beginning Optimization...')
 
         solution = scipy.optimize.minimize(optim_func,
                                 x0=free_params,
-                                args=(X,y,const_params),
+                                args=(X,y,nfilts,const_params),
                                 method='COBYLA',
-                                bounds=bds,
+                                constraints=cons,
                                 )
         np.savez(save_file,
                  X=X,
@@ -282,14 +297,20 @@ def main(fname,p_smooth):
                  cbool=cbool,
                  solution=solution,
                  free_params=free_params,
-                 const_params=const_params)
+                 const_params=const_params,
+                 nfilts=nfilts)
+
 
 if __name__=='__main__':
     fname = sys.argv[1]
     p_smooth = sys.argv[2]
+    if len(sys.argv==4):
+        nfilts=sys.argv[3]
+    else:
+        nfilts=3
     print('File in: {}'.format(fname))
     print('p_smooth: {}'.format(p_smooth))
-    main(fname,p_smooth)
+    main(fname,p_smooth,nfilts)
 
 
 
