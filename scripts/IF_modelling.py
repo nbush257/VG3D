@@ -252,6 +252,7 @@ def test_real_data():
         # need a way to minimize the cost and then break the while loop
 
 def main(fname,p_smooth):
+    print('Loading in {}'.format(fname))
     blk = neoUtils.get_blk(fname)
     save_dir = os.path.split(fname)[0]
     num_units = len(blk.channel_index[-1].units)
