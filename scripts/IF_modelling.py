@@ -1,4 +1,5 @@
 import sys
+import spikeAnalysis
 import quantities as pq
 import neo
 import elephant
@@ -300,6 +301,22 @@ def main(fname,p_smooth,nfilts=3):
                  const_params=const_params,
                  nfilts=nfilts)
 
+
+def analyze_result(fname):
+    dat = np.load(fname)
+    sol = dat['solution'].item()
+    X = dat['X']
+    y = dat['y']
+    nfilts = dat['nfilts']
+    const_params = dat['const_params'].item()
+    x = sol.x
+    free_params = convert_free_params(x,X,nfilts)
+    I = calc_IInj(X,free_params['K'])
+    Iinj = saturation(I,free_params['I0'])*10000
+    V,spikes,THETA,I_ind = run_IF(Iinj,free_params,const_params)
+    yhat = np.zeros_like(y)
+    yhat[spikes.times.magnitude.astype('int')]=1
+    return(y,yhat)
 
 if __name__=='__main__':
     fname = sys.argv[1]
