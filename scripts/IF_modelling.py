@@ -304,7 +304,7 @@ def main(fname,p_smooth,nfilts=3):
 if __name__=='__main__':
     fname = sys.argv[1]
     p_smooth = sys.argv[2]
-    if len(sys.argv==4):
+    if len(sys.argv)==4:
         nfilts=sys.argv[3]
     else:
         nfilts=3
