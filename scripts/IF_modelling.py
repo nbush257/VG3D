@@ -285,11 +285,13 @@ def main(fname,p_smooth,nfilts=3):
 
 
         print('Beginning Optimization...')
+        opts = {'maxiter':100000,'maxfev':100000}
 
         solution = scipy.optimize.minimize(optim_func,
                                 x0=free_params,
                                 args=(X,y,nfilts,const_params),
-                                method='COBYLA',
+                                method='Nelder-Mead',
+                                options=opts,
                                 constraints=cons,
                                 )
         np.savez(save_file,
