@@ -87,6 +87,7 @@ def pr_given_s(var_in,sp,cbool,bins=None,min_obs=5):
 
     return(entropy)
 
+
 def calc_ent(fname,p_smooth,unit_num):
     blk = neoUtils.get_blk(fname)
     blk_smooth = GLM.get_blk_smooth(fname,p_smooth)
@@ -167,5 +168,89 @@ def get_min_entropy():
     df_entropy_all = df_entropy_all.rename(columns={'index': 'id'})
     df_entropy_all.to_csv(os.path.join(p_load,'min_smoothing_entropy.csv'),index=False)
 
+
+def tuning_curve_MSE(var_in,sp,cbool,bins=None,min_obs=5):
+    """
+    get the residual from the mean for the tuning curve (i.e., how steep is the tuning curve)
+
+    :param var_in:
+    :param sp:
+    :param cbool:
+    :param bins:
+    :param min_obs:
+    :return:
+    """
+    if bins is None:
+        bins = 50
+    else:
+        pass
+    EDGES = []
+    PS = []
+    PS_R1 = []
+    PR1_S = []
+    MSE = []
+    for ii in range(var_in.shape[1]):
+        var = var_in[:,ii].copy()
+
+        var[np.invert(cbool)] = np.nan
+        not_nan_mask = np.isfinite(var)
+        not_nan = np.where(not_nan_mask)[0]
+        ps,var1_edges= np.histogram(var[not_nan_mask],bins=bins)
+        ps = ps.astype('f8')
+        PS.append(ps)
+        # ps/=float(np.sum(not_nan_mask))
+
+        spt = sp.times.magnitude.astype('int')
+        idx = [x for x in spt if x in not_nan]
+        ps_r1 = np.histogram(var[idx], bins=var1_edges)[0]/float(len(idx))
+        keep = ps_r1>0
+        pr1_s = ps_r1[keep]/ps[keep]
+        EDGES.append(var1_edges[keep])
+        PS_R1.append(ps_r1[keep])
+        PR1_S.append(pr1_s)
+        m = np.mean(pr1_s)
+        mse = np.mean((pr1_s-m)**2)
+        MSE.append(mse)
+
+    return(MSE)
+def calc_MSE(fname,p_smooth,unit_num):
+    blk = neoUtils.get_blk(fname)
+    blk_smooth = GLM.get_blk_smooth(fname,p_smooth)
+    varlist = ['M', 'F', 'TH', 'PHIE']
+    root = neoUtils.get_root(blk,unit_num)
+    print('Working on {}'.format(root))
+    Xdot = GLM.get_deriv(blk,blk_smooth,varlist)[0]
+    Xdot = np.reshape(Xdot,[-1,8,10])
+
+    sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(0)]
+    cbool = neoUtils.get_Cbool(blk)
+    mse = []
+    for ii in range(Xdot.shape[1]):
+        var_in = Xdot[:,ii,:].copy()
+        mse.append(tuning_curve_MSE(var_in,sp,cbool,bins=50))
+    return(mse)
+
+def batch_calc_MSE():
+    p_load =os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
+    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    p_smooth = r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
+
+    DF = pd.DataFrame()
+    for ii,f in enumerate(glob.glob(os.path.join(p_load,'*.h5'))):
+        if ii==0:
+            continue
+        blk = neoUtils.get_blk(f)
+        num_units = len(blk.channel_indexes[-1].units)
+        for unit_num in range(num_units):
+            id =  neoUtils.get_root(blk,unit_num)
+            print('Working on {}'.format(id))
+            mse = calc_MSE(f,p_smooth,unit_num)
+            df = pd.DataFrame()
+            for ii,var in enumerate(['Mx','My','Mz','Fx','Fy','Fz','TH','PHI']):
+                df[var] = mse[ii]
+            df['id'] = id
+            df['smoothing'] = np.arange(5,100,10)
+            DF = DF.append(df)
+    DF.to_csv(os.path.join(p_save,'MSE_by_smoothing.csv'),index=False)
 if __name__ == '__main__':
-    batch_calc_entropy()
+    batch_calc_MSE()

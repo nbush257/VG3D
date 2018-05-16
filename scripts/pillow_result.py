@@ -214,20 +214,76 @@ def get_canonical_angles(fname):
     return(weights)
 
 
-def orthogonality_of_K():
+def orthogonality_of_K(fname,p_save=None):
     """
     This function calculates how orthogonal each of the individual
     filters of the pillow model are from each other
     :return:
     """
-    pass
+    if p_save is None:
+        p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
 
-def neural_participation_ratios():
+    df = pd.read_csv(fname,index_col=0)
+    is_stim = pd.read_csv(os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+    df = df[df.stim_responsive]
+    DF_OUT = pd.DataFrame()
+    ORTHO_MAT = np.empty([3,3,len(df.id.unique())])
+
+    for cell_id,cell in enumerate(df.id.unique()):
+        df_out = pd.DataFrame()
+        sub_df = df[df.id==cell]
+        X = sub_df[['Filter_0','Filter_1','Filter_2']].as_matrix()
+        norms = np.linalg.norm(X,2,axis=0)
+        X = X/norms
+        ortho_mat=np.empty((X.shape[1],X.shape[1]))
+        for ii,x in enumerate(X.T):
+            for jj,y in enumerate(X.T):
+                ortho_mat[ii,jj]=np.abs(np.dot(x,y))
+        ORTHO_MAT[:,:,cell_id] = ortho_mat
+        df_out['norm0'] = [norms[0]]
+        df_out['norm1'] = [norms[1]]
+        df_out['norm2'] = [norms[2]]
+        df_out['id'] = cell
+        DF_OUT = DF_OUT.append(df_out)
+    DF_OUT.to_csv(os.path.join(p_save,'MID55ms_weight_vector_norms.csv'),index=False)
+    np.save(os.path.join(p_save,'MID55ms_weight_dot_products_normed.npy'),ortho_mat)
+
+
+
+
+
+def neural_participation_ratios(fname,p_save=None):
     """
     This function will calulate the participation ratios
     for each of the fit neural vectors from the Pillow models
     :return:
     """
+    if p_save is None:
+        p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+
+    df = pd.read_csv(fname,index_col=0)
+    is_stim = pd.read_csv(os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+    df = df[df.stim_responsive]
+    for cell_id,cell in enumerate(df.id.unique()):
+        sub_df = df[df.id==cell]
+        X = sub_df[['Filter_0','Filter_1','Filter_2']].as_matrix()
+        norms = np.linalg.norm(X,2,axis=0)
+        X = X/norms
+        for u in X.T:
+            pass
+        #TODO: waiting for SARA
+
+
+
+
+
+
+
+
+
+
 
 if __name__=='__main__':
     batch_mat_to_dataframes()
