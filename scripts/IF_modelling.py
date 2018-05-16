@@ -1,4 +1,5 @@
 import sys
+import nlopt
 import spikeAnalysis
 import quantities as pq
 import neo
@@ -72,6 +73,7 @@ def init_free_params(X,nfilts):
               'A1':-1e4,#free (current nA?)
               'a':1e-3,#free
               'I0':1., #free
+              'scale':10000.
               }
     return(params)
 
@@ -160,7 +162,7 @@ def optim_func(free_params,X,y,nfilts,const_params,plot_tgl=False):
 
     # calculate saturated injected current
     Iinj = calc_IInj(X,free_params_d['K'])
-    Isat = saturation(Iinj,free_params_d['I0'])*10000
+    Isat = saturation(Iinj,free_params_d['I0'])*free_params_d['scale']
 
     # run IF model
     V,spikes = run_IF(Isat,free_params_d,const_params)[:2]
@@ -191,7 +193,7 @@ def convert_free_params(params,X,nfilts,out_type='dict'):
 
     :return out_params: the converted parameter data structure
     """
-    param_list = ['K','tau','A0','A1','I0','a']
+    param_list = ['K','tau','A0','A1','I0','a','scale']
     ndims = X.shape[1]*nfilts
     # convert a list to a dictionary
     if out_type=='dict':
@@ -267,6 +269,35 @@ def init_constraints(free_params,X,nfilts):
             constraints.append(l)
     return(constraints)
 
+
+def nlopt_bounds(free_params):
+    """
+    create the boundarie array that NLopt uses
+    """
+
+    lb = []
+    ub = []
+    for ii,p in enumerate(free_params):
+        if ii == len(free_params)-5:
+            lb.append(0.)
+            ub.append(np.inf)
+        elif ii == len(free_params)-4:
+            lb.append(-np.inf)
+            ub.append(0.)
+        elif ii == len(free_params)-3:
+            lb.append(-np.inf)
+            ub.append(0.)
+        elif ii == len(free_params):
+            lb.append(0.)
+            ub.append(np.inf)
+        else:
+            lb.append(-np.inf)
+            ub.append(np.inf)
+    lb = np.array(lb)
+    ub = np.array(ub)
+    return(lb,ub)
+
+
 def main(fname,p_smooth,nfilts=3):
     print('loading in {}'.format(fname))
     blk = neoUtils.get_blk(fname)
@@ -277,23 +308,27 @@ def main(fname,p_smooth,nfilts=3):
         save_file = os.path.join(save_dir,'{}_IF_model.npz'.format(id))
         if os.path.isfile(save_file):
             print('File already found. Aborting...')
+            break
         X,y,cbool = get_X_y(fname,p_smooth,unit_num=unit_num)
         free_params = init_free_params(X,nfilts)
         free_params = convert_free_params(free_params,X,nfilts,out_type='list')
+        free_params = np.array(free_params)
         const_params = init_constrained_params()
-        cons = init_constraints(free_params,X,nfilts)
+
+        opt = nlopt.opt(nlopt.LN_COBYLA,free_params.shape[0])
+        
+        opt.set_min_objective(lambda free_params,grad:
+                              optim_func(free_params,X,y,nfilts,const_params))
+        lb,ub = nlopt_bounds(free_params)
+        #opt.set_lower_bounds(lb)
+        #opt.set_upper_bounds(ub)
+        dx = np.abs(free_params)/3.
+        opt.set_initial_step(dx)
+
+        xopt = opt.optimize(free_params)
 
 
-        print('Beginning Optimization...')
-        opts = {'maxiter':100000,'maxfev':100000}
 
-        solution = scipy.optimize.minimize(optim_func,
-                                x0=free_params,
-                                args=(X,y,nfilts,const_params),
-                                method='Nelder-Mead',
-                                options=opts,
-                                constraints=cons,
-                                )
         np.savez(save_file,
                  X=X,
                  y=y,
