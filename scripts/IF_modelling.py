@@ -69,11 +69,11 @@ def cost_function(y,yhat,tau=5*pq.ms):
 def init_free_params(X,nfilts):
     params = {'K':np.random.uniform(-1.,1.,[nfilts,X.shape[1]]),#free
               'tau':5.,#free (ms) #as tau incresaes, the neuron integrates more over time
-              'A0':-1e4,#free (current nA)
+              'A0':-1e5,#free (current nA)
               'A1':-1e4,#free (current nA?)
               'a':1e-3,#free
               'I0':1., #free
-              'scale':10000.
+              'scale':100000.
               }
     return(params)
 
@@ -142,7 +142,7 @@ def run_IF(I_inj,free_params,const_params):
     return(V,spikes,THETA,I_ind)
 
 
-def optim_func(free_params,X,y,nfilts,const_params,plot_tgl=False):
+def optim_func(free_params,X,y,nfilts,const_params,cbool,plot_tgl=False):
     """
     This function is passed into the optimization
     in order to find the optimal values of the free parameters of the model
@@ -167,20 +167,16 @@ def optim_func(free_params,X,y,nfilts,const_params,plot_tgl=False):
     # choose a contact to simulate
     onsets = np.where(np.diff(cbool.astype('int'))==1)[0]+1
     offsets = np.where(np.diff(cbool.astype('int'))==-1)[0]
-    idx = np.random.randint(len(onsets))
-
+    idx = np.random.randint(0,len(onsets),np.min([50,len(onsets)]))
 
 
     # run IF model
-    V,spikes = run_IF(Isat[onsets[idx]:offsets[idx]],free_params_d,const_params)[:2]
-    if plot_tgl:
-        plt.close('all')
-        plt.plot(V)
-        plt.show()
-        plt.pause(0.1)
+    cost=[]
+    for i in idx:
+        V,spikes = run_IF(Isat[onsets[i]:offsets[i]],free_params_d,const_params)[:2]
+        cost.append(cost_function(y[onsets[i]:offsets[i]],spikes,tau=5*pq.ms))
 
-    # calculate cost
-    cost = cost_function(y[onsets[idx]:offsets[idx]],spikes,tau=5*pq.ms)
+    cost = np.mean(np.array(cost))
     print('Cost is: {:0.4f}'.format(cost))
     # print(free_params)
 
@@ -305,7 +301,7 @@ def nlopt_bounds(free_params):
     return(lb,ub)
 
 
-def main(fname,p_smooth,nfilts=3):
+def main(fname,p_smooth,nfilts=3,pca_tgl=False):
     print('loading in {}'.format(fname))
     blk = neoUtils.get_blk(fname)
     save_dir = os.path.split(fname)[0]
@@ -317,19 +313,28 @@ def main(fname,p_smooth,nfilts=3):
             print('File already found. Aborting...')
             break
         X,y,cbool = get_X_y(fname,p_smooth,unit_num=unit_num)
+        if pca_tgl:
+            npcs=8
+            X_pca = np.zeros([X.shape[0],npcs])
+            pca = sklearn.decomposition.PCA()
+            X_pca[cbool,:] = pca.fit_transform(X[cbool,:])[:,:npcs]
+            X = X_pca.copy()
+
         free_params = init_free_params(X,nfilts)
         free_params = convert_free_params(free_params,X,nfilts,out_type='list')
         free_params = np.array(free_params)
         const_params = init_constrained_params()
+        #algo = nlopt.LN_SBPLX
+        algo = nlopt.LN_COBYLA
+        #algo = nlopt.LN_NELDERMEAD
 
-        opt = nlopt.opt(nlopt.LN_COBYLA,free_params.shape[0])
-        
+        opt = nlopt.opt(algo,free_params.shape[0])
         opt.set_min_objective(lambda free_params,grad:
-                              optim_func(free_params,X,y,nfilts,const_params))
+                              optim_func(free_params,X,y,nfilts,const_params,cbool))
         lb,ub = nlopt_bounds(free_params)
         #opt.set_lower_bounds(lb)
         #opt.set_upper_bounds(ub)
-        dx = np.abs(free_params)/3.
+        dx = np.abs(free_params)/50.
         opt.set_initial_step(dx)
 
         xopt = opt.optimize(free_params)
@@ -340,7 +345,8 @@ def main(fname,p_smooth,nfilts=3):
                  X=X,
                  y=y,
                  cbool=cbool,
-                 solution=solution,
+                 opt=opt,
+                 xopt=xopt,
                  free_params=free_params,
                  const_params=const_params,
                  nfilts=nfilts)
@@ -356,7 +362,7 @@ def analyze_result(fname):
     x = sol.x
     free_params = convert_free_params(x,X,nfilts)
     I = calc_IInj(X,free_params['K'])
-    Iinj = saturation(I,free_params['I0'])*10000
+    Iinj = saturation(I,free_params['I0'])*free_params['scale']
     V,spikes,THETA,I_ind = run_IF(Iinj,free_params,const_params)
     yhat = np.zeros_like(y)
     yhat[spikes.times.magnitude.astype('int')]=1
