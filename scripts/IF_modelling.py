@@ -162,8 +162,15 @@ def optim_func(free_params,X,y,nfilts,const_params,plot_tgl=False):
     Iinj = calc_IInj(X,free_params_d['K'])
     Isat = saturation(Iinj,free_params_d['I0'])*10000
 
+    # choose a contact to simulate
+    onsets = np.where(np.diff(cbool.astype('int'))==1)[0]+1
+    offsets = np.where(np.diff(cbool.astype('int'))==-1)[0]
+    idx = np.random.randint(len(onsets))
+
+
+
     # run IF model
-    V,spikes = run_IF(Isat,free_params_d,const_params)[:2]
+    V,spikes = run_IF(Isat[onsets[idx]:offsets[idx]],free_params_d,const_params)[:2]
     if plot_tgl:
         plt.close('all')
         plt.plot(V)
@@ -171,7 +178,7 @@ def optim_func(free_params,X,y,nfilts,const_params,plot_tgl=False):
         plt.pause(0.1)
 
     # calculate cost
-    cost = cost_function(y,spikes,tau=5*pq.ms)
+    cost = cost_function(y[onsets[idx]:offsets[idx]],spikes,tau=5*pq.ms)
     print('Cost is: {:0.4f}'.format(cost))
     # print(free_params)
 
