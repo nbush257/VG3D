@@ -213,6 +213,22 @@ def get_canonical_angles(fname):
     weights['canonical_angles']=canonical_angles
     return(weights)
 
+
+def orthogonality_of_K():
+    """
+    This function calculates how orthogonal each of the individual
+    filters of the pillow model are from each other
+    :return:
+    """
+    pass
+
+def neural_participation_ratios():
+    """
+    This function will calulate the participation ratios
+    for each of the fit neural vectors from the Pillow models
+    :return:
+    """
+
 if __name__=='__main__':
     batch_mat_to_dataframes()
 
