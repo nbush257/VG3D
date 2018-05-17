@@ -205,7 +205,7 @@ def tuning_curve_MSE(var_in,sp,cbool,bins=None,min_obs=5):
         ps_r1 = np.histogram(var[idx], bins=var1_edges)[0]/float(len(idx))
         keep = ps_r1>0
         pr1_s = ps_r1[keep]/ps[keep]
-        EDGES.append(var1_edges[keep])
+        EDGES.append(var1_edges[:-1][keep])
         PS_R1.append(ps_r1[keep])
         PR1_S.append(pr1_s)
         m = np.mean(pr1_s)
@@ -233,7 +233,7 @@ def calc_MSE(fname,p_smooth,unit_num):
 def batch_calc_MSE():
     p_load =os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
     p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
-    p_smooth = r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
+    p_smooth = r'E:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
 
     DF = pd.DataFrame()
     for ii,f in enumerate(glob.glob(os.path.join(p_load,'*.h5'))):
@@ -244,13 +244,17 @@ def batch_calc_MSE():
         for unit_num in range(num_units):
             id =  neoUtils.get_root(blk,unit_num)
             print('Working on {}'.format(id))
-            mse = calc_MSE(f,p_smooth,unit_num)
-            df = pd.DataFrame()
-            for ii,var in enumerate(['Mx','My','Mz','Fx','Fy','Fz','TH','PHI']):
-                df[var] = mse[ii]
-            df['id'] = id
-            df['smoothing'] = np.arange(5,100,10)
-            DF = DF.append(df)
+            try:
+                mse = calc_MSE(f,p_smooth,unit_num)
+                df = pd.DataFrame()
+                for ii,var in enumerate(['Mx','My','Mz','Fx','Fy','Fz','TH','PHI']):
+                    df[var] = mse[ii]
+                df['id'] = id
+                df['smoothing'] = np.arange(5,100,10)
+                DF = DF.append(df)
+            except:
+                print('Problem on {}'.format(id))
+
     DF.to_csv(os.path.join(p_save,'MSE_by_smoothing.csv'),index=False)
 if __name__ == '__main__':
     batch_calc_MSE()
