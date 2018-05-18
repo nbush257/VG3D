@@ -256,5 +256,41 @@ def batch_calc_MSE():
                 print('Problem on {}'.format(id))
 
     DF.to_csv(os.path.join(p_save,'MSE_by_smoothing.csv'),index=False)
+
+def get_max_MSE():
+    """
+    Get the maximum MSE smoothing for all variables.
+    Save a csv in results
+    :return:
+    """
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    df = pd.read_csv(os.path.join(p_load,'MSE_by_smoothing.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+
+    max_smoothing= []
+    mean_smoothing = []
+    mode_smoothing = []
+    for cell in df.id.unique():
+        sub_df = df[df.id==cell]
+        idx = sub_df.drop(['id', 'smoothing','stim_responsive'], axis=1).idxmax(0)
+        max_smoothing.append(sub_df.smoothing[idx])
+
+    mean_smoothing = [np.mean(x) for x in max_smoothing]
+    mode_smoothing = [scipy.stats.mode(x)[0][0] for x in max_smoothing]
+
+    max_smoothing = np.concatenate(max_smoothing)
+    max_smoothing = np.reshape(max_smoothing,[len(df.id.unique()),8])
+    order = np.argsort(np.mean(max_smoothing,axis=1))
+    df_entropy =  pd.DataFrame()
+    df_entropy['mode_smoothing'] = mode_smoothing
+    df_entropy['mean_smoothing'] = mean_smoothing
+    df_entropy['id'] = df.id.unique()
+    df_entropy_all = pd.DataFrame(np.array(max_smoothing),
+                                  index=df.id.unique(),
+                                  columns=['Mx dot','My dot','Mz dot','Fx dot','Fy dot','Fz dot','TH dot','PH dot'])
+    df_entropy_all = df_entropy_all.reset_index()
+    df_entropy_all = df_entropy_all.rename(columns={'index': 'id'})
+    df_entropy_all.to_csv(os.path.join(p_load,'max_smoothing_MSE.csv'),index=False)
 if __name__ == '__main__':
     batch_calc_MSE()
