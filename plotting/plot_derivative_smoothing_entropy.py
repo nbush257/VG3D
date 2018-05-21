@@ -4,7 +4,7 @@ import plotVG3D
 import pandas as pd
 import os
 figsize = plotVG3D.set_fig_style()[1]
-sort_val = 'mode'# mean, median, or mode
+sort_val = 'mean'# mean, median, or mode
 not_used = ['mean','median','mode']
 not_used.pop(not_used.index('{}'.format(sort_val)))
 p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')

@@ -5,7 +5,6 @@ import sklearn
 import pandas as pd
 import neoUtils
 import numpy as np
-import numpy as np
 def get_components(fname,p_smooth=None):
     ''' Get the PCA comonents given a filename'''
     varlist = ['M', 'F', 'TH', 'PHIE']
@@ -139,13 +138,13 @@ def pairwise_canonical_angles(fname,num_dims=2):
     return(canonical_angles)
 
 
-def input_participation_ratios():
-    """
-    This function will caluclate the input space participation
-    ratio, that is-- how distributed are the input space loading factors
-    :return:
-    """
-    pass
+
+
+
+
+
+
+
 if __name__=='__main__':
     p_load = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO'
     p_save = r'C:\Users\guru\Box Sync\__VG3D\_deflection_trials\_NEO\results'

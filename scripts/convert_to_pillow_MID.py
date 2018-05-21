@@ -10,6 +10,39 @@ p_smooth =r'F:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
 p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX')
 min_entropy = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\min_smoothing_entropy.csv')
 p_load_2d = r'F:\VG3D\_rerun_with_pad\_deflection_trials\_NEO_2D'
+def get_arclength_bool(blk,unit_num):
+    fname = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\direction_arclength_FR_group_data.csv')
+    df = pd.read_csv(fname)
+    id = neoUtils.get_root(blk,unit_num)
+    sub_df = df[df.id==id]
+    use_flags = neoUtils.concatenate_epochs(blk)
+    if len(sub_df)!= len(use_flags):
+        raise ValueError('The number of contacts in the block {} do not match the number of contacts in the csv {}'.format(len(use_flags),len(sub_df)))
+    cbool = neoUtils.get_Cbool(blk)
+    distal_cbool = np.zeros_like(cbool)
+    medial_cbool = np.zeros_like(cbool)
+    proximal_cbool = np.zeros_like(cbool)
+    # loop through each contact and set the appropriate arclength boolean
+    for ii in range(len(use_flags)):
+        start = use_flags[ii].magnitude.astype('int')
+        dur = use_flags.durations[ii].magnitude.astype('int')
+        if sub_df.Arclength[ii] == 'Proximal':
+            proximal_cbool[start:start+dur]=1
+        elif sub_df.Arclength[ii] == 'Distal':
+            distal_cbool[start:start+dur]=1
+        elif sub_df.Arclength[ii] == 'Medial':
+            medial_cbool[start:start+dur]=1
+    arclengths = {'distal':distal_cbool,
+                  'medial':medial_cbool,
+                  'proximal':proximal_cbool}
+
+    return(arclengths)
+
+
+
+
+
+
 def smoothed_55ms():
     for f in glob.glob(os.path.join(p_load,'*.h5')):
         try:
@@ -27,8 +60,9 @@ def smoothed_55ms():
                 sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
                 y = neoUtils.get_rate_b(blk,unit_num)[1]
                 cbool = neoUtils.get_Cbool(blk)
+                arclengths = get_arclength_bool(blk,unit_num)
 
-                sio.savemat(outname,{'X':X,'y':y,'cbool':cbool})
+                sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'arclengths':arclengths})
         except:
             print('Problem with {}'.format(os.path.basename(f)))
 
@@ -59,8 +93,9 @@ def smoothed_best():
                 X = np.concatenate([X,Xdot],axis=1)
                 y = neoUtils.get_rate_b(blk,unit_num)[1]
                 cbool = neoUtils.get_Cbool(blk)
+                arclengths = get_arclength_bool(blk,unit_num)
 
-                sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':best_smooth.loc[root]})
+                sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':best_smooth.loc[root],'arclengths':arclengths})
         except:
             print('Problem with {}'.format(os.path.basename(f)))
 
@@ -90,7 +125,8 @@ def get_2D():
                 X = np.concatenate([X,Xdot],axis=1)
                 y = neoUtils.get_rate_b(blk,unit_num)[1]
                 cbool = neoUtils.get_Cbool(blk)
+                arclengths = get_arclength_bool(blk,unit_num)
 
-                sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':best_smooth.loc[root]})
+                sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':best_smooth.loc[root],'arclengths':arclengths})
         except:
             print('Problem with {}'.format(os.path.basename(f)))
