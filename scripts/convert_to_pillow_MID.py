@@ -6,15 +6,17 @@ import pandas as pd
 import GLM
 import scipy.io.matlab as sio
 p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
-p_smooth =r'F:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
+p_smooth =r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
 p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX')
 min_entropy = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\min_smoothing_entropy.csv')
-p_load_2d = r'F:\VG3D\_rerun_with_pad\_deflection_trials\_NEO_2D'
+p_load_2d = r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO_2D'
+
 def get_arclength_bool(blk,unit_num):
     fname = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\direction_arclength_FR_group_data.csv')
     df = pd.read_csv(fname)
     id = neoUtils.get_root(blk,unit_num)
     sub_df = df[df.id==id]
+    arclength_list = sub_df.Arclength.tolist()
     use_flags = neoUtils.concatenate_epochs(blk)
     if len(sub_df)!= len(use_flags):
         raise ValueError('The number of contacts in the block {} do not match the number of contacts in the csv {}'.format(len(use_flags),len(sub_df)))
@@ -26,21 +28,17 @@ def get_arclength_bool(blk,unit_num):
     for ii in range(len(use_flags)):
         start = use_flags[ii].magnitude.astype('int')
         dur = use_flags.durations[ii].magnitude.astype('int')
-        if sub_df.Arclength[ii] == 'Proximal':
+        if arclength_list[ii] == 'Proximal':
             proximal_cbool[start:start+dur]=1
-        elif sub_df.Arclength[ii] == 'Distal':
+        elif arclength_list[ii] == 'Distal':
             distal_cbool[start:start+dur]=1
-        elif sub_df.Arclength[ii] == 'Medial':
+        elif arclength_list[ii] == 'Medial':
             medial_cbool[start:start+dur]=1
     arclengths = {'distal':distal_cbool,
                   'medial':medial_cbool,
                   'proximal':proximal_cbool}
 
     return(arclengths)
-
-
-
-
 
 
 def smoothed_55ms():
@@ -66,6 +64,7 @@ def smoothed_55ms():
         except:
             print('Problem with {}'.format(os.path.basename(f)))
 
+
 def smoothed_best():
     df = pd.read_csv(min_entropy,index_col='id')
     smooth_vals = np.arange(5,100,10).tolist()
@@ -74,7 +73,7 @@ def smoothed_best():
     best_idx = pd.DataFrame({'idx':best_idx},index=best_smooth.index)
 
     for f in glob.glob(os.path.join(p_load,'*.h5')):
-        try:
+        #try:
             blk = neoUtils.get_blk(f)
             blk_smooth = GLM.get_blk_smooth(f,p_smooth)
             num_units = len(blk.channel_indexes[-1].units)
@@ -96,8 +95,9 @@ def smoothed_best():
                 arclengths = get_arclength_bool(blk,unit_num)
 
                 sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':best_smooth.loc[root],'arclengths':arclengths})
-        except:
-            print('Problem with {}'.format(os.path.basename(f)))
+        #except:
+            #print('Problem with {}'.format(os.path.basename(f)))
+
 
 def get_2D():
     df = pd.read_csv(min_entropy,index_col='id')
@@ -130,3 +130,4 @@ def get_2D():
                 sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':best_smooth.loc[root],'arclengths':arclengths})
         except:
             print('Problem with {}'.format(os.path.basename(f)))
+
