@@ -1,4 +1,5 @@
 function Run_fitIF(fname)
+parpool('local',20)
 PC_tgl=false;
 load(fname)
 npcs = 5;
@@ -11,7 +12,7 @@ if PC_tgl
     Xpc(cbool,:) = temp(:,1:npcs);
     X = Xpc;
 end
-X = X./nanstd(X);
+X = X./repmat(nanstd(X(cbool,:)),size(X,1),1);
 
 
 const_params = init_const_params();
