@@ -50,31 +50,50 @@ def input_participation_ratios():
     bigX = np.array(bigX)
     mX = np.mean(bigX**2,axis=0)
 
-    semX = np.std(bigX**2,axis=0)#/np.sqrt(bigX.shape[0])
-
+    semX = np.std(bigX**2,axis=0)/np.sqrt(bigX.shape[0])
+# ============================================
+    varlist = sub_df.drop(meta_list,axis=1).columns
     #mean eigenvector loadings across whiskers
-
+    plt.figure(figsize=((14,6)))
+    plt.subplot(121)
     plt.imshow(mX,cmap='gray')
     plt.colorbar()
-    plt.yticks(range(16),df.index.unique())
-    plt.xticks(range(16),sub_df.drop(meta_list,axis=1).columns,rotation=45)
+    plt.yticks(range(16),df.index.unique(),rotation=25)
+    plt.xticks(range(16),varlist,rotation=45)
     plt.title('Mean input space Eigenvector loading squared, all whiskers')
 
     #std eigenvector loadings across whiskers
+    plt.subplot(122)
     plt.imshow(semX,cmap='gray')
     plt.colorbar()
-    plt.yticks(range(16),df.index.unique())
+    plt.yticks(range(16),df.index.unique(),rotation=25)
     plt.xticks(range(16),sub_df.drop(meta_list,axis=1).columns,rotation=45)
     plt.title('STD of input space Eigenvector loading squared, all whiskers')
+    plt.tight_layout()
 
+# ============================================
+    df_3 = df.loc[df.index[:3]]
 
-# TODO: This plot is the mean eigen vector loadings across whiskers, but it needs to be edited a little bit more to be seful
+    wd = figsize[0]/1.5
+    ht = figsize[0]/3
+    plt.figure(figsize=(wd,ht))
+    w=0.25
     for ii in range(3):
-        plt.plot(mX[ii,:])
-        plt.fill_between(range(16),mX[ii,:].T-semX[ii,:].T,mX[ii,:]+semX[ii,:],
-                         alpha=0.3)
+        plt.bar(np.arange(16)+ii*w,mX[ii,:],width=w,yerr=semX[ii,:])
+    plt.legend(['Eigenvector {}'.format(x) for x in range(1,4)],bbox_to_anchor=(.75,0.85))
+#    for ii in range(3):j
+#        plt.plot(mX[ii,:],'o-')
+#        plt.fill_between(range(16),mX[ii,:].T-semX[ii,:].T,mX[ii,:]+semX[ii,:],
+#                         alpha=0.3,
+#                         )
+    plt.xticks(range(16),sub_df.drop(meta_list,axis=1).columns,rotation=45)
+    plt.ylabel('Loading value (max=1)')
+    sns.despine()
+    plt.tight_layout()
 
-
+# ============================
+    wd = figsize[0]/3
+    ht = figsize[0]/3
     plt.figure(figsize=(wd,ht))
     sns.distplot(NON_DERIV,
                  25,
@@ -87,6 +106,11 @@ def input_participation_ratios():
     plt.savefig(os.path.join(p_save,'eigenvectors_code_derivatives_or_nonderivatives_but_not_both.pdf'))
 
 
+def participation_K_vals():
+    #TODO: Load in all the K values
+    #TODO: Calculate the loading and mean loading on the K values
+    #TODO: plot the average +/- err loadings across neurons
+    pass
 
 
 
