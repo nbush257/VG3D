@@ -34,9 +34,9 @@ def get_arclength_bool(blk,unit_num):
             distal_cbool[start:start+dur]=1
         elif arclength_list[ii] == 'Medial':
             medial_cbool[start:start+dur]=1
-    arclengths = {'distal':distal_cbool,
-                  'medial':medial_cbool,
-                  'proximal':proximal_cbool}
+    arclengths = {'Distal':distal_cbool,
+                  'Medial':medial_cbool,
+                  'Proximal':proximal_cbool}
 
     return(arclengths)
 
@@ -61,8 +61,8 @@ def smoothed_55ms():
                 arclengths = get_arclength_bool(blk,unit_num)
 
                 sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'arclengths':arclengths})
-        except:
-            print('Problem with {}'.format(os.path.basename(f)))
+        except Exception as ex:
+            print('Problem with {}:{}'.format(os.path.basename(f),ex))
 
 
 def smoothed_best():
@@ -73,7 +73,7 @@ def smoothed_best():
     best_idx = pd.DataFrame({'idx':best_idx},index=best_smooth.index)
 
     for f in glob.glob(os.path.join(p_load,'*.h5')):
-        #try:
+        try:
             blk = neoUtils.get_blk(f)
             blk_smooth = GLM.get_blk_smooth(f,p_smooth)
             num_units = len(blk.channel_indexes[-1].units)
@@ -95,8 +95,8 @@ def smoothed_best():
                 arclengths = get_arclength_bool(blk,unit_num)
 
                 sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':best_smooth.loc[root],'arclengths':arclengths})
-        #except:
-            #print('Problem with {}'.format(os.path.basename(f)))
+        except Exception as ex:
+            print('Problem with {}:{}'.format(os.path.basename(f),ex))
 
 
 def get_2D():
