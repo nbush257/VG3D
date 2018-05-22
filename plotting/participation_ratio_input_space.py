@@ -33,8 +33,6 @@ def input_participation_ratios():
         bigX.append(X)
         # q is a metric for how distributed the loading on eigenvector u_i is.
         # If the loading is equal, q=1/N (1/16); if all on one dimension, equal to 1
-        #TODO: probably want to calculate dispersion across only quantites or derivatives,
-        #TODO: and maybe want to classify an eigenvector as quantity/derivative
         q = np.sum(X**4,axis=1)
         # non_deriv+derv = 1
         non_deriv = np.sum(X[:,:8]**2,axis=1)
@@ -45,6 +43,7 @@ def input_participation_ratios():
             plt.xlabel('Sum of non derivative loadings')
 
         NON_DERIV.append(non_deriv)
+    IS_NON_DERIV = np.greater(np.array(NON_DERIV),0.5)
     NON_DERIV = np.concatenate(NON_DERIV)
 
     bigX = np.array(bigX)
@@ -104,13 +103,83 @@ def input_participation_ratios():
     plt.ylabel('Eigenvector Frequency')
     plt.tight_layout()
     plt.savefig(os.path.join(p_save,'eigenvectors_code_derivatives_or_nonderivatives_but_not_both.pdf'))
+# ==============================
+# participation ratios
+# ==============================
+# ==============================
+# ==============================
+# CALCULATE THE PARTICIPATION RATIOS
+# calculates both the quantity or derivative subset, as well as the full
+# ==============================
+# ==============================
+df_q = pd.DataFrame()
+#loop over whiskers
+for ii,(X,label) in enumerate(zip(bigX,IS_NON_DERIV)):
+   # loop over eigenvectors
+    qsub=[]
+    qfull=[]
+    rep=[]
+    for val,u in zip(label,X):
+        # if the eigenvector is a Quantity representations
+        if val:
+            qsub.append(np.sum(u[:8]**4)/np.sum(u[:8]**2)**2)
+            rep.append('Quantity')
 
+        # if the eigenvector is a derivative representations
+        else:
+            qsub.append(np.sum(u[8:]**4)/np.sum(u[8:]**2)**2)
+            rep.append('Deriv')
+        # get the full participation ratio (will probably max out at 0.5 because the eigenvectors tend to be derivative or quantity only)
+        qfull.append(np.sum(u**4))
+    temp_df = pd.DataFrame(columns=['qsub','qfull','representation'])
+    temp_df['qsub']=qsub
+    temp_df['qfull']=qfull
+    temp_df['representation'] = rep
+    temp_df['Eigenvector'] = temp_df.index
+    temp_df['id'] = df.id.unique()[ii]
+    df_q = df_q.append(temp_df)
+df_q.to_csv(os.path.join(p_save,'participation_ratios_PCA.csv'),index=False)
 
-def participation_K_vals():
-    #TODO: Load in all the K values
-    #TODO: Calculate the loading and mean loading on the K values
-    #TODO: plot the average +/- err loadings across neurons
-    pass
+# ==============================
+# ==============================
+# plot the participation ratios
+df_q = pd.read_csv(os.path.join(p_save,'participation_ratios_PCA.csv'))
+wd = figsize[0]/3
+ht = figsize[0]/3
+plt.figure(figsize=(wd,ht))
 
+# quantities,edges1 = np.histogram(df_q[df_q.representation=='Quantity'].qsub,25)
+# deriv,edges2 = np.histogram(df_q[df_q.representation=='Deriv'].qsub,25)
+# edges1 = edges1[:-1]+np.mean(np.diff(edges1))/2.
+# edges2 = edges2[:-1]+np.mean(np.diff(edges2))/2.
+# plt.plot(edges1,quantities,':',
+#          lw=3)
+# plt.fill_between(edges1,np.zeros_like(edges1),quantities,
+#                  alpha=0.3)
+# plt.plot(edges2,deriv,':',
+#          lw=3)
+# plt.fill_between(edges2,np.zeros_like(edges1),deriv,
+#                  alpha=0.3)
+quantities = df_q[df_q.representation=='Quantity']
+deriv = df_q[df_q.representation=='Deriv']
+# plt.hist([quantities,deriv],histtype='bar',alpha=0.4,bins=25,lw=2)
+# plt.hist([quantities,deriv],
+#          histtype='stepfilled',
+#          lw=2,
+#          stacked=False,
+#          color=['r','b'],
+#          bins=25,
+#          alpha=0.5)
+sns.distplot(quantities.qsub,kde=False)
+sns.distplot(deriv.qsub,kde=False)
+plt.legend(['Quantities','Derivatives'],bbox_to_anchor=(0.5,0.8))
+plt.axvline(1/8.,color='k',ls=':')
 
+plt.xlabel('Participation Ratio of PCA inputs\n(Using only Quantity or Derivative)')
+sns.despine()
+plt.ylabel('Frequency\n(# eigenvectors)')
+plt.ylim(0,np.max(np.concatenate([quantities,deriv])))
+plt.xlim(0,1)
+plt.tight_layout()
+plt.savefig(os.path.join(p_save,'participation_ratios_PCA_hist.pdf'))
 

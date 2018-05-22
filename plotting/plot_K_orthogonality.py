@@ -62,13 +62,62 @@ plt.savefig(os.path.join(p_save,'average_K_loadings_raw.pdf'))
 # =================================================================
 
 df = pd.read_csv(os.path.join(p_load,r'pillow_MID_weights_orthogonalized_55ms.csv'),index_col=0)
+# ==========================
+# K vector participation ratios
+# ==========================
+wd = figsize[0]/3
+ht = figsize[0]/3
+df_pvt = pd.pivot_table(data=df,values=['Filter_0','Filter_1','Filter_2'],index=['var','id'])
+Q =np.power(df_pvt,4).groupby('id').sum()
+cmap = ['b','r','g']
 
+bins = np.arange(0,1,0.05)
+plt.figure(figsize=(wd,ht))
+for ii in range(3):
+    sns.distplot(Q['Filter_{}'.format(ii)],bins=bins,
+                 kde=False,
+                 hist_kws={'histtype':'stepfilled',
+                           'alpha':0.4,
+                           'lw':0},
+                 color=cmap[ii])
+plt.legend(['$K_{}$'.format(x) for x in range(3)])
+for ii in range(3):
+    sns.distplot(Q['Filter_{}'.format(ii)],bins=bins,
+                 kde=False,
+                 hist_kws={'histtype':'step',
+                           'alpha':1,
+                           'lw':2},
+                 color=cmap[ii])
+
+plt.xlim(0,1)
+plt.xlabel('Participation Ratio Value')
+plt.ylabel('Frequency (cells)')
+plt.axvline(1/16.,c='k',ls='--')
+sns.despine()
+plt.tight_layout()
+plt.savefig(os.path.join(p_save,'Participation_ratios_across_K_vectors.pdf'))
+
+# ==========================
+# Plot eigenvectors ratios
+# ==========================
+
+wd = figsize[0]/1.5
+ht = figsize[0]/1.25
+plt.figure(figsize=(wd,ht))
+idx = Q['Filter_0'].argsort()
 for ii in range(3):
     plt.subplot(1,3,ii+1)
     sub_df = pd.pivot_table(df[['id','var','Filter_{}'.format(ii)]],index='id',columns='var',values=['Filter_{}'.format(ii)])
     sub_df = sub_df.abs()
-    # order by participation ratio?
-    sns.heatmap(sub_df)
-    plt.xticks(rotation=45)
+    X = sub_df.as_matrix()
+    sns.heatmap(X[idx,:],
+                cbar=ii==2,
+                vmin=0,
+                vmax=1,
+                square=False)
+    plt.xticks(np.arange(16)+0.5,sub_df.columns.levels[1],rotation=90)
     plt.yticks([])
+    if ii==0:
+        plt.ylabel('Cell ID (ordered by participation ratio)')
+plt.tight_layout()
 plt.savefig(os.path.join(p_save,'All_K_values.pdf'))
