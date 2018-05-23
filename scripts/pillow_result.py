@@ -247,7 +247,7 @@ def orthogonality_of_K(fname,p_save=None):
         df_out['id'] = cell
         DF_OUT = DF_OUT.append(df_out)
     DF_OUT.to_csv(os.path.join(p_save,'MID55ms_weight_vector_norms.csv'),index=False)
-    np.save(os.path.join(p_save,'MID55ms_weight_dot_products_normed.npy'),ortho_mat)
+    np.save(os.path.join(p_save,'MID55ms_weight_dot_products_normed.npy'),ORTHO_MAT)
 
 
 
