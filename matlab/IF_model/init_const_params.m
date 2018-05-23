@@ -4,6 +4,6 @@ const_params.Vrest=-70;
 const_params.C=150;
 const_params.THETA_inf=-30;
 const_params.b=10e-3;
-const_params.nfilts=2;
+const_params.nfilts=3;
 const_params.van_rossum_tau=5;
-
+const_params.stochastic=true;
