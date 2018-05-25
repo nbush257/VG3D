@@ -1,4 +1,4 @@
-function pillow_MID_drop_w_arclengths(fname)
+function pillow_MID_drop_w_arclengths(fname,outname)
 %% ====  Set model parameters ==== %
 disp(fname)
 nkt = 1; % number of time bins to use for filter
@@ -11,7 +11,6 @@ K=10; %number of kfolds
 %% ============== Set Up inputs ============== %
 load(fname)
 disp(fname)
-outname = [fname(1:end-4) 'fitted_pillow_MID_drops_arclengths.mat'];
 arclengths_names = fieldnames(arclengths);
 if exist(outname)
     fprintf('%s already fit',outname)
