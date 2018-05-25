@@ -7,12 +7,13 @@ b_nlin = 4;
 ncos = 0;
 nfilts = 3; % number of filters to recover
 nlin_basis_funcs = 5; % When fitting nonlinearity, how many basis functions to use?
-K=10; %number of kfolds
+K=2; %number of kfolds
 %% ============== Set Up inputs ============== %
 load(fname)
 disp(fname)
 outname = [fname(1:end-4) 'fitted_pillow_MID_drops_arclengths.mat'];
 arclengths_names = fieldnames(arclengths);
+arclengths_names{length(arclengths_names)+1}='all';
 if exist(outname)
     fprintf('%s already fit',outname)
     return
@@ -39,9 +40,9 @@ drops = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1; % Full
     ];
 drops = logical(drops);
 drop_names = {'Full','Drop_moment','Drop_force','Drop_rotation','Drop_derivative','Just_moment','Just_force','Just_rotation','Just_derivative'};
-output = struct();
+output=struct();
 %% =============== Run Each Dropout ==================== %
-for arclength_idx=1:length(arclengths_names)+1
+for arclength_idx=1:length(arclengths_names)
     
     if arclength_idx>length(arclengths_names)
         arclength_used = 'all';
@@ -51,8 +52,9 @@ for arclength_idx=1:length(arclengths_names)+1
         ignore_bool = unpack_arclength_bool(arclengths,arclength_used);
     end
     
-    
-    for drop_idx=1:size(drops,1)
+    output_arclength = {};
+    parfor drop_idx=1:size(drops,1)
+        s = struct();
         try
             model_name = [drop_names{drop_idx} '_' arclength_used];
             
@@ -75,6 +77,7 @@ for arclength_idx=1:length(arclengths_names)+1
             pp0=struct();
             
             % == Set up temporal basis for representing filters
+            ktbasprs = struct();
             ktbasprs.neye = neye; % number of "identity"-like basis vectors
             ktbasprs.ncos = ncos; % number of raised cosine basis vectors
             ktbasprs.kpeaks = [0 nkt/2+4]; % location of 1st and last basis vector bump
@@ -97,6 +100,7 @@ for arclength_idx=1:length(arclengths_names)+1
             %% == 4. ML/MID 1:  ML estimator for LNP with CBF (cylindrical basis func) nonlinearity
             
             % Set parameters for cylindrical basis funcs (CBFs) and initialize fit
+            fstructCBF=struct();
             fstructCBF.nfuncs = nlin_basis_funcs; % number of basis functions for nonlinearity
             fstructCBF.epprob = [.01, 0.99]; % cumulative probability outside outermost basis function peaks
             fstructCBF.nloutfun = @logexp1;  % log(1+exp(x)) % nonlinear stretching function
@@ -141,20 +145,26 @@ for arclength_idx=1:length(arclengths_names)+1
             r = smoothts(double(y)','g',length(y),16);
             R = corrcoef(r(cbool),yhat(cbool));
             fprintf('Correlation between rate and prediction: %f\n',R(1,2))
+            %% ================== Put data into temporary cell arry ==== %
+            s.yhat = yhat;
+            s.yhat_avg = yhat_avg;
+            s.ppcbf = ppcbf;
+            s.ppcbf_avg = ppcbf_avg;
+            s.fstructCBF = fstructCBF;
+            s.pp0 = pp0;
+            s.R = R;
+            s.model_name=model_name;
+            
             %% ===================== Put data in struct ============= %
-            output.(model_name).yhat = yhat;
-            output.(model_name).yhat_avg = yhat_avg;
-            output.(model_name).ppcbf = ppcbf;
-            output.(model_name).ppcbf_avg = ppcbf_avg;
-            output.(model_name).fstructCBF = fstructCBF;
-            output.(model_name).pp0 = pp0;
-            output.(model_name).R = R;
-            output.inputs = drop_names{drop_idx};
-            output.arclength = arclength_used;
+            output_arclength{drop_idx}=s;
         catch
             fprintf('Problem with %s',model_name)
+            output_arclength{drop_idx}=struct();
         end
+        
     end
+    output.(arclengths_names{arclength_idx}).model_output=output_arclength;
+    
     
 end
 %%
