@@ -68,6 +68,80 @@ def best_deriv_drops_r(fname):
     df = df.rename(columns=model_map)
     return(df)
 
+def best_deriv_drops_arclengths_r(fname):
+    """
+    Takes a matfile that has fitted pillow drops,
+        calculates the correlation between the predicted spiking and the
+        observed rate at different smoothing, and outputs a pandas dataframe
+        with the rates and kernels
+    :param fname: a matfile with the pillow results
+    :return df: a dataframe where each column is a different model correlation,
+                    along with kernel sizes and id
+    """
+    dat = sio.loadmat(fname,struct_as_record=False,squeeze_me=True)
+    output = dat['output']
+    y = dat['y'].ravel()
+    cbool = dat['cbool'].astype('bool').ravel()
+    R = {}
+    inputs_list =[]
+    arclength_list =[]
+    kernels=[]
+    for model in output._fieldnames:
+        print('\t'+model)
+        arclength = output.__getattribute__(model).arclengths
+        if len(arclength)==0 or arclength == 'all':
+            compare_bool = cbool
+        else:
+            arclength_bool = dat['arclengths'].__getattribute__(arclength).astype('bool')
+            compare_bool = np.logical_and(arclength_bool,cbool)
+
+        inputs_list.append(output.__getattribute__(model).inputs)
+        arclength_list.append(arclength)
+        yhat = output.__getattribute__(model).yhat
+        R[model],_,kernels = get_corr(y,yhat,compare_bool)
+
+    R['kernels'] = kernels
+    df = pd.DataFrame(R)
+    df['id'] = os.path.basename(fname)[:10]
+    # df['inputs'] = inputs_list
+    # df['arclengths'] = arclength_list
+    return(df)
+
+
+def batch_best_deriv_drops_arclengths():
+    """
+    Get the Pearson correlations for the pillow drop analyses for all files
+    Saves to a csv in the results directory
+    :return None:
+
+    """
+
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv\arclength_drops')
+
+    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    DF = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*arclengths.mat')):
+        print('Working on {}'.format(os.path.basename(f)[:10]))
+        df = best_deriv_drops_arclengths_r(f)
+        DF = DF.append(df)
+    DF.to_csv(os.path.join(p_save,'pillow_best_deriv_arclengths_drop_correlations.csv'),index=False)
+    return 0
+
+def reshape_arclength_df(fname,p_save):
+    df = pd.read_csv(fname)
+    is_stim = pd.read_csv(os.path.join(os.environ['BOX_PATH'], r'__VG3D\_deflection_trials\_NEO\results\cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+    df = df[df.stim_responsive]
+    df = df.drop('stim_responsive',axis=1)
+    df = df.melt(id_vars=['id','kernels'],var_name='Model',value_name='Correlation')
+    match_pattern = '(all)|(medial)|(proximal)|(distal)'
+    arclength_list = [re.search(match_pattern,x).group() for x in df['Model']]
+    input_list = [x[:re.search(match_pattern,x).start()-1]for x in df['Model']]
+    df['Arclength']=arclength_list
+    df['Inputs']=input_list
+    df.to_csv(os.path.join(p_save,'pillow_best_deriv_arclengths_drop_correlations_melted.csv'),index=False)
+    return(0)
+
 
 def best_deriv_2D_r(fname):
     """
