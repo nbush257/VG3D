@@ -65,6 +65,37 @@ def smoothed_55ms():
             print('Problem with {}:{}'.format(os.path.basename(f),ex))
 
 
+def smoothed_mechanics():
+    """
+    use this function to grab the data from the smoothed mechanics and the
+    derivative of the same
+    """
+
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        try:
+            blk = neoUtils.get_blk(f)
+            blk_smooth = GLM.get_blk_smooth(f,p_smooth)
+            num_units = len(blk.channel_indexes[-1].units)
+            for unit_num in range(num_units):
+                varlist = ['M', 'F', 'TH', 'PHIE']
+                root = neoUtils.get_root(blk,unit_num)
+                print('Working on {}'.format(root))
+                if root not in best_idx.index:
+                    print('{} not found in best smoothing derivative data'.format(root))
+                    continue
+                outname = os.path.join(p_save,'best_smoothing_deriv\\{}_smooth_mechanicsX.mat'.format(root))
+
+                X,Xdot = GLM.get_deriv(blk,blk_smooth,varlist,smoothing=[5])
+                X = X[:,:,5]
+                X = np.concatenate([X,Xdot],axis=1)
+                y = neoUtils.get_rate_b(blk,unit_num)[1]
+                cbool = neoUtils.get_Cbool(blk)
+                arclengths = get_arclength_bool(blk,unit_num)
+
+                sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':best_smooth.loc[root],'arclengths':arclengths})
+        except Exception as ex:
+            print('Problem with {}:{}'.format(os.path.basename(f),ex))
+
 def smoothed_best():
     df = pd.read_csv(min_entropy,index_col='id')
     smooth_vals = np.arange(5,100,10).tolist()
