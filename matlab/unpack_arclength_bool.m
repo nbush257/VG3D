@@ -1,5 +1,5 @@
 function ignore_bool = unpack_arclength_bool(arclengths,arclength_used)
-ignore_bool = zeros(size(arclengths.proximal));
+ignore_bool = zeros(size(arclengths.Proximal));
 arclength_names = fieldnames(arclengths);
 for ii=1:length(arclength_names)
     if ~strcmp(arclength_names{ii},lower(arclength_used))

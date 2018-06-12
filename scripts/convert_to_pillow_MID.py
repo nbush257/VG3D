@@ -5,14 +5,23 @@ import numpy as np
 import pandas as pd
 import GLM
 import scipy.io.matlab as sio
-p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
-p_smooth =r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
-p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX')
-min_entropy = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\min_smoothing_entropy.csv')
-p_load_2d = r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO_2D'
+if 'BOX_PATH' in os.environ:
+    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
+    p_smooth =r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
+    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX')
+    min_entropy = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\min_smoothing_entropy.csv')
+    p_load_2d = r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO_2D'
+else:
+    p_load ='/projects/p30144/_VG3D/deflections/_NEO'
+    p_smooth = p_load
+    p_save =os.path.join(p_load,'pillow')
+    p_load_2d = '/projects/p30144/_VG3D/deflections/_NEO_2D'
 
-def get_arclength_bool(blk,unit_num):
-    fname = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\direction_arclength_FR_group_data.csv')
+
+def get_arclength_bool(blk,unit_num,fname=None):
+    # fname is the name of the csv file with arclength groupings
+    if fname is None:
+        fname = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\direction_arclength_FR_group_data.csv')
     df = pd.read_csv(fname)
     id = neoUtils.get_root(blk,unit_num)
     sub_df = df[df.id==id]
@@ -65,6 +74,37 @@ def smoothed_55ms():
             print('Problem with {}:{}'.format(os.path.basename(f),ex))
 
 
+def smoothed_mechanics():
+    """
+    use this function to grab the data from the smoothed mechanics and the
+    derivative of the same
+    """
+
+    f_arclength = '/projects/p30144/_VG3D/deflections/direction_arclength_FR_group_data.csv'
+    f_list =glob.glob(os.path.join(p_load,'*NEO.h5'))
+    f_list.sort()
+
+    for f in f_list:
+        try:
+            blk = neoUtils.get_blk(f)
+            blk_smooth = GLM.get_blk_smooth(f,p_smooth)
+            num_units = len(blk.channel_indexes[-1].units)
+            for unit_num in range(num_units):
+                varlist = ['M', 'F', 'TH', 'PHIE']
+                root = neoUtils.get_root(blk,unit_num)
+                print('Working on {}'.format(root))
+                outname = os.path.join(p_save,'{}_smooth_mechanicsX.mat'.format(root))
+
+                Xdot,X = GLM.get_deriv(blk,blk_smooth,varlist,smoothing=[5])
+                X = np.concatenate([X,Xdot],axis=1)
+                y = neoUtils.get_rate_b(blk,unit_num)[1]
+                cbool = neoUtils.get_Cbool(blk)
+                arclengths = get_arclength_bool(blk,unit_num,fname=f_arclength)
+
+                sio.savemat(outname,{'X':X,'y':y,'cbool':cbool,'smooth':55,'arclengths':arclengths})
+        except Exception as ex:
+            print('Problem with {}:{}'.format(os.path.basename(f),ex))
+
 def smoothed_best():
     df = pd.read_csv(min_entropy,index_col='id')
     smooth_vals = np.arange(5,100,10).tolist()
@@ -72,7 +112,7 @@ def smoothed_best():
     best_idx = [smooth_vals.index(x) for x in best_smooth]
     best_idx = pd.DataFrame({'idx':best_idx},index=best_smooth.index)
 
-    for f in glob.glob(os.path.join(p_load,'*.h5')):
+    for f in glob.glob(os.path.join(p_load,'*NEO.h5')):
         try:
             blk = neoUtils.get_blk(f)
             blk_smooth = GLM.get_blk_smooth(f,p_smooth)
