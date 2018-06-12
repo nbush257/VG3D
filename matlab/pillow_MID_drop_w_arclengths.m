@@ -148,8 +148,8 @@ for arclength_idx=1:length(arclengths_names)+1
             output.(model_name).fstructCBF = fstructCBF;
             output.(model_name).pp0 = pp0;
             output.(model_name).R = R;
-            output.inputs = drop_names{drop_idx};
-            output.arclength = arclength_used;
+            output.(model_name).inputs = drop_names{drop_idx};
+            output.(model_name).iarclength = arclength_used;
         catch
             fprintf('Problem with %s',model_name)
         end
