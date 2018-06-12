@@ -263,7 +263,7 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
         sub_idx = np.where(idx == dir)[0]
         sub_trains = [trains[ii] for ii in sub_idx]
         if norm_dur:
-            t_edges_temp, PSTH_temp, w = spikeAnalysis.get_time_stretched_PSTH(sub_trains)
+            t_edges_temp, PSTH_temp, w = spikeAnalysis.get_time_stretched_PSTH(sub_trains,nbins=25)
         else:
             spt = spikeAnalysis.trains2times(sub_trains, concat_tgl=True)
             PSTH_temp, t_edges_temp = np.histogram(spt, bins=np.arange(0, 500, float(binsize)))
