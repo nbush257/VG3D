@@ -1,4 +1,5 @@
 import sklearn
+import re
 import pandas as pd
 import elephant
 import scipy
@@ -108,15 +109,15 @@ def best_deriv_drops_arclengths_r(fname):
     return(df)
 
 
-def batch_best_deriv_drops_arclengths():
+def batch_best_deriv_drops_arclengths(save_name,p_load=None):
     """
     Get the Pearson correlations for the pillow drop analyses for all files
     Saves to a csv in the results directory
     :return None:
 
     """
-
-    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv\arclength_drops')
+    if p_load is None:
+        p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv\arclength_drops')
 
     p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
     DF = pd.DataFrame()
@@ -124,7 +125,7 @@ def batch_best_deriv_drops_arclengths():
         print('Working on {}'.format(os.path.basename(f)[:10]))
         df = best_deriv_drops_arclengths_r(f)
         DF = DF.append(df)
-    DF.to_csv(os.path.join(p_save,'pillow_best_deriv_arclengths_drop_correlations.csv'),index=False)
+    DF.to_csv(os.path.join(p_save,'{}.csv'.format(save_name)),index=False)
     return 0
 
 def reshape_arclength_df(fname,p_save):
@@ -134,12 +135,13 @@ def reshape_arclength_df(fname,p_save):
     df = df[df.stim_responsive]
     df = df.drop('stim_responsive',axis=1)
     df = df.melt(id_vars=['id','kernels'],var_name='Model',value_name='Correlation')
-    match_pattern = '(all)|(medial)|(proximal)|(distal)'
+    match_pattern = '(all)|(Medial)|(Proximal)|(Distal)'
     arclength_list = [re.search(match_pattern,x).group() for x in df['Model']]
     input_list = [x[:re.search(match_pattern,x).start()-1]for x in df['Model']]
     df['Arclength']=arclength_list
     df['Inputs']=input_list
-    df.to_csv(os.path.join(p_save,'pillow_best_deriv_arclengths_drop_correlations_melted.csv'),index=False)
+    outname=os.path.splitext(os.path.basename(fname))[0]
+    df.to_csv(os.path.join(p_save,'{}_melted.csv'.format(outname)),index=False)
     return(0)
 
 
