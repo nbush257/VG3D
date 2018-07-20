@@ -21,7 +21,10 @@ else:
 def get_arclength_bool(blk,unit_num,fname=None):
     # fname is the name of the csv file with arclength groupings
     if fname is None:
-        fname = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\direction_arclength_FR_group_data.csv')
+        if 'BOX_PATH' in os.environ:
+            fname = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results\direction_arclength_FR_group_data.csv')
+        else:
+            fname =os.path.join('/projects/p30144/_VG3D/deflections/direction_arclength_FR_group_data.csv')
     df = pd.read_csv(fname)
     id = neoUtils.get_root(blk,unit_num)
     sub_df = df[df.id==id]
@@ -50,8 +53,12 @@ def get_arclength_bool(blk,unit_num,fname=None):
     return(arclengths)
 
 
-def smoothed_55ms():
-    for f in glob.glob(os.path.join(p_load,'*.h5')):
+def smoothed(smooth_idx=9):
+    smooth_vals = np.arange(5,100,10)
+    sub_p_save = os.path.join(p_save,'{}ms_smoothing_deriv'.format(smooth_vals[smooth_idx]))
+    if not os.path.isdir(sub_p_save):
+        os.mkdir(sub_p_save)
+    for f in glob.glob(os.path.join(p_load,'*NEO.h5')):
         try:
             blk = neoUtils.get_blk(f)
             blk_smooth = GLM.get_blk_smooth(f,p_smooth)
@@ -60,9 +67,10 @@ def smoothed_55ms():
                 varlist = ['M', 'F', 'TH', 'PHIE']
                 root = neoUtils.get_root(blk,unit_num)
                 print('Working on {}'.format(root))
-                outname = os.path.join(p_save,'55ms_smoothing_deriv\\{}_pillowX.mat'.format(root))
+                outname =os.path.join(sub_p_save,'{}ms_{}_pillowX.mat'.format(smooth_vals[smooth_idx],root))
+
                 X = GLM.create_design_matrix(blk,varlist)
-                Xdot = GLM.get_deriv(blk,blk_smooth,varlist,[5])[0]
+                Xdot = GLM.get_deriv(blk,blk_smooth,varlist,[smooth_idx])[0]
                 X = np.concatenate([X,Xdot],axis=1)
                 sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
                 y = neoUtils.get_rate_b(blk,unit_num)[1]

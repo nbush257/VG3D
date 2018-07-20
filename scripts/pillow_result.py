@@ -108,7 +108,7 @@ def best_deriv_drops_arclengths_r(fname):
     return(df)
 
 
-def batch_best_deriv_drops_arclengths():
+def batch_best_deriv_drops_arclengths(p_load=None,p_save=None,df_name=None):
     """
     Get the Pearson correlations for the pillow drop analyses for all files
     Saves to a csv in the results directory
@@ -116,15 +116,21 @@ def batch_best_deriv_drops_arclengths():
 
     """
 
-    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv\arclength_drops')
+    if p_load is None:
+        p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv\arclength_drops')
 
-    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    if p_save is None:
+        p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+
+    if df_name is None:
+        df_name = 'pillow_best_deriv_arclength_drop_correlations'
+
     DF = pd.DataFrame()
     for f in glob.glob(os.path.join(p_load,'*arclengths.mat')):
         print('Working on {}'.format(os.path.basename(f)[:10]))
         df = best_deriv_drops_arclengths_r(f)
         DF = DF.append(df)
-    DF.to_csv(os.path.join(p_save,'pillow_best_deriv_arclengths_drop_correlations.csv'),index=False)
+    DF.to_csv(os.path.join(p_save,'{}.csv'.format(df_name)),index=False)
     return 0
 
 def reshape_arclength_df(fname,p_save):
