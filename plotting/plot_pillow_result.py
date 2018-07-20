@@ -349,12 +349,33 @@ plt.tight_layout()
 # =======================================
 # ====== Arclength Comparisons ==========
 # =======================================
-smooth_param=32
+smooth_param=16
 df_arclength = pd.read_csv(os.path.join(p_results,'pillow_best_deriv_arclengths_drop_correlations_melted.csv'))
 sub_df = df_arclength[(df_arclength['kernels']==smooth_param) &
-                      # (df_arclength['Inputs'].isin(['Full','Drop_moment','Drop_rotation','Drop_force']) &
+                      (df_arclength['Inputs'].isin(['Full','Drop_moment','Drop_rotation','Drop_force'])) &
                       df_arclength['Arclength'].isin(['all','distal','proximal'])]
 
 sns.factorplot(x='Arclength',y='Correlation',data=sub_df,hue='Inputs',
-               # hue_order=['Full','Drop_moment','Drop_force','Drop_rotation'],
-               )
+               hue_order=['Full','Drop_moment','Drop_force','Drop_rotation'],
+               kind='violin',
+               palette='colorblind',
+               size=5,
+               aspect=1.5,
+               legend=False)
+
+plt.legend(bbox_to_anchor=(1,0.5))
+plt.tight_layout()
+
+sub_df = df_arclength[(df_arclength['kernels']==smooth_param) &
+                      (df_arclength['Inputs'].isin(['Full','Just_moment','Just_rotation','Just_force'])) &
+                      df_arclength['Arclength'].isin(['all','distal','proximal'])]
+sns.factorplot(x='Arclength',y='Correlation',data=sub_df,hue='Inputs',
+               hue_order=['Full','Just_moment','Just_force','Just_rotation'],
+               kind='violin',
+               palette='colorblind',
+               size=5,
+               aspect=1.5,
+               legend=False)
+
+plt.legend(bbox_to_anchor=(1,0.5))
+plt.tight_layout()
