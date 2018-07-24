@@ -5,7 +5,7 @@ import sklearn
 import pandas as pd
 import neoUtils
 import numpy as np
-def get_components(fname,p_smooth=None):
+def get_components(fname,p_smooth=None,smooth_idx=9):
     ''' Get the PCA comonents given a filename'''
     varlist = ['M', 'F', 'TH', 'PHIE']
     blk = neoUtils.get_blk(fname)
@@ -14,7 +14,7 @@ def get_components(fname,p_smooth=None):
     X = GLM.create_design_matrix(blk,varlist)
     if p_smooth is not None:
         blk_smooth = GLM.get_blk_smooth(fname,p_smooth)
-        Xdot = GLM.get_deriv(blk,blk_smooth,varlist,smoothing=[9])[0]
+        Xdot = GLM.get_deriv(blk,blk_smooth,varlist,smoothing=[smooth_idx])[0]
         X = np.concatenate([X,Xdot],axis=1)
     X[np.invert(cbool),:]=0
     X = neoUtils.replace_NaNs(X,'pchip')
