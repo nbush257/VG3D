@@ -163,7 +163,7 @@ def best_deriv_2D_r(fname):
     return(df)
 
 
-def batch_best_deriv_drops():
+def batch_best_deriv_drops(outname,p_load =None):
     """
     Get the Pearson correlations for the pillow drop analyses for all files
     Saves to a csv in the results directory
@@ -171,14 +171,15 @@ def batch_best_deriv_drops():
 
     """
 
-    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv')
+    if p_load is None:
+        p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv')
     p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
     DF = pd.DataFrame()
-    for f in glob.glob(os.path.join(p_load,'*drops.mat')):
+    for f in glob.glob(os.path.join(p_load,'*.mat')):
         print('Working on {}'.format(os.path.basename(f)[:10]))
         df = best_deriv_drops_r(f)
         DF = DF.append(df)
-    DF.to_csv(os.path.join(p_save,'pillow_best_deriv_drop_correlations.csv'),index=False)
+    DF.to_csv(os.path.join(p_save,'{}.csv'.format(outname)),index=False)
     return 0
 
 

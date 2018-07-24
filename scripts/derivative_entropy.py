@@ -8,6 +8,8 @@ import os
 import glob
 import GLM
 import scipy
+import quantities as pq
+import elephant
 def joint_pr_given_s(var1,var2,sp,cbool,bins=None,min_obs=5):
 
     ''' Returns the noramlized response histogram of two variables
@@ -213,6 +215,7 @@ def tuning_curve_MSE(var_in,sp,cbool,bins=None,min_obs=5):
         MSE.append(mse)
 
     return(MSE)
+
 def calc_MSE(fname,p_smooth,unit_num):
     blk = neoUtils.get_blk(fname)
     blk_smooth = GLM.get_blk_smooth(fname,p_smooth)
@@ -292,5 +295,62 @@ def get_max_MSE():
     df_entropy_all = df_entropy_all.reset_index()
     df_entropy_all = df_entropy_all.rename(columns={'index': 'id'})
     df_entropy_all.to_csv(os.path.join(p_load,'max_smoothing_MSE.csv'),index=False)
+
+def calc_corr(fname,p_smooth,unit_num):
+    blk = neoUtils.get_blk(fname)
+    blk_smooth = GLM.get_blk_smooth(fname,p_smooth)
+    varlist = ['M', 'F', 'TH', 'PHIE']
+    component_list = ['{}_dot'.format(x) for x in [
+        'Mx','My','Mz','Fx','Fy','Fz','TH','PHI'
+    ]]
+    root = neoUtils.get_root(blk,unit_num)
+    Xdot = GLM.get_deriv(blk,blk_smooth,varlist)[0]
+    Xdot = np.reshape(Xdot,[-1,8,10])
+    windows = np.arange(5,100,10)
+
+    sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(0)]
+    cbool = neoUtils.get_Cbool(blk)
+    corr = []
+    R = []
+    # loop over variables
+    for ii in range(Xdot.shape[1]):
+        var_in = Xdot[:,ii,:].copy()
+        # loop over smoothing
+        r = []
+        for jj in range(var_in.shape[1]):
+            kernel = elephant.kernels.GaussianKernel(pq.ms*windows[jj])
+            FR = elephant.statistics.instantaneous_rate(sp,pq.ms,kernel=kernel)
+            idx = np.isfinite(var_in[:,jj])
+            r.append(scipy.corrcoef(var_in[:,jj].ravel()[idx],
+                               FR.magnitude.ravel()[idx])[0,1])
+        R.append(r)
+    R = np.array(R)
+    df = pd.DataFrame(data=R, columns=['{}ms'.format(x) for x in windows])
+    df.index=component_list
+    return(df)
+
+def get_corr_with_FR():
+    p_load =os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO')
+    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    p_smooth = r'K:\VG3D\_rerun_with_pad\_deflection_trials\_NEO\smooth'
+
+    DF = pd.DataFrame()
+    for ii,f in enumerate(glob.glob(os.path.join(p_load,'*.h5'))):
+        if ii==0:
+            continue
+        blk = neoUtils.get_blk(f)
+        num_units = len(blk.channel_indexes[-1].units)
+        for unit_num in range(num_units):
+            id =  neoUtils.get_root(blk,unit_num)
+            print('Working on {}'.format(id))
+            try:
+                df = calc_corr(f,p_smooth,unit_num)
+                df['id'] = id
+                DF = DF.append(df)
+            except:
+                print('Problem on {}'.format(id))
+    DF.to_csv(os.path.join(p_save,'derivative_corr_by_smoothing.csv'),index=True)
+
 if __name__ == '__main__':
-    batch_calc_MSE()
+    get_corr_with_FR()
+

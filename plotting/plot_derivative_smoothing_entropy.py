@@ -36,3 +36,24 @@ plt.tight_layout()
 # Plot histogram of mean, median, mode
 # ====================================
 
+# ==================================
+# Analysis of correlations:
+# We correlated the smoothed derivative with the rate smoothed at the same level
+# ==================================
+df = pd.read_csv(os.path.join(p_load,'derivative_corr_by_smoothing.csv'),index_col=0)
+for col in df.columns:
+    if col=='id':
+        continue
+    df= df.rename(columns={col:int(col[:-2])})
+
+
+MAX_CORR = []
+for cell in df['id'].unique():
+    sub_df = df[df['id']==cell]
+    sub_df.drop('id',axis=1,inplace=True)
+    # sns.heatmap(data=sub_df,cmap='RdBu_r',center=0)
+    max_corr = sub_df.abs().idxmax(axis=1).as_matrix()
+    MAX_CORR.append(max_corr)
+
+MAX_CORR = np.array(MAX_CORR)
+m  = scipy.stats.mode(MAX_CORR,axis=1)[0]
