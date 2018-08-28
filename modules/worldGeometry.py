@@ -250,7 +250,7 @@ def get_contact_direction(blk,plot_tgl=True):
 
     # map the used indexes to the output so that we dont misalign contacts with their group index
     direction_index[good_contacts]=new_idx
-    return(direction_index,med_angle)
+    return(direction_index,med_angle,projection_angle)
 
 
 def get_onset_velocity(blk,plot_tgl=False):
