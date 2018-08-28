@@ -5,7 +5,6 @@ from scipy.io.matlab import loadmat
 from scipy.io import wavfile
 import scipy
 import subprocess
-from neo.io import PickleIO as PIO
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -19,7 +18,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import seaborn as sns
 from matplotlib.ticker import FormatStrFormatter
 import pywt
-sns.set()
+sns.set_style('ticks')
 
 RATNUM = '2017_02'
 WHISKER_ID = 'B1'
