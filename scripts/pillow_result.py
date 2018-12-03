@@ -32,6 +32,50 @@ def get_corr(y,yhat,cbool,kernel_sizes=None):
 
     return(R,rates,kernel_sizes)
 
+def deriv_analysis(fname):
+    """
+    Takes a matfile that has fitted pillow drops,
+        calculates the correlation between the predicted spiking and the
+        observed rate at different smoothing, and outputs a pandas dataframe
+        with the rates and kernels
+    :param fname: a matfile with the pillow results
+    :return df: a dataframe where each column is a different model correlation,
+                    along with kernel sizes and id
+    """
+    dat = sio.loadmat(fname,struct_as_record=False,squeeze_me=True)
+    output = dat['output']
+    y = dat['y'].ravel()
+    cbool = dat['cbool'].astype('bool').ravel()
+    R = {}
+
+    for model in output._fieldnames:
+        print('\t'+model)
+        yhat = output.__getattribute__(model).yhat
+        R[model],_,kernels = get_corr(y,yhat,cbool)
+
+    R['kernels'] = kernels
+    df = pd.DataFrame(R)
+    df['id'] = os.path.basename(fname)[:10]
+    return(df)
+
+def batch_deriv_analysis(outname,p_load =None):
+    """
+    Get the Pearson correlations for the pillow drop analyses for all files
+    Saves to a csv in the results directory
+    :return None:
+
+    """
+
+    if p_load is None:
+        p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv')
+    p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
+    DF = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.mat')):
+        print('Working on {}'.format(os.path.basename(f)[:10]))
+        df = deriv_analysis(f)
+        DF = DF.append(df)
+    DF.to_csv(os.path.join(p_save,'{}.csv'.format(outname)),index=False)
+    return 0
 
 def best_deriv_drops_r(fname):
     """
@@ -65,7 +109,7 @@ def best_deriv_drops_r(fname):
 
     R['kernels'] = kernels
     df = pd.DataFrame(R)
-    df['id'] = os.path.basename(fname)[:10]
+    df['id'] = os.path.basename(fname)[5:15]
     df = df.rename(columns=model_map)
     return(df)
 
@@ -175,8 +219,8 @@ def batch_best_deriv_drops(outname,p_load =None):
         p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\best_smoothing_deriv')
     p_save = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\results')
     DF = pd.DataFrame()
-    for f in glob.glob(os.path.join(p_load,'*.mat')):
-        print('Working on {}'.format(os.path.basename(f)[:10]))
+    for f in glob.glob(os.path.join(p_load,'*drops.mat')):
+        print('Working on {}'.format(os.path.basename(f)[5:15]))
         df = best_deriv_drops_r(f)
         DF = DF.append(df)
     DF.to_csv(os.path.join(p_save,'{}.csv'.format(outname)),index=False)
@@ -202,8 +246,7 @@ def batch_best_deriv_2D():
     return 0
 
 
-def batch_mat_to_dataframes():
-    p_load = os.path.join(os.environ['BOX_PATH'],r'__VG3D\_deflection_trials\_NEO\pillowX\55ms_smoothing_deriv')
+def batch_mat_to_dataframes(model_name,p_load, is_drops=True):
     varnames = ['Mx','My','Mz','Fx','Fy','Fz','TH','PHI',
                 'Mxdot', 'Mydot', 'Mzdot', 'Fxdot', 'Fydot', 'Fzdot', 'THdot', 'PHIdot']
 
@@ -212,8 +255,8 @@ def batch_mat_to_dataframes():
     DF_pillow_weights = pd.DataFrame()
     DF_pillow_weights_normed = pd.DataFrame()
     pca_all_whiskers = []
-    for f in glob.glob(os.path.join(p_load,'*MID.mat')):
-        id = os.path.basename(f)[:10]
+    for f in glob.glob(os.path.join(p_load,'*.mat')):
+        id = os.path.basename(f)[5:15]
         print('Working on {}'.format(id))
 
         # Load data
@@ -257,15 +300,15 @@ def batch_mat_to_dataframes():
         pca_all_whiskers.append(weight_dict['pc'])
 
 
-    DF_performance.to_csv(os.path.join(p_load,'pillow_MID_performance.csv'))
-    DF_canonical.to_csv(os.path.join(p_load,'pillow_MID_canonical_angles_weights_against_pca.csv'))
-    DF_pillow_weights.to_csv(os.path.join(p_load,'pillow_MID_weights_raw.csv'))
-    DF_pillow_weights_normed.to_csv(os.path.join(p_load,'pillow_MID_weights_orthogonalized.csv'))
+    DF_performance.to_csv(os.path.join(p_load,'pillow_MID_performance_{}.csv'.format(model_name)))
+    DF_canonical.to_csv(os.path.join(p_load,'pillow_MID_canonical_angles_weights_against_pca_{}.csv'.format(model_name)))
+    DF_pillow_weights.to_csv(os.path.join(p_load,'pillow_MID_weights_raw_{}.csv'.format(model_name)))
+    DF_pillow_weights_normed.to_csv(os.path.join(p_load,'pillow_MID_weights_orthogonalized_{}.csv'.format(model_name)))
 
-    np.save(os.path.join(p_load,'input_pca.npy'),pca_all_whiskers)
+    np.save(os.path.join(p_load,'input_pca_{}.npy'.format(model_name)),pca_all_whiskers)
 
 
-def get_canonical_angles(fname):
+def get_canonical_angles(fname,is_drops=True):
     """
     Calculate the canonical angles between the PCA decomposition
     of the input space and the Pillow filter vectors
@@ -276,7 +319,10 @@ def get_canonical_angles(fname):
     X = dat['X']
     cbool = dat['cbool'].astype('bool')
     weights = {}
-    K = dat['ppcbf_avg'].k
+    if is_drops:
+        K = dat['output'].Full.ppcbf_avg.k
+    else:
+        K = dat['ppcbf_avg'].k
     Ko = scipy.linalg.orth(K)
     pc = sklearn.decomposition.PCA()
     pc.fit(X[cbool,:])
@@ -290,8 +336,7 @@ def get_canonical_angles(fname):
     weights['canonical_angles']=canonical_angles
     return(weights)
 
-
-def orthogonality_of_K(fname,p_save=None):
+def orthogonality_of_K(fname,outname,p_save=None):
     """
     This function calculates how orthogonal each of the individual
     filters of the pillow model are from each other
@@ -323,8 +368,8 @@ def orthogonality_of_K(fname,p_save=None):
         df_out['norm2'] = [norms[2]]
         df_out['id'] = cell
         DF_OUT = DF_OUT.append(df_out)
-    DF_OUT.to_csv(os.path.join(p_save,'MID55ms_weight_vector_norms.csv'),index=False)
-    np.save(os.path.join(p_save,'MID55ms_weight_dot_products_normed.npy'),ORTHO_MAT)
+    DF_OUT.to_csv(os.path.join(p_save,'{}.csv'.format(outname)),index=False)
+    np.save(os.path.join(p_save,'{}.npy'.format(outname)),ORTHO_MAT)
 
 
 
