@@ -386,7 +386,7 @@ def get_analog_contact_slices(var, contact, slice2array=True):
             var_slice.append(var[start_idx:stop_idx,:])
     # if the contact input is an epoch
     elif type(contact)==neo.core.epoch.Epoch:
-        for start_idx,dur in zip(contact,contact.durations):
+        for start_idx,dur in zip(contact.times,contact.durations):
             var_slice.append(var[int(start_idx):int(start_idx+dur),:])
 
 
