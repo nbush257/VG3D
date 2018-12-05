@@ -16,6 +16,10 @@ if exist(outname)
 	fprintf('%s already fit',outname)
     return
 end
+if ~license('test','financial_toolbox')
+    fprintf('no financial toolbox found')
+    return
+end
 
 disp(size(X))
 y = y(:);

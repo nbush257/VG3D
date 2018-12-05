@@ -4,7 +4,7 @@ function allT = batch_compare_K_size(spec)
 % dimensionality of the K weights.
 %% 
 file_list = dir(spec);
-data_path = fileparts(spec)
+data_path = fileparts(spec);
 allT = table;
 
 for ii = 1:length(file_list)
