@@ -105,7 +105,10 @@ def best_deriv_drops_r(fname):
     for model in output._fieldnames:
         print('\t'+model)
         yhat = output.__getattribute__(model).yhat
-        R[model],_,kernels = get_corr(y,yhat,cbool)
+        if np.all(np.isnan(yhat)):
+            R[model] = np.nan
+        else:
+            R[model],_,kernels = get_corr(y,yhat,cbool)
 
     R['kernels'] = kernels
     df = pd.DataFrame(R)
