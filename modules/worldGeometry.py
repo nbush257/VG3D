@@ -7,7 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import sklearn
 import quantities as pq
-
+import plotVG3D
 def get_delta_angle(blk):
     '''
     This function returns the changes in world angle with respect to the first frame of contact.
@@ -36,10 +36,7 @@ def center_angles(th_contacts,ph_contacts):
         if np.all(np.isnan(th)) or np.all(np.isnan(ph)):
             continue
 
-        first_index = np.min((
-            np.where(np.isfinite(th))[0][0],
-            np.where(np.isfinite(ph))[0][0])
-        )
+        first_index = np.where(np.logical_and(np.isfinite(th), np.isfinite(ph)))[0][0]
 
         th-=th[first_index]
         ph-=ph[first_index]
@@ -90,38 +87,49 @@ def get_radial_distance_group(blk,plot_tgl=False):
     S = neoUtils.get_var(blk,'S')
     use_flags = neoUtils.concatenate_epochs(blk,-1)
     S_contacts = neoUtils.get_analog_contact_slices(S,use_flags)
-    S_med = np.nanmedian(S_contacts,axis=0)[:,np.newaxis]
-
+    S_med = np.nanmedian(S_contacts,axis=0)
+    mask = [np.isfinite(S_med).ravel()]
+    S_med_masked = S_med[mask]
+    if len(S_med_masked)<10:
+        return(-2)
     clf3 = mixture.GaussianMixture(n_components=3,n_init=100)
     clf2 = mixture.GaussianMixture(n_components=2,n_init=100)
-    clf3.fit(S_med)
-    clf2.fit(S_med)
-    if clf2.aic(S_med)<clf3.aic(S_med):
+    clf3.fit(S_med_masked)
+    clf2.fit(S_med_masked)
+    if clf2.aic(S_med_masked)<clf3.aic(S_med_masked):
         n_clusts=2
-        idx = clf2.predict(S_med)
+        idx = clf2.predict(S_med_masked)
     else:
         n_clusts=3
-        idx = clf3.predict(S_med)
+        idx = clf3.predict(S_med_masked)
 
     S_clusts = []
     for ii in xrange(n_clusts):
-        S_clusts.append(np.nanmedian(S_med[idx==ii]))
+        S_clusts.append(np.nanmedian(S_med_masked[idx==ii]))
     ordering = np.argsort(S_clusts)
     idx = np.array([np.where(x == ordering)[0][0] for x in idx])
     S_clusts.sort()
     if np.any(np.isnan(S_clusts)):
         return(-1)
+    idx_out = np.zeros(S_med.shape[0],dtype='int')
+    idx_out[mask] = idx
+    bin_edges = np.histogram(S_med_masked,50)[1][:-1]
     if plot_tgl:
-        cc = sns.color_palette("Blues", n_clusts+3)
+        sns.set_style('ticks')
         for ii in xrange(n_clusts):
-            sns.distplot(S_med[idx==ii],color = cc[ii+3])
+            if n_clusts==2:
+                cc = plotVG3D.arclength_group_colors()[0::2]
+            else:
+                cc = plotVG3D.arclength_group_colors()
+            sns.distplot(S_med[idx==ii],bins=bin_edges,color = cc[ii],kde=False)
         ax = plt.gca()
         ax.set_ylabel('Number of contacts')
         ax.set_xlabel('Arclength at contact (m)')
         ax.grid('off', axis='x')
         ax.set_title('{}'.format(neoUtils.get_root(blk,0)))
+        sns.despine()
 
-    return(idx)
+    return(idx_out)
 
 
 def get_contact_direction(blk,plot_tgl=True):
@@ -146,13 +154,14 @@ def get_contact_direction(blk,plot_tgl=True):
                     med_angle: median angle in the theta/phi centered space
     
     '''
-    def reduce_deflection(blk, num_pts):
+    def reduce_deflection(th_contacts,ph_contacts, num_pts):
         '''
         Grabs a subset of theta/phi points from a deflection.
         Probably not useful. Defaults to error
 
-        :param blk: 
-        :param num_pts: 
+        :param th_contacts: should be centered already
+        :param ph_contact: should be centered already
+        :param num_pts:
         :param pad: 
         :return: 
         '''
@@ -160,8 +169,6 @@ def get_contact_direction(blk,plot_tgl=True):
         # if True:
         #     raise Exception('This function is not finished, and is likely not useful. NEB 20180109')
 
-        th_contacts, ph_contacts = get_delta_angle(blk)
-        center_angles(th_contacts, ph_contacts)
 
         X = np.empty([th_contacts.shape[1], num_pts * 2])
         for ii in xrange(ph_contacts.shape[-1]):
@@ -183,18 +190,22 @@ def get_contact_direction(blk,plot_tgl=True):
     n_contacts = len(use_flags)
     if n_contacts<50:
         return(-1,-1)
-    direction_index = np.empty(n_contacts,dtype='int');
-    direction_index[:] = np.nan
+    direction_index = np.zeros(n_contacts,dtype='int')
+
 
     # get contact angles and zero them to the start of contact
     th_contacts,ph_contacts = get_delta_angle(blk)
     center_angles(th_contacts,ph_contacts)
+    good_contacts = np.invert(np.logical_or(np.all(np.isnan(th_contacts),axis=0),
+                                np.all(np.isnan(ph_contacts),axis=0)))
 
+    th_contacts = th_contacts[:,good_contacts]
+    ph_contacts = ph_contacts[:,good_contacts]
     # get max angles
     th_max,ph_max = get_max_angular_displacement(th_contacts,ph_contacts)
 
     # get PCA decomp
-    X = reduce_deflection(blk,10)
+    X = reduce_deflection(th_contacts,ph_contacts,10)
     pca = sklearn.decomposition.PCA()
     Y = pca.fit_transform(X)
     Y1,Y2 = norm_angles(Y[:,0],Y[:,1])
@@ -203,9 +214,6 @@ def get_contact_direction(blk,plot_tgl=True):
     # group angles into a design matrix and get the direction of the deflection [-pi:pi]
     projection_angle = np.arctan2(np.deg2rad(ph_max),np.deg2rad(th_max))[:,np.newaxis]
 
-    good_contacts = np.all(np.isfinite(Y), axis=1)
-    Y = Y[good_contacts,:] # remove nan groups
-    projection_angle = projection_angle[good_contacts].ravel()
 
     # Cluster the groups
     clf = mixture.GaussianMixture(n_components=8,n_init=100)
@@ -242,7 +250,7 @@ def get_contact_direction(blk,plot_tgl=True):
 
     # map the used indexes to the output so that we dont misalign contacts with their group index
     direction_index[good_contacts]=new_idx
-    return(direction_index,med_angle)
+    return(direction_index,med_angle,projection_angle)
 
 
 def get_onset_velocity(blk,plot_tgl=False):
@@ -254,6 +262,8 @@ def get_onset_velocity(blk,plot_tgl=False):
     :param plot_tgl: 
     :return: 
     '''
+    if True:
+        raise Warning('This code is probably depricated by newer onset section algorithms')
     use_flags = neoUtils.concatenate_epochs(blk, -1)
     durations = use_flags.durations
 
@@ -309,40 +319,120 @@ def get_onset_velocity(blk,plot_tgl=False):
     return(V_onset,V_offset,D_max)
 
 
-def CP_to_world(blk):
-    '''
-    Transforms the contact point back into the world reference frame,
-    accounting for both the rotation and bending of the whisker.
+def get_last_time(var):
+    """
+    Given a sliced variable, return the index of the last point of contact in each contact
+    Since the variable is a matrix, and the data are irregular in length, this extracts the
+    last time point in which the contact was valid
 
-    :param blk:
-    :return CP_world:
-    '''
-    CP = neoUtils.get_var(blk,'CP',keep_neo=False)[0]
-    PH = neoUtils.get_var(blk,'PHIE',keep_neo=False)[0]
-    PH = np.deg2rad(PH)
-    TH = neoUtils.get_var(blk, 'TH',keep_neo=False)[0]
-    TH =np.deg2rad(TH)
-    Z = neoUtils.get_var(blk,'ZETA',keep_neo=False)[0]
-    # Z = np.deg2rad(Z)
-    BP = neoUtils.get_var(blk, 'BPm',keep_neo=False)[0]
-    cbool = neoUtils.get_Cbool(blk)
+    :param var: [time x N-contacts X N-dims] matrix of the variable to get the last time from
+    :return: 1D array of indices in which the contact ends
+    """
+    var = check_input_sliced(var,idx=None)
+    last_time = [np.where(np.all(np.isfinite(var[:,ii,:]),axis=1))[0][-1]
+                 for ii in range(var.shape[1])]
+    return(last_time)
 
-    CP_world = np.empty_like(CP); CP_world[:]=np.nan
-    def RX(theta):
-        c = np.cos(theta)[0]
-        s = np.sin(theta)[0]
-        return(np.array([[1,0,0],[0,c,-s],[0,s,c]]))
-    def RY(theta):
-        c = np.cos(theta)[0]
-        s = np.sin(theta)[0]
-        return(np.array([[c,0,s],[0,1,0],[-s,0,c]]))
-    def RZ(theta):
-        c = np.cos(theta)[0]
-        s = np.sin(theta)[0]
-        return(np.array([[c,-s,0],[s,c,0],[0,0,1]]))
-    for ii in xrange(CP.shape[0]):
-        if cbool[ii]:
-            ROT = np.linalg.multi_dot([RX(-Z[ii]),RY(-PH[ii]),RZ(-TH[ii])])
-            CP_world[ii,:] = np.dot(np.linalg.inv(ROT),CP[ii,:][:,np.newaxis]).T
-            CP_world[ii,:]+=BP[ii,:]
-    return CP_world
+
+def check_input_sliced(var, idx=None):
+    """
+    This is a utility function to make sure the inputs are proper when getting
+    the onset and offset slices
+
+    :param var: The sliced variable we want to get the section of
+    :param idx: The index for each contact at which to reference
+    :return var: eturns the variable reshaped if needed. Else it is unchanged
+    """
+    if idx is not None:
+        if var.shape[1]!=len(idx):
+            raise ValueError('Number of contacts in the onset do not match '
+                             'the number of contacts in the variable')
+    if var.ndim==2:
+        var = var[:,:,np.newaxis]
+    elif var.ndim==1:
+        raise ValueError('var cannot be one dimensional')
+    return(var)
+
+
+def get_onset(var,onset,to_array=True):
+    """
+    Get the variable sliced just the onset portion,
+    as defined by the onset
+    :param var: The contact sliced variable for which you want to extract the onset
+                    Must be [time x n-contacts x n-dim]
+    :param onset: a list of time indices which signal the
+                    last time index of the onset period
+    :param to_array: A boolean of whether to return a list of arrays or a nan padded array
+
+    :return: the sliced variable. The first point is the onset of contact, the last point
+                    is the end of the defined onset period
+    """
+    var = check_input_sliced(var,onset)
+    if to_array:
+        var_out = np.empty([np.max(onset), var.shape[1], var.shape[2]])
+        var_out[:] = np.nan
+        for ii,idx in enumerate(onset):
+            var_out[:idx,ii,:] = var[:idx,ii,:]
+    else:
+        var_out = []
+        for ii,idx in enumerate(onset):
+            var_out.append(var[:idx,ii,:])
+
+    return(var_out)
+
+
+def get_offset(var,offset,to_array=True):
+
+    """
+    Get the variable sliced just the offset portion,
+    as defined by the offset
+    :param var: The contact sliced variable for which you want to extract the onset
+                    Must be [time x n-contacts x n-dim]
+    :param onset: a list of time indices which signal the
+                    first time index of the offset period
+    :param to_array: A boolean of whether to return a list of arrays or a nan padded array
+
+    :return: the sliced variable. The first point is the beginning of the offset,
+             the last point is the end of the contact
+    """
+    var = check_input_sliced(var,offset)
+    last_time = get_last_time(var)
+
+    if to_array:
+        var_out = np.empty([np.max(last_time-offset)+1,var.shape[1],var.shape[2]])
+        var_out[:] = np.nan
+        for ii,idx in enumerate(offset):
+            var_out[:last_time[ii]+1,ii,:] = var[idx:last_time[ii]+1,ii,:]
+    else:
+        var_out = []
+        for ii,idx in enumerate(offset):
+            var_out.append(var[idx:last_time[ii]+1,ii,:])
+
+    return(var_out)
+
+
+def onset_offset_time_derive(var,idx,mode='onset'):
+    """
+    Get the temporal derivative of the onset or offset periods
+    given onset or offset indices.
+    :param var: Sliced variable
+    :param idx: onset or offset indices (relative to contact start)
+    :param mode: get the onset or offset values
+    :return: an [N-contacts x N-dimensions] martix of derivatives
+    """
+
+    var = check_input_sliced(var,idx)
+
+    if mode=='onset':
+        var_onset = get_onset(var,idx,to_array=False)
+        var_dot = np.array([(x[-1]-x[0])/len(x) for x in var_onset])
+
+    elif mode=='offset':
+        var_offset = get_offset(var,idx,to_array=False)
+        var_dot = np.array([(x[-1]-x[0])/len(x) for x in var_offset])
+
+    return var_dot
+
+
+
+

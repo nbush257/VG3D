@@ -35,10 +35,18 @@ def anova_analysis(blk,unit_num=0):
     idx_dir,med_dir = worldGeometry.get_contact_direction(blk,plot_tgl=False)
     FR = spikeAnalysis.get_contact_sliced_trains(blk,unit_num)[0].magnitude
     idx_S = worldGeometry.get_radial_distance_group(blk,plot_tgl=False)
+    # Create arclength groups
+    if idx_S is -1:
+        print('Only one arclength group')
+        arclength_labels=['Proximal']
+    elif idx_S is -2:
+        print('Too few contacts')
+        return(-1,-1)
     if np.max(idx_S) == 2:
         arclength_labels = ['Proximal', 'Medial', 'Distal']
-    else:
+    elif np.max(idx_S)==1:
         arclength_labels = ['Proximal', 'Distal']
+
     idx_S = [arclength_labels[x] for x in idx_S]
     df = pd.DataFrame()
     directions = pd.DataFrame()
@@ -59,97 +67,6 @@ def anova_analysis(blk,unit_num=0):
     aov_table['id'] = root
 
     return df, aov_table
-
-
-def plot_anova(df,save_loc=None):
-    sns.set_style('white')
-    arclength_labels = list(set(df['Arclength']))
-    direction_labels = list(set(df['Direction']))
-    arclength_labels.sort(reverse=True)
-    id = df['id'][0]
-    med_dir = df[['Direction', 'med_dir']].drop_duplicates().sort_values('Direction')['med_dir'].as_matrix()
-    fig,ax = plt.subplots()
-
-    sns.boxplot(x='Direction', y='Firing_Rate',hue='Arclength',data=df,palette='Blues',notch=False,width=0.5)
-    ax.set_title('{}'.format(id))
-    ax.legend(bbox_to_anchor=(.9, 1.1))
-    plt.draw()
-    sns.despine(offset=10, trim=True)
-    if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_dir_box.png'.format(id)), dpi=300)
-
-    # plot just by direction
-    fig, ax = plt.subplots()
-    sns.boxplot(x='Direction',y='Firing_Rate',data=df,palette='husl',width=0.6)
-    ax.set_title('{}'.format(id))
-    sns.despine(offset=10, trim=False)
-    if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_dir_box.png'.format(id)), dpi=300)
-
-    #plot just by arclength
-    fig, ax = plt.subplots()
-    sns.boxplot(x='Arclength', y='Firing_Rate', data=df, palette='Blues',width=0.6)
-    ax.set_title('{}'.format(id))
-    sns.despine(offset=10, trim=False)
-    if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_box.png'.format(id)), dpi=300)
-
-    # Factor Plot
-    sns.factorplot(x='Direction',y='Firing_Rate',col='Arclength',data=df,kind='box',width=0.5)
-    if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_factor.png'.format(id)), dpi=300)
-
-    # Plot polar by arclength
-    f = plt.figure()
-    ax = f.add_subplot(111,projection='polar')
-    mean_by_category = df.groupby(['Direction', 'Arclength'])['Firing_Rate'].mean()
-    sem_by_category = df.groupby(['Direction', 'Arclength'])['Firing_Rate'].sem()
-    cmap = sns.color_palette('Blues_r', len(arclength_labels))
-
-    for ii,arclength in enumerate(arclength_labels):
-        idx = mean_by_category[:,arclength].index
-        x = med_dir[idx]
-        x = np.concatenate([x,[x[0]]])
-        y = mean_by_category[:, arclength].as_matrix()
-        y = np.concatenate([y,[y[0]]])
-        error = sem_by_category[:,arclength].as_matrix()
-        error = np.concatenate([error,[error[0]]])
-        # ax.plot(x, y ,alpha=0.1)
-        ax.fill_between(x, y - error, y + error,color=cmap[ii])
-    ax.legend(arclength_labels,bbox_to_anchor=(1.2, 1.1))
-    if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_polar.png'.format(id)), dpi=300)
-
-    # plot direction selectivity by arclength
-    theta_pref = pd.Series()
-    DSI = pd.Series()
-    for arclength in arclength_labels:
-        idx = mean_by_category[:, arclength].index
-        x = med_dir[idx]
-        theta_pref[arclength],DSI[arclength] = varTuning.get_PD_from_hist(x,mean_by_category[:,arclength])
-    if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_dir_selectivity_by_S.png'.format(id)), dpi=300)
-
-    # plot arclength selectivity by direction?
-    cmap = sns.color_palette('husl',8)
-    tuning_by_dir = pd.Series()
-    for direction in direction_labels:
-        try:
-            tuning_by_dir[str(direction)] =  mean_by_category[direction,'Proximal']/mean_by_category[direction,'Distal']
-        except:
-            tuning_by_dir[str(direction)] = np.nan
-
-    f = plt.figure()
-    plt.polar()
-    plt.plot(med_dir,tuning_by_dir,'ko')
-    ax = plt.gca()
-    theta_fill = np.arange(0, 2, 1. / 360) * np.pi
-    plt.fill_between(theta_fill,1.,alpha=0.2,color='r')
-    plt.fill_between(theta_fill, 1.,ax.get_rmax(), alpha=0.2,color='g')
-    ax.spines['polar'].set_visible(False)
-    ax.set_title('Arclength tuning\nby direction group {}'.format(id))
-    if save_loc is not None:
-        plt.savefig(os.path.join(save_loc, '{}_S_selectivity_by_dir.png'.format(id)), dpi=300)
 
 
 def onset_tuning(blk,unit_num=0,use_zeros=True):
@@ -223,6 +140,8 @@ def onset_tuning(blk,unit_num=0,use_zeros=True):
 
         for direction in xrange(np.max(dir_idx)+1):
             temp_idx = df['dir_idx'] == direction
+            if not np.any(temp_idx):
+                continue
             fit = stats.linregress(df[var][temp_idx], df['FR'][temp_idx])._asdict()
             fits_direction.loc[idx2, 'id'] = id
             fits_direction.loc[idx2, 'var'] = var
@@ -250,9 +169,17 @@ def batch_onset_tunings(p_load,p_save):
             DF_ALL = DF_ALL.append(df_all)
             DF_DIRECTION = DF_DIRECTION.append(df_direction)
 
-    # DF.to_csv(os.path.join(p_save,'onset_data.csv'))
-    DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'))
-    # DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'))
+    # get_stim_responsive columns
+    stim_responsive_file = os.path.join(p_save,'cell_id_stim_responsive.csv')
+    if os.path.isfile(stim_responsive_file):
+        is_stim = pd.read_csv(stim_responsive_file)
+        DF = DF.merge(is_stim, on='id')
+        DF_ALL = DF_ALL.merge(is_stim, on='id')
+        DF_DIRECTION = DF_DIRECTION.merge(is_stim, on='id')
+
+    DF.to_csv(os.path.join(p_save,'onset_data.csv'),index=False)
+    DF_ALL.to_csv(os.path.join(p_save, 'onset_tuning_by_cell.csv'),index=False)
+    DF_DIRECTION.to_csv(os.path.join(p_save, 'onset_tuning_by_cell_and_direction.csv'),index=False)
 
 
 def batch_anova(p_load,p_save):
@@ -272,8 +199,11 @@ def batch_anova(p_load,p_save):
         for ii in xrange(num_units):
             try:
                 df_temp,aov_temp = anova_analysis(blk,unit_num=ii)
+                if df_temp is -1:
+                    continue
                 df = df.append(df_temp)
                 aov = aov.append(aov_temp)
+
                 # plot_anova(df_temp,save_loc=p_save)
             except:
                 print('Problem with {}c{}'.format(os.path.basename(f),ii))
@@ -281,6 +211,30 @@ def batch_anova(p_load,p_save):
         plt.close('all')
     df.to_csv(os.path.join(p_save,'direction_arclength_FR_group_data.csv'))
     aov.to_csv(os.path.join(p_save, 'direction_arclength_FR_group_anova.csv'))
+
+def get_anova_pvals(p_load):
+    """
+    Takes direction_arclength_FR_group_anova and
+    saves a dataframe of pvalues for significant cells only
+    :param df:
+    :return:
+    """
+    df = pd.read_csv(os.path.join(p_load,'direction_arclength_FR_group_anova.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+    df= df[df.stim_responsive]
+    df_pvt = pd.pivot_table(df,
+                            values='PR(>F)',
+                            index='id',
+                            columns='test')
+    df_pvt = df_pvt.rename(index=str,columns={'C(Arclength)':'Arclength',
+                                     'C(Arclength):C(Direction)':'Interaction',
+                                     'C(Direction)':'Direction'})
+    df_pvt = df_pvt[['Arclength','Direction','Interaction']]
+    df_pvt.to_csv(os.path.join(p_load,'anova_pvals.csv'))
+    print('Saved to {}'.format(os.path.join(p_load,'anova_pvals.csv')))
+    return None
+
 
 
 def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
@@ -309,7 +263,7 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
         sub_idx = np.where(idx == dir)[0]
         sub_trains = [trains[ii] for ii in sub_idx]
         if norm_dur:
-            t_edges_temp, PSTH_temp, w = spikeAnalysis.get_time_stretched_PSTH(sub_trains)
+            t_edges_temp, PSTH_temp, w = spikeAnalysis.get_time_stretched_PSTH(sub_trains,nbins=25)
         else:
             spt = spikeAnalysis.trains2times(sub_trains, concat_tgl=True)
             PSTH_temp, t_edges_temp = np.histogram(spt, bins=np.arange(0, 500, float(binsize)))
@@ -324,62 +278,16 @@ def get_PSTH_by_dir(blk,unit_num=0,norm_dur=True,binsize=5*pq.ms):
     return(PSTH,t_edges,max_fr,med_angle)
 
 
-def plot_onset_tunings(df_by_cell,df_by_direction,p_save,save_tgl=True):
-    cmap = sns.color_palette('Paired',6)
-    df_by_cell = df_by_cell[df_by_cell.stim_responsive]
-    df_by_direction = df_by_direction[df_by_direction.stim_respoisive]
-    cell_idx = df_by_cell['id'].unique()
-    dfr = df_by_cell[['id','var','rvalue']]
-    is_sig = df_by_cell['pvalue']<0.05
-    dfr.loc[np.invert(is_sig),'rvalue']=0
-    dfr_pvt = dfr.pivot_table('rvalue',['id','var'])
-    dfr_pvt = dfr_pvt.unstack()
-    sns.heatmap(dfr_pvt,vmin=-1.,vmax=1.,cmap=sns.color_palette('RdBu_r',128))
-    ax = plt.gca()
-    ax.yaxis.set_major_locator(ticker.MultipleLocator(5))
-    plt.yticks(rotation=0)
-    plt.xticks(rotation=60)
-    plt.draw()
-
-    # df_by_dir must be the reshaped
-    df_tunings = pd.DataFrame(columns=['id','var','theta_k','DSI'])
-    for cell in cell_idx:
-        f = plt.figure()
-        ax = f.add_subplot(111,projection='polar')
-        sub_cell = df_by_direction.loc[cell]
-        if not np.any(sub_cell['stim_responsive']):
-            continue
-        varnames = sub_cell.index.get_level_values(0).unique()
-        for ii,var in enumerate(varnames):
-            R = sub_cell.loc[var].rvalue.abs()
-            theta = sub_cell.loc[var].med_dir
-            theta_k,DSI = varTuning.get_PD_from_hist(theta,R)
-            df_tunings = df_tunings.append(pd.Series([cell,var,theta_k,DSI],index=['id','var','theta_k','DSI']),ignore_index=True)
-
-            ax.annotate('',
-                        xy=(theta_k, DSI ),
-                        xytext=(0, 0),
-                        arrowprops={'arrowstyle': 'simple,head_width=1', 'linewidth': 1, 'color': cmap[ii],'alpha':0.5})
-            ax = plt.gca()
-            ax.set_rlim(0,1)
-            ax.set_title('{}'.format(cell))
-
-        if save_tgl:
-            plt.savefig(os.path.join(p_save,'{}_onset_tuning.png'.format(cell)),dpi=300)
-        plt.close('all')
-        df_tunings.to_csv(os.path.join(p_save,'onset_tuning_direction_strength.csv'))
-
-
 def batch_peak_PSTH_time(p_load,p_save):
     df = pd.DataFrame()
     for f in glob.glob(os.path.join(p_load,'*.h5')):
         blk = neoUtils.get_blk(f)
         print('Working on {}'.format(os.path.basename(f)))
         num_units = len(blk.channel_indexes[-1].units)
-        _,med_dir = worldGeometry.get_contact_direction(blk,plot_tgl=False)
+        # _,med_dir = worldGeometry.get_contact_direction(blk,plot_tgl=False)
         for unit_num in xrange(num_units):
             id = neoUtils.get_root(blk,unit_num)
-            PSTH,t_edges,max_fr = get_PSTH_by_dir(blk,unit_num)
+            PSTH,t_edges,max_fr,med_dir = get_PSTH_by_dir(blk,unit_num)
             if PSTH is -1:
                 continue
             peak_time = [t_edges[x][np.nanargmax(PSTH[x])] for x in
@@ -392,8 +300,57 @@ def batch_peak_PSTH_time(p_load,p_save):
     df.to_csv(os.path.join(p_save,'peak_PSTH_time.csv'))
     print('done')
 
+def DSI_by_cell(p_load):
+    """
+    calculate the directional selectivity for all cells
+    collapsing across all other variables
+    :param p_load: location in which the input data live
+                    inputs data from direction_arclength_FR_data
+    :return: None, saves a csv
+    """
 
-def directional_selectivity_by_arclength(df,p_save):
+    # load data in and use only good cells
+    df = pd.read_csv(os.path.join(p_load,r'direction_arclength_FR_group_data.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,r'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+    df= df[df.stim_responsive]
+
+    # init population list
+    theta_pref = []
+    DSI = []
+    id_idx=[]
+    cell_list = df.id.unique()
+
+    for cell in cell_list:
+        # get medians by cell
+        sub_df = df[df.id==cell]
+        medians = sub_df.groupby('Direction').median()
+        theta = medians.med_dir
+        FR = medians.Firing_Rate
+
+        # calculate the angular stats and append to population lists
+        theta_pref_sub, DSI_sub= varTuning.get_PD_from_hist(theta,FR)
+        DSI.append(DSI_sub)
+        theta_pref.append(theta_pref_sub)
+        id_idx.append(cell)
+    # map population lists to dataframe outpu and save
+    DF = pd.DataFrame()
+    DF['DSI']=DSI
+    DF['theta_pref']=theta_pref
+    DF['id']=id_idx
+    DF = DF.fillna(0)
+    DF.to_csv(os.path.join(p_load,'DSI_by_cell.csv'),index=False)
+def directional_selectivity_by_arclength(p_load):
+    """
+    takes a dataframe that has the arclength, direction, and FR data
+    :param df:
+    :param p_load:
+    :return:
+    """
+    df = pd.read_csv(os.path.join(p_load,r'direction_arclength_FR_group_data.csv'))
+    # is_stim = pd.read_csv(os.path.join(p_load,r'cell_id_stim_responsive.csv'))
+    # df = df.merge(is_stim,on='id')
+    # df= df[df.stim_responsive]
     theta_pref = []
     DSI = []
     arclength_idx=[]
@@ -416,38 +373,8 @@ def directional_selectivity_by_arclength(df,p_save):
     DF_out['Arclength'] = arclength_idx
     DF_out['theta_pref'] = theta_pref
     DF_out['DSI'] = DSI
-    DF_out.to_csv(os.path.join(p_save,'DSI_by_arclength.csv'))
 
-
-def plot_all_direction_selectivity(df):
-    '''
-    Plots to direction selectivity index stratified on arclength, uses DSI_by_arclength.csv.
-    :param df:
-    :return:
-    '''
-    df = df.pivot(index='id',columns='Arclength')
-    df2 = df[df.theta_pref.Medial.isnull()]
-    df2 = df2.drop('Medial', level=1,axis=1)
-    df = df.dropna()
-    df_norm = df['DSI'].subtract(df['DSI']['Proximal'],axis='rows').sort_values(by='Distal')
-    df2_norm = df2['DSI'].subtract(df2['DSI']['Proximal'],axis='rows').sort_values(by='Distal')
-    sns.heatmap(df_norm,vmin=-1,vmax=1,cmap='RdBu_r',linewidth=0.2,linecolor=[0.3,0.3,0.3])
-    plt.yticks(rotation=0)
-    plt.tight_layout()
-    plt.figure()
-    sns.heatmap(df2_norm,vmin=-1,vmax=1,cmap='RdBu_r',linewidth=0.2,linecolor=[0.3,0.3,0.3])
-    plt.yticks(rotation=0)
-    plt.tight_layout()
-    plt.draw()
-
-
-def plot_onset_tuning_population(df):
-    '''
-    plot the population results of onset tuning strengths for different variables. uses onset_tuning_direction_strength_reshape.xlsx
-
-    :param df:
-    :return:
-    '''
+    DF_out.to_csv(os.path.join(p_load, 'DSI_by_arclength.csv'), index=False)
 
 
 def get_adaptation_df(p_load,max_t=20):
@@ -482,6 +409,79 @@ def get_adaptation_df(p_load,max_t=20):
         df_all = df_all.append(df)
     return(df_all)
 
+
+def get_onset_and_duration_spikes(p_load,dur=10*pq.ms):
+    """
+    loops through all the data we have and gets the
+    number of spikes during an onset duration,
+    the total number of spikes during the contact duration,
+    and the length of the contact. This will allow us to calculate how much
+    the spiking occurs in the first interval
+
+    :param p_load: directory where the h5 files live
+    :param dur: a python quantity to determine the 'onset' epoch
+
+    :return: a dataframe with a summary of the relevant data
+    """
+    df_all = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        blk = neoUtils.get_blk(f)
+        num_units = len(blk.channel_indexes[-1].units)
+        for unit_num in range(num_units):
+            df = pd.DataFrame()
+            id = neoUtils.get_root(blk,unit_num)
+            print('Working on {}'.format(id))
+            _, _, trains = spikeAnalysis.get_contact_sliced_trains(blk, unit_num)
+
+            dir_idx, med_angle = worldGeometry.get_contact_direction(blk, plot_tgl=False)
+
+            dir = []
+            full=[]
+            contact_duration=[]
+            onset=[]
+            for train,direction in zip(trains,dir_idx):
+                onset.append(len(train.time_slice(
+                    train.t_start,
+                    train.t_start+dur)
+                ))
+                full.append(len(train))
+                dir.append(direction)
+                contact_duration.append(float(train.t_stop-train.t_start))
+
+            df_dir = pd.DataFrame()
+            df_dir['dir_idx'] = dir
+            df_dir['time'] = contact_duration
+            df_dir['total_spikes'] = full
+            df_dir['onset_spikes'] = onset
+            df_dir['med_angle'] = [med_angle[x] for x in df_dir.dir_idx]
+            df_dir['id'] = id
+            df_all = df_all.append(df_dir)
+            df_all['onset_period'] = dur
+    return(df_all)
+def get_adaptation_v2(p_load):
+    """
+    log(onset_rate/all_rate)
+    :param p_load:
+    :return:
+    """
+    df = pd.read_csv(os.path.join(p_load,'onset_spikes_10ms.csv'))
+    is_stim = pd.read_csv(os.path.join(p_load,'cell_id_stim_responsive.csv'))
+    df = df.merge(is_stim,on='id')
+    df = df[df.stim_responsive]
+    DF = pd.DataFrame()
+    for cell in df.id.unique():
+        sub_df = df[df.id==cell]
+        subdf_adaptation=pd.DataFrame()
+        totals = sub_df.groupby('dir_idx').sum()
+        onset_rate = totals.onset_spikes/totals.onset_period
+        duration_rate = totals.total_spikes/totals.time
+        adaptation = np.log(onset_rate/duration_rate)
+        subdf_adaptation['adaptation_index']=adaptation
+        subdf_adaptation['id']=cell
+        subdf_adaptation['med_angle'] = sub_df.groupby('dir_idx').mean()['med_angle']
+        DF = DF.append(subdf_adaptation)
+
+    DF.to_csv(os.path.join(p_load,'adapation_index_10ms_vs_all.csv'),index=False)
 def get_threshold_index(p_load):
     '''
     Return a dataframe with a binary telling you if a particular contact ellicited a spike for each cell
@@ -509,6 +509,7 @@ def get_threshold_index(p_load):
     return(df_all)
 
 
+
 def calc_adaptation(df,binsize=10):
     edges=np.arange(0,df.time.max()+1,10)
     df = df[df.stim_responsive]
@@ -519,25 +520,40 @@ def calc_adaptation(df,binsize=10):
         df_by_dir = pd.pivot_table(sub_df,index='time',columns='dir_idx',values=['rate','med_angle'])
         means = pd.DataFrame([df_by_dir[x:x+binsize].mean() for x in edges]).T
         means.columns=edges
-        adaptation = -np.log(means[10].rate/means[0].rate)
+        adaptation = np.log(means[0].rate)-np.log(means[10].rate)
         adaptation_df = pd.DataFrame()
         adaptation_df['id']=[cell for x in xrange(len(adaptation))]
-        adaptation_df['adaptation']=adaptation
+        adaptation_df['adaptation_index']=adaptation
         adaptation_df['med_dir']=means[0].med_angle
         adaptation_df['dir_idx']=np.arange(8)
 
         df_all = df_all.append(adaptation_df)
     return(df_all)
 
-def threshold_polar_plot(df_thresh):
-    df_thresh = df_thresh[df_thresh.stim_responsive]
-    cell_list = df_thresh.id.unique()
-    for cell in cell_list:
-        sub_df = df_thresh[df_thresh.id==cell]
-        R = sub_df.groupby('dir_idx').mean()['did_spike']
-        theta = sub_df.groupby('dir_idx').mean()['med_dir']
-        plt.polar()
-        plt.plot(theta,R,'o')
+def ISI_by_deflection(blk,unit_num=0):
+    unit = blk.channel_indexes[-1].units[unit_num]
+    ISI = spikeAnalysis.get_contact_sliced_trains(blk, unit)[1]
+    CV,LV = spikeAnalysis.get_CV_LV(ISI)
+    mean_ISI= np.array([np.mean(x) for x in ISI])
+    idx, med_angle = worldGeometry.get_contact_direction(blk, plot_tgl=False)
+    df = pd.DataFrame()
+    df['id'] = [neoUtils.get_root(blk,unit_num) for x in range(len(ISI))]
+    df['mean_ISI'] = mean_ISI
+    df['CV'] = CV
+    df['LV'] = LV
+    df['dir_idx'] = idx
+    df['med_dir'] = [med_angle[x] for x in idx]
 
+    return(df)
 
-
+def batch_ISI_by_deflection(p_load):
+    DF = pd.DataFrame()
+    for f in glob.glob(os.path.join(p_load,'*.h5')):
+        blk = neoUtils.get_blk(f)
+        print('Working on {}'.format(os.path.basename(f)))
+        num_units = len(blk.channel_indexes[-1].units)
+        # _,med_dir = worldGeometry.get_contact_direction(blk,plot_tgl=False)
+        for unit_num in xrange(num_units):
+            df = ISI_by_deflection(blk,unit_num)
+            DF =  DF.append(df)
+    return(DF)

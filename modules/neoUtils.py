@@ -4,7 +4,7 @@ import sys
 from neo.core import Block,ChannelIndex,Unit,SpikeTrain,AnalogSignal
 from elephant.conversion import binarize
 import neo
-# from worldGeometry import CP_to_world
+
 import quantities as pq
 import numpy as np
 import scipy
@@ -13,19 +13,27 @@ from neo.io import NixIO as NIO
 from sklearn.preprocessing import StandardScaler
 import sklearn
 import statsmodels.nonparametric.smoothers_lowess as sls
+import warnings
 # import my functions
+
 proc_path =os.environ['PROC_PATH']
 sys.path.append(os.path.join(proc_path,r'VG3D\modules'))
 sys.path.append(os.path.join(proc_path,r'VG3D\scripts'))
 
-def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5',fullname=False):
+def get_blk(f='rat2017_08_FEB15_VG_D1_NEO.h5'):
     '''loads in a NEO block from a pickle file. Calling without arguments pulls in a default file'''
-    box_path = os.environ['BOX_PATH']
-    dat_path = os.path.join(box_path,r'__VG3D\_deflection_trials\_NEO')
-    if not fullname:
-        fid = NIO(os.path.join(dat_path,f),mode='ro')
-    else:
+    try:
+        box_path = os.environ['BOX_PATH']
+        dat_path = os.path.join(box_path,r'__VG3D\_deflection_trials\_NEO')
+    except:
+        print('Box path not found')
+        pass
+
+
+    if os.path.isfile(f):
         fid = NIO(f,mode='ro')
+    else:
+        fid = NIO(os.path.join(dat_path,f),mode='ro')
 
     return fid.read_block()
 
@@ -190,6 +198,8 @@ def replace_NaNs(var, mode='interp',pad=20):
         for ii in xrange(data.shape[1]):
             starts,stops = nan_bounds(data[:, ii])
             for start,stop in zip(starts,stops):
+                if (stop+pad)>data.shape[0]:
+                    continue
                 xi = np.concatenate([np.arange(start-pad,start),np.arange(stop,stop+pad)])
                 yi = data[xi, ii]
 
@@ -281,6 +291,27 @@ def Cbool_to_cc(Cbool):
     stops = np.where(np.diff(Cbool) == -1)[0]
     return starts,stops
 
+def epoch_to_bool(epoch,t_stop):
+    """
+    converts a neo epoch to a boolean vector, given the length of the desired vector
+    :param epoch: a neo epoch of contact onsets and durations
+    :param t_stop: the length of the desired boolean vector
+    :return cbool: a boolean numpy vector of times where contact occurs
+    """
+    if type(t_stop) == pq.quantity.Quantity:
+        t_stop.units=pq.ms
+        t_stop = int(t_stop)
+    elif type(t_stop) is int:
+        pass
+    else:
+        raise ValueError('t_stop should be either a quantiity or an int')
+    cbool =np.zeros(t_stop,dtype='bool')
+    for (start,dur) in zip(epoch.times.magnitude,epoch.durations.magnitude):
+        start = int(start)
+        dur = int(dur)
+        cbool[start:start+dur] = True
+    return(cbool)
+
 
 def get_MB_MD(data_in):
     '''
@@ -298,8 +329,8 @@ def get_MB_MD(data_in):
     elif type(data_in)==np.ndarray:
         dat = data_in
 
-    MD = np.arctan2(dat[:, 2], dat[:, 1])
-    MB = np.sqrt(dat[:, 1] ** 2 + dat[:, 2] ** 2)
+    MD = np.arctan2(dat[:, 2], dat[:, 1])[:,np.newaxis]
+    MB = np.sqrt(dat[:, 1] ** 2 + dat[:, 2] ** 2)[:,np.newaxis]
     if type(data_in)==neo.core.analogsignal.AnalogSignal or type(data_in)==neo.core.block.Block:
         MD = neo.core.AnalogSignal(MD, units=pq.radians, sampling_rate=pq.kHz)
         MB = neo.core.AnalogSignal(MB, units=pq.N*pq.m, sampling_rate=pq.kHz)
@@ -355,7 +386,7 @@ def get_analog_contact_slices(var, contact, slice2array=True):
             var_slice.append(var[start_idx:stop_idx,:])
     # if the contact input is an epoch
     elif type(contact)==neo.core.epoch.Epoch:
-        for start_idx,dur in zip(contact,contact.durations):
+        for start_idx,dur in zip(contact.times,contact.durations):
             var_slice.append(var[int(start_idx):int(start_idx+dur),:])
 
 
@@ -400,31 +431,62 @@ def get_mean_var_contact(blk, input=None, varname='Rcp'):
     return (var_contacts)
 
 
-def get_contact_apex_idx(blk,use_world=True):
+def get_contact_apex_idx(blk,use_world=True,mode='apex',thresh=0.75,time_win=10):
     '''
     Use the contact point to estimate the Apex of contact
+    If Stretch is passed, calls the end of onset the first point at which the deflection
+    is some percent of the maximal deflection distance, and the offset beginning
+    is the last point in the deflection that was at that percentage of
+    maximal deflection. This is a more intuitive onset in my opinion, and is robust
+    to maximal points that occur at the wrong place.
+    Possible modes:
+            'apex' - gets the idx of max deflection
+            'thresh' - gets the first point passing a threshold and last point coming down through that threshold
+            'time_win' - uses a constant window around beginning and end of contact
     :param blk: 
     :return: 
     '''
-
-
     use_flags= concatenate_epochs(blk,-1)
     if use_world:
         CP = CP_to_world(blk)
     else:
         CP = get_var(blk, 'CP')
     CP_contacts = get_analog_contact_slices(CP,use_flags)
-    center_var(CP_contacts)
+    CP_contacts = center_var(CP_contacts)
     D = np.sqrt(CP_contacts[:,:,0]**2+CP_contacts[:,:,1]**2+CP_contacts[:,:,2]**2)
+    if mode=='thresh':
+        for ii in range(D.shape[-1]):
+            mask = np.isfinite(D[:,ii])
+            D[mask,ii] = D[mask,ii]/np.nanmax(D[mask,ii])
 
     # catch all nan slices
     nan_idx = np.all(np.isnan(D),axis=0)
     D[:,nan_idx]=0
 
     # find maximum
-    apex_idx = np.nanargmax(D,axis=0)
-    return(apex_idx)
+    if mode=='thresh':
+        D_bool = D>thresh
+        onset = np.empty(D.shape[-1],dtype='int')
+        offset = np.empty(D.shape[-1],dtype='int')
+        for ii in range(D_bool.shape[-1]):
+            onset[ii] = np.where(D_bool[:,ii])[0][0]
+            offset[ii] = np.where(D_bool[:,ii])[0][-1]
+    elif mode=='apex':
+        onset = np.nanargmax(D,axis=0)
+        offset = onset.copy()
 
+    elif mode=='time_win':
+        onset = np.repeat(time_win,D.shape[1])
+        c_length = np.array([np.where(np.isfinite(D[:,ii]))[0][-1] for ii in range(D.shape[1])])
+        too_long = time_win>c_length
+        onset[too_long]=c_length[too_long]
+        offset=c_length-time_win+1
+        negs = offset<0
+        if np.any(negs):
+            warnings.warn('Time window is larger than {} of {} contacts'.format(negs.sum(),D.shape[1]))
+            offset[negs]=0
+
+    return(onset,offset)
 
 def get_value_at_idx(var,idx):
     '''
@@ -463,26 +525,98 @@ def smooth_var_lowess(sig,window=50):
     return out
 
 def center_var(var,use_flags=None):
-    ''' performs inplace centering to contact onset'''
-    if var.ndim>2 or var.shape[1]>3:
+    ''' performs centering to contact onset'''
+    if var.ndim>2 or use_flags is None:
         sliced=True
     else:
         sliced=False
+    var_out = var.copy()
     if sliced:
         for ii in xrange(var.shape[1]):
             var_slice = var[:,ii,:]
             if np.all(np.isnan(var_slice)):
                 continue
 
-            first_index = np.min(
-                np.where(np.isfinite(var_slice))[0][0])
-            var_slice-=var_slice[first_index,:]
+            first_index = np.where(np.all(np.isfinite(var_slice),axis=1))[0][0]
+            var_out[:,ii,:]-=var_slice[first_index,:]
     else:
         for start,dur in zip(use_flags.times,use_flags.durations):
             start = int(start)
             dur = int(dur)
             if np.any(np.isfinite(var[start:start+dur,:])):
                 first_index = np.where(np.all(np.isfinite(var[start:start+dur]),axis=1))[0][0]
-                var[start+first_index:start+dur+first_index,:]-=var[start+first_index,:]
+                var_out[start+first_index:start+dur+first_index,:]-=var[start+first_index,:]
+    return(var_out)
 
+def CP_to_world(blk):
+    '''
+    Transforms the contact point back into the world reference frame,
+    accounting for both the rotation and bending of the whisker.
+
+    :param blk:
+    :return CP_world:
+    '''
+    CP = get_var(blk,'CP',keep_neo=False)[0]
+    PH = get_var(blk,'PHIE',keep_neo=False)[0]
+    PH = np.deg2rad(PH)
+    TH = get_var(blk, 'TH',keep_neo=False)[0]
+    TH =np.deg2rad(TH)
+    Z = get_var(blk,'ZETA',keep_neo=False)[0]
+    # Z = np.deg2rad(Z)
+    BP = get_var(blk, 'BPm',keep_neo=False)[0]
+    cbool = get_Cbool(blk)
+
+    CP_world = np.empty_like(CP); CP_world[:]=np.nan
+    def RX(theta):
+        c = np.cos(theta)[0]
+        s = np.sin(theta)[0]
+        return(np.array([[1,0,0],[0,c,-s],[0,s,c]]))
+    def RY(theta):
+        c = np.cos(theta)[0]
+        s = np.sin(theta)[0]
+        return(np.array([[c,0,s],[0,1,0],[-s,0,c]]))
+    def RZ(theta):
+        c = np.cos(theta)[0]
+        s = np.sin(theta)[0]
+        return(np.array([[c,-s,0],[s,c,0],[0,0,1]]))
+    for ii in xrange(CP.shape[0]):
+        if cbool[ii]:
+            ROT = np.linalg.multi_dot([RX(-Z[ii]),RY(-PH[ii]),RZ(-TH[ii])])
+            CP_world[ii,:] = np.dot(np.linalg.inv(ROT),CP[ii,:][:,np.newaxis]).T
+            CP_world[ii,:]+=BP[ii,:]
+    return CP_world
+
+def shuffle_spiketrain(sp,use_flags):
+    """
+    takes a spike train and shuffles the times only during contact periods
+    but allows for the total number of spikes in a contact period to be
+    changed.
+    :param sp: either a neo spike train, an array of spike times, or a boolean vector
+                indicating when spikes occur
+    :param use_flags: a neo epoch of contact times
+    :return sp_shuf: a shuffled spiketrain of the same type as the input
+    """
+    if type(sp) == neo.core.spiketrain.SpikeTrain:
+        cbool = epoch_to_bool(use_flags,sp.t_stop)
+        spbool = np.zeros_like(cbool)
+        spbool[sp.times.as_array().astype('int')] = 1
+        spbool = np.logical_and(cbool,spbool)
+    elif sp.dtype=='bool':
+        cbool = epoch_to_bool(use_flags,len(sp))
+        spbool = np.logical_and(sp,cbool)
+    else:
+        raise ValueError('Spike train is not the correct type.')
+    possible_time = np.where(cbool)[0]
+    n_spikes = np.sum(spbool)
+    shuf_times = np.random.choice(possible_time,n_spikes,replace=False)
+    shuf_times.sort()
+    if type(sp) == neo.core.spiketrain.SpikeTrain:
+        shuf_sp = neo.SpikeTrain(shuf_times,t_stop = sp.t_stop,units= sp.units)
+    elif sp.dtype=='bool':
+        shuf_sp = np.zeros_like(spbool)
+        shuf_sp[shuf_times]=1
+    else:
+        raise Exception('This is one of those errors that makes you made at the person who wrote this. This shouldnt happen')
+
+    return shuf_sp
 

@@ -207,6 +207,22 @@ def FX_plots(blk,unit_num,save_tgl=False,im_ext='svg',dpi_res=300):
 
 
 def calc_all_mech_hists(p_load,p_save,n_bins=100):
+    """
+    Since calculation takes so long on getting the histograms (mostly loading of data)
+    we want to calculate them once and save the data.
+
+    This calculates the mechanics.
+
+    :param p_load: Location where all the neo h5 files live
+    :param p_save: Location to save the output data files
+    :param n_bins: Number of bins in with which to split the data
+    :return None: Saves a 'mech_histograms.npz' file.
+    """
+
+    # TODO: This is currently pretty gross, it is really too hardcoded (I wrote it in a car). Do better.
+    # TODO: Combine with geometry
+
+    # Case in point:
     all_F_edges = []
     all_M_edges = []
     all_F_bayes = []
@@ -217,35 +233,39 @@ def calc_all_mech_hists(p_load,p_save,n_bins=100):
     all_MB_bayes = []
     ID = []
 
+    # Loop all neo files
     for f in glob.glob(os.path.join(p_load,'rat*.h5')):
         print(os.path.basename(f))
         blk = neoUtils.get_blk(f)
         Cbool = neoUtils.get_Cbool(blk)
+        # Loop all units
         for unit in blk.channel_indexes[-1].units:
             unit_num = int(unit.name[-1])
+
+            # grab needed variables
             r, b = neoUtils.get_rate_b(blk, unit_num, sigma=5 * pq.ms)
             sp = neoUtils.concatenate_sp(blk)['cell_{}'.format(unit_num)]
-
             root = neoUtils.get_root(blk,unit_num)
             M = neoUtils.get_var(blk).magnitude
             F = neoUtils.get_var(blk,'F').magnitude
-
             MB, MD = neoUtils.get_MB_MD(M)
+
+            # init histograms
             M_bayes = np.empty([n_bins,3])
             F_bayes = np.empty([n_bins, 3])
 
             M_edges = np.empty([n_bins+1, 3])
             F_edges = np.empty([n_bins+1, 3])
 
+            #calculate tuning curves (seperately on each dimension)
             for ii in range(3):
                 F_bayes[:, ii], F_edges[:, ii] = varTuning.stim_response_hist(F[:, ii] * 1e6, r, Cbool, nbins=n_bins, min_obs=5)
                 M_bayes[:, ii], M_edges[:, ii] = varTuning.stim_response_hist(M[:, ii] * 1e6, r, Cbool, nbins=n_bins, min_obs=5)
-
             MB_bayes, MB_edges = varTuning.stim_response_hist(MB.squeeze() * 1e6, r, Cbool, nbins=n_bins, min_obs=5)
             MD_bayes, MD_edges,_,_ = varTuning.angular_response_hist(MD.squeeze(), r, Cbool, nbins=n_bins)
-
             plt.close('all')
 
+            # append to output lists
             all_F_edges.append(F_edges)
             all_M_edges.append(M_edges)
             all_MB_edges.append(MB_edges)
@@ -256,7 +276,7 @@ def calc_all_mech_hists(p_load,p_save,n_bins=100):
             all_MB_bayes.append(MB_bayes)
             all_MD_bayes.append(MD_bayes)
             ID.append(root)
-
+    # save
     np.savez(os.path.join(p_save,'mech_histograms.npz'),
              all_F_bayes=all_F_bayes,
              all_F_edges=all_F_edges,
@@ -271,6 +291,17 @@ def calc_all_mech_hists(p_load,p_save,n_bins=100):
 
 
 def calc_world_geom_hist(p_load,p_save,n_bins=100):
+    """
+     Since calculation takes so long on getting the histograms (mostly loading of data)
+    we want to calculate them once and save the data.
+
+    This calculates the Geometry.
+
+    :param p_load: Location where all the neo h5 files live
+    :param p_save: Location to save the output data files
+    :param n_bins: Number of bins in with which to split the data
+    :return None: Saves a 'world_geom_hists.npz' file.
+    """
     # init
     ID = []
     all_S_bayes = []

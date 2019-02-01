@@ -182,13 +182,8 @@ def get_CV_LV(ISI):
     :return CV_array:   Array of CV values for each contact interval
     :return LV_array:   Array of LV values for each contact interval
     '''
-    CV_array = np.array([])
-    LV_array = np.array([])
-    for interval in ISI:
-        if np.all(np.isfinite(interval)):
-            CV_array = np.concatenate([CV_array, [elephant.statistics.cv(interval)]])
-            LV_array = np.concatenate([LV_array, [elephant.statistics.lv(interval)]])
-
+    CV_array = np.array([elephant.statistics.cv(x) for x in ISI])
+    LV_array = np.array([elephant.statistics.lv(x) if len(x)>1 else np.nan for x in ISI] )
     return CV_array,LV_array
 
 
@@ -292,7 +287,7 @@ def trains2times(trains,concat_tgl=False):
         return(spt)
 
 
-def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
+def get_onset_contacts(blk,idx,unit_num=0,num_spikes=[1],mode='onset'):
     '''
     Finds contacts which ellicited the desired number of spikes. Useful if trying to look at RA onset.
     :param blk:
@@ -301,16 +296,33 @@ def get_onset_contacts(blk,unit_num=0,num_spikes=1,varname='M'):
     :param varname:
     :return: var_sliced, c_idx (an index of which contacts have the desired numer of spikes)
     '''
+    # cast the number of spikes to a list
+    if type(num_spikes) is np.ndarray:
+        num_spikes = num_spikes.tolist()
+    elif type(num_spikes) is int:
+        num_spikes = [num_spikes]
+    if type(num_spikes) is not list:
+        raise ValueError('num_spikes must ba a list')
+
+    # Get data
     use_flag = neoUtils.concatenate_epochs(blk,-1)
     unit = blk.channel_indexes[-1].units[unit_num]
+
     trains = get_contact_sliced_trains(blk,unit)[-1]
     c_idx=[]
+
+    # loop each train and extract contacts in which
+    # onset or offset has appropriate number of spikes
     for ii,train in enumerate(trains):
-        if len(train)==num_spikes:
+        if mode=='onset':
+            sub_train = train[train<idx[ii]+train.t_start.magnitude]
+        elif mode=='offset':
+            sub_train = train[train>idx[ii]+train.t_start.magnitude]
+
+        if len(sub_train) in num_spikes:
             c_idx.append(ii)
-    var = neoUtils.get_var(blk,varname)
-    var_sliced = neoUtils.get_analog_contact_slices(var, use_flag)
-    return(var_sliced[:,c_idx,:],c_idx)
+
+    return(c_idx)
 
 
 def get_time_stretched_PSTH(trains,nbins=100):
@@ -328,3 +340,4 @@ def get_time_stretched_PSTH(trains,nbins=100):
 def first_spike_latency(trains):
     latency = [x[0].magnitude - x.t_start.magnitude if len(x) > 0 else np.nan for x in trains]
     return(np.array(latency))
+
